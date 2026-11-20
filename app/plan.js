@@ -76,11 +76,16 @@ export function initPlan(A, ST){
   const lw = (w, col = INK, dash) => { c.lineWidth = w * K; c.strokeStyle = col; c.setLineDash(dash ? dash.map(v => v * K) : []); };
   const line = (x0, z0, x1, z1) => { c.beginPath(); c.moveTo(X(x0), Z(z0)); c.lineTo(X(x1), Z(z1)); c.stroke(); };
   const rect = (x0, z0, x1, z1, fill) => { if (fill){ c.fillStyle = fill; c.fillRect(X(x0), Z(z0), (x1 - x0) * P.s, (z1 - z0) * P.s); } c.strokeRect(X(x0), Z(z0), (x1 - x0) * P.s, (z1 - z0) * P.s); };
+  const LBOX = [];
   const text = (t, x, z, o = {}) => {
     c.font = `${o.b ? '600 ' : ''}${(o.px || 10) * K}px ${o.mono ? 'ui-monospace,Menlo,Consolas,monospace' : 'system-ui,sans-serif'}`;
     c.textAlign = o.al || 'center'; c.textBaseline = o.bl || 'middle';
-    const px = X(x) + (o.dx || 0) * K, pz = Z(z) + (o.dy || 0) * K;
-    if (o.bg){ const w = c.measureText(t).width + 4 * K, h = (o.px || 10) * K + 3 * K; c.fillStyle = PAPER; c.fillRect(o.al === 'left' ? px - 2 * K : o.al === 'right' ? px - w + 2 * K : px - w / 2, pz - h / 2, w, h); }
+    const px = X(x) + (o.dx || 0) * K; let pz = Z(z) + (o.dy || 0) * K;
+    if (o.bg){ const w = c.measureText(t).width + 4 * K, h = (o.px || 10) * K + 3 * K, rx = o.al === 'left' ? px - 2 * K : o.al === 'right' ? px - w + 2 * K : px - w / 2, top = y => o.bl === 'bottom' ? y - h + 1.5 * K : o.bl === 'top' ? y - 1.5 * K : y - h / 2;
+      // deux étiquettes ne se recouvrent pas : la seconde se décale d'une hauteur de ligne, vers le haut ou le bas, jusqu'à trouver une place libre
+      const hit = y => LBOX.some(b => rx < b[0] + b[2] && rx + w > b[0] && top(y) < b[1] + b[3] && top(y) + h > b[1]);
+      if (hit(pz)) for (const k of [1, -1, 2, -2, 3, -3]){ const d = k * (o.bl === 'bottom' ? -1 : 1) * h; if (!hit(pz + d)){ pz += d; break; } }
+      LBOX.push([rx, top(pz), w, h]); c.fillStyle = PAPER; c.fillRect(rx, top(pz), w, h); }
     c.fillStyle = o.col || INK; c.fillText(t, px, pz);
   };
   function hatch(x0, z0, x1, z1){                       // murs coupés : hachures à 45°
@@ -304,7 +309,7 @@ export function initPlan(A, ST){
   }
   // une feuille hors écran pour la publication : la vue demandée, à l'échelle donnée (denom, 0 = ajustée), sans cartouche
   function sheet(view, W, H, dpi, denom){
-    const st = A.planState(), keep = { s: P.s, ox: P.ox, oy: P.oy, w: P.w, h: P.h, view: P.view, fitted: P.fitted }, off = document.createElement('canvas'); off.width = W; off.height = H;
+    LBOX.length = 0; const st = A.planState(), keep = { s: P.s, ox: P.ox, oy: P.oy, w: P.w, h: P.h, view: P.view, fitted: P.fitted }, off = document.createElement('canvas'); off.width = W; off.height = H;
     try { c = off.getContext('2d'); K = dpi / 96 * 1.15; P.view = view; P.w = W; P.h = H; fit();
       if (denom > 0){ const cx = (W / 2 - P.ox) / P.s, cy = (H / 2 - P.oy) / P.s; P.s = dpi / 25.4 * 1000 / denom; P.ox = W / 2 - cx * P.s; P.oy = H / 2 - cy * P.s; }
       c.fillStyle = PAPER; c.fillRect(0, 0, W, H); const cp = view === 'coupe'; if (cp){ section(st); objectsC(); } else { room(st); objects(); } extras(cp); scaleBar(40 * K, H - 40 * K);
@@ -319,7 +324,7 @@ export function initPlan(A, ST){
   }
   const extras = cp => { for (const f of (window.PLANX || [])) try { f({ c, X, Z, V, s: P.s, K, cp, P, INK, BLUE, ACC, MID, PAPER, text }); } catch (e){ console.error(e); } };
   function draw(){
-    if (!P.on || !P.w) return; P.dirty = false;
+    if (!P.on || !P.w) return; P.dirty = false; LBOX.length = 0;
     const st = A.planState(); c = ctx; K = 1;
     c.setTransform(P.d, 0, 0, P.d, 0, 0); c.fillStyle = PAPER; c.fillRect(0, 0, P.w, P.h);
     const cp = P.view === 'coupe'; if (cp){ section(st); objectsC(); } else { room(st); objects(); } extras(cp);

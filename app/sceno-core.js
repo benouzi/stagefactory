@@ -101,17 +101,28 @@ function trussBom(doc) {
     return c;
   };
   const nodes = [];
+  const body = (t, e) => {
+    const Lt = Math.hypot(t.b.x - t.a.x, t.b.y - t.a.y) || 1, ux = (t.b.x - t.a.x) / Lt, uy = (t.b.y - t.a.y) / Lt, al = (e.x - t.a.x) * ux + (e.y - t.a.y) * uy;
+    return al > 60 && al < Lt - 60 && Math.abs((e.x - t.a.x) * uy - (e.y - t.a.y) * ux) < 60 ? { al, ux, uy } : null;
+  };
   for (const s of sups) {
     const se = seriesOf(s.series), L = Math.hypot(s.b.x - s.a.x, s.b.y - s.a.y) || 1;
     let ends = 0;
     for (const [e, o, along] of [[s.a, s.b, 0], [s.b, s.a, L]]) {
       const tower = s.points.some((p) => p.leg && Math.abs(p.alongMm - along) < 60), joined = sups.some((t) => t.id !== s.id && Math.abs(t.zMm - s.zMm) < 60 && (near(t.a, e) || near(t.b, e)));
-      if (!tower && !joined) continue;
+      const through = joined ? void 0 : sups.find((t) => t.id !== s.id && Math.abs(t.zMm - s.zMm) < 60 && body(t, e));
+      if (!tower && !joined && !through) continue;
       ends++;
       let nd = nodes.find((x) => near(x.at, e) && Math.abs(x.z - s.zMm) < 60);
       if (!nd) nodes.push(nd = { at: e, z: s.zMm, members: [], tower: false, series: se });
       nd.members.push({ s, dir: { x: (o.x - e.x) / L, y: (o.y - e.y) / L } });
       if (tower) nd.tower = true;
+      if (through && !nd.tee) {
+        const h = body(through, e);
+        nd.tee = true;
+        nd.members.push({ s: through, dir: { x: h.ux, y: h.uy } }, { s: through, dir: { x: -h.ux, y: -h.uy } });
+        notes.add(`${through.name} : une jonction en T le coupe \xE0 ${String((h.al / 1e3).toFixed(2)).replace(".", ",")} m ; ses \xE9l\xE9ments sont \xE0 r\xE9partir de part et d'autre du t\xE9.`);
+      }
     }
     const arm = se.cornerArmMm;
     if (ends && arm == null) notes.add(`${seriesLabel(se)} : la longueur prise par un coin n'est pas relev\xE9e ; les \xE9l\xE9ments droits sont compt\xE9s sur toute la longueur du pont.`);
@@ -136,7 +147,7 @@ function trussBom(doc) {
     if (ang === 180) {
       continue;
     }
-    const c = se.corners.find((x) => x.ways === ways && (ways !== 2 || x.angleDeg == null || (nd.tower ? x.angleDeg === 90 : ang == null || x.angleDeg === ang))) ?? null;
+    const c = (nd.tee && ways === 3 ? se.corners.find((x) => x.ways === 3 && /^té/.test(x.label)) : void 0) ?? se.corners.find((x) => x.ways === ways && (ways !== 2 || x.angleDeg == null || (nd.tower ? x.angleDeg === 90 : ang == null || x.angleDeg === ang))) ?? null;
     if (c) add(se, c.label, c.code, c.kg);
     else {
       add(se, `coin ${ways} d\xE9parts${ang != null ? " " + ang + "\xB0" : ""} (hors catalogue relev\xE9)`, "\xE0 d\xE9finir", null);

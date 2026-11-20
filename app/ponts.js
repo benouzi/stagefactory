@@ -30,11 +30,13 @@ export async function initPonts(A, ST){
   }
   // ---- raccords : les bouts de ponts qui se touchent à la même hauteur, et les têtes de tour (même règle que la nomenclature de ScenoFactory)
   let ncache = null; const ckey = l => l.code === 'à définir' ? l.item : l.code, cornerKg = () => S.cornerKg || (S.cornerKg = {});
+  const bodyAt = (t, e) => { const Lt = len(t) || 1, ux = (t.b.x - t.a.x) / Lt, uy = (t.b.y - t.a.y) / Lt, al = (e.x - t.a.x) * ux + (e.y - t.a.y) * uy; return al > 60 && al < Lt - 60 && Math.abs((e.x - t.a.x) * uy - (e.y - t.a.y) * ux) < 60 ? { al, ux, uy } : null; };
   function nodes(){ if (ncache) return ncache; const T = trusses(), nr = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 60, out = [];
-    for (const s of T){ const L = len(s) || 1; for (const [e, o, along] of [[s.a, s.b, 0], [s.b, s.a, L]]){ const tower = (s.points || []).some(p => p.leg && Math.abs(p.alongMm - along) < 60), joined = T.some(t => t.id !== s.id && Math.abs(t.zMm - s.zMm) < 60 && (nr(t.a, e) || nr(t.b, e))); if (!tower && !joined) continue;
-      let nd = out.find(x => nr(x.at, e) && Math.abs(x.z - s.zMm) < 60); if (!nd) out.push(nd = { at: e, z: s.zMm, members: [], tower: false, sec: s.sectionMm || 290, se: C.seriesOf(s.series) || null }); nd.members.push({ s, along, dir: { x: (o.x - e.x) / L, y: (o.y - e.y) / L } }); if (tower) nd.tower = true; } }
+    for (const s of T){ const L = len(s) || 1; for (const [e, o, along] of [[s.a, s.b, 0], [s.b, s.a, L]]){ const tower = (s.points || []).some(p => p.leg && Math.abs(p.alongMm - along) < 60), joined = T.some(t => t.id !== s.id && Math.abs(t.zMm - s.zMm) < 60 && (nr(t.a, e) || nr(t.b, e))), thr = joined ? null : T.find(t => t.id !== s.id && Math.abs(t.zMm - s.zMm) < 60 && bodyAt(t, e)); if (!tower && !joined && !thr) continue;
+      let nd = out.find(x => nr(x.at, e) && Math.abs(x.z - s.zMm) < 60); if (!nd) out.push(nd = { at: e, z: s.zMm, members: [], tower: false, sec: s.sectionMm || 290, se: C.seriesOf(s.series) || null }); nd.members.push({ s, along, dir: { x: (o.x - e.x) / L, y: (o.y - e.y) / L } }); if (tower) nd.tower = true;
+      if (thr && !nd.tee){ const h = bodyAt(thr, e); nd.tee = true; nd.members.push({ s: thr, along: h.al, dir: { x: h.ux, y: h.uy }, half: true }, { s: thr, along: h.al, dir: { x: -h.ux, y: -h.uy }, half: true }); } } }
     for (const nd of out){ nd.ways = nd.members.length + (nd.tower ? 1 : 0); nd.ang = null; if (nd.members.length === 2 && !nd.tower){ const [a, b] = nd.members; nd.ang = Math.round(Math.acos(Math.max(-1, Math.min(1, a.dir.x * b.dir.x + a.dir.y * b.dir.y))) * 180 / Math.PI / 5) * 5; }
-      nd.cube = nd.ways >= 2 && nd.ang !== 180; if (!nd.cube) continue; const c = nd.se ? nd.se.corners.find(x => x.ways === nd.ways && (nd.ways !== 2 || x.angleDeg == null || (nd.tower ? x.angleDeg === 90 : nd.ang == null || x.angleDeg === nd.ang))) || null : null;
+      nd.cube = nd.ways >= 2 && nd.ang !== 180; if (!nd.cube) continue; const c = nd.se ? (nd.tee && nd.ways === 3 ? nd.se.corners.find(x => x.ways === 3 && /^té/.test(x.label)) : null) || nd.se.corners.find(x => x.ways === nd.ways && (nd.ways !== 2 || x.angleDeg == null || (nd.tower ? x.angleDeg === 90 : nd.ang == null || x.angleDeg === nd.ang))) || null : null;
       nd.code = c ? c.code : ''; nd.label = c ? c.label : `coin ${nd.ways} départs${nd.ang != null ? ' ' + nd.ang + '°' : ''}`; const k = c ? c.code : nd.label + ' (hors catalogue relevé)'; nd.kg = c && c.kg != null ? c.kg : nd.se && cornerKg()[k] > 0 ? cornerKg()[k] : null; }
     return ncache = out.filter(n => n.cube); }
   // la nomenclature de ScenoFactory, complétée par les poids de coins et d'embases saisis ici (la bibliothèque n'en relève aucun)
@@ -63,7 +65,7 @@ export async function initPonts(A, ST){
 
   // ---------------------------------------------------------------- 3D
   const grp = new THREE.Group(); grp.name = 'ponts'; A.scene.add(grp);
-  const MAT = new THREE.MeshStandardMaterial({ color: 0xc6cad2, metalness: .7, roughness: .38 }), MATS = new THREE.MeshStandardMaterial({ color: 0xf2a93b, metalness: .5, roughness: .4, emissive: 0x4a3008 });
+  const MAT = new THREE.MeshStandardMaterial({ color: 0xc6cad2, metalness: .7, roughness: .38, emissive: 0x1b1d22 }), MATS = new THREE.MeshStandardMaterial({ color: 0xf2a93b, metalness: .5, roughness: .4, emissive: 0x4a3008 });
   const MOT = new THREE.MeshStandardMaterial({ color: 0xd9a514, metalness: .3, roughness: .6 }), DARK = new THREE.MeshStandardMaterial({ color: 0x2a2d33, metalness: .5, roughness: .6 });
   const HID = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false });
   const CYL = new THREE.CylinderGeometry(1, 1, 1, 8), BOX = new THREE.BoxGeometry(1, 1, 1), V3 = (x, y, z) => new THREE.Vector3(x, y, z), RT3 = new Map();
@@ -86,7 +88,7 @@ export async function initPonts(A, ST){
   const compOf = s => { const se = C.seriesOf(s.series); return se ? C.compOf(se, s, len(s)) : null; };
   const cutsOf = s => { const c = compOf(s); if (!c) return []; const out = []; let x = 0; for (const p of (s.pieces && s.pieces.length && Math.abs(s.pieces.reduce((a, b) => a + b, 0) - len(s)) <= 5 ? s.pieces : c.pieces)){ x += p; out.push(x / 1000); } return out; };
   // ---- les cubes d'angle : un bloc à chaque raccord de ponts et en tête de tour
-  let cubeG = null; const CUBE = new THREE.MeshStandardMaterial({ color: 0x8d929c, metalness: .75, roughness: .42 });
+  let cubeG = null; const CUBE = new THREE.MeshStandardMaterial({ color: 0x8d929c, metalness: .75, roughness: .42, emissive: 0x14161a });
   function cubes3d(){ if (cubeG){ A.scene.remove(cubeG); cubeG.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); cubeG = null; } if (!layerOn()) return; const N = nodes(); if (!N.length) return; const g = new THREE.Group(), list = [];
     for (const nd of N){ const [x, z] = m2(nd.at), h = nd.sec / 2000 + .004, yc = nd.z / 1000 + nd.sec / 2000, d = nd.members[0].dir, ux = d.x, uz = -d.y, vx = -uz, vz = ux, cn = (i, j, k) => V3(x + ux * i * h + vx * k * h, yc + j * h, z + uz * i * h + vz * k * h);
       for (const a of [-1, 1]) for (const b of [-1, 1]){ list.push([cn(-1, a, b), cn(1, a, b), .027], [cn(a, -1, b), cn(a, 1, b), .027], [cn(a, b, -1), cn(a, b, 1), .027]); }
@@ -177,6 +179,8 @@ export async function initPonts(A, ST){
   // ---------------------------------------------------------------- tracé à la souris (repris de trussSnap.ts)
   const MODULE = 500, ANGLES = [45, 60, 90, 120, 135, 180];
   function trussEnd(p, tol = 450, skip){ let best = null, bd = tol; for (const s of trusses()) for (const e of [s.a, s.b]){ if (skip && Math.hypot(e.x - skip.x, e.y - skip.y) < 1) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d <= bd){ bd = d; best = { at: { ...e }, sup: s }; } } return best; }
+  // le corps d'un pont attire aussi le tracé : c'est une jonction en T
+  function trussBody(p, tol = 300){ let best = null, bd = tol; for (const s of trusses()){ const L = len(s) || 1, ux = (s.b.x - s.a.x) / L, uy = (s.b.y - s.a.y) / L, al = (p.x - s.a.x) * ux + (p.y - s.a.y) * uy; if (al < 200 || al > L - 200) continue; const d = Math.abs((p.x - s.a.x) * uy - (p.y - s.a.y) * ux); if (d <= bd){ bd = d; const st = 50, a2 = Math.round(al / st) * st; best = { at: { x: Math.round(s.a.x + ux * a2), y: Math.round(s.a.y + uy * a2) }, sup: s, body: true }; } } return best; }
   function snapCorner(link, a0, raw){
     const other = Math.hypot(link.a.x - a0.x, link.a.y - a0.y) < Math.hypot(link.b.x - a0.x, link.b.y - a0.y) ? link.b : link.a, ux = other.x - a0.x, uy = other.y - a0.y, vx = raw.x - a0.x, vy = raw.y - a0.y, lu = Math.hypot(ux, uy) || 1, lv = Math.hypot(vx, vy);
     if (lv < 1) return { p: raw, corner: { angle: 180, code: null, catalog: true } };
@@ -187,7 +191,7 @@ export async function initPonts(A, ST){
     return { p: { x: a0.x + dx * lv, y: a0.y + dy * lv }, corner: { angle: best, code: best === 180 ? null : se?.corners.find(k => k.ways === 2 && k.angleDeg === best)?.code ?? null, catalog: true } };
   }
   function trussSecond(a0, raw0, link, free){
-    const hit = trussEnd(raw0, 450, a0); if (hit) return { b: hit.at, hit, corner: null };
+    const hit = trussEnd(raw0, 450, a0) || (free ? null : trussBody(raw0)); if (hit && !(hit.body && link && hit.sup.id === link.id)) return { b: hit.at, hit, corner: null };
     const sc = link ? snapCorner(link, a0, raw0) : null; let raw = sc ? sc.p : raw0;
     if (!link && !free){ const dx = raw.x - a0.x, dy = raw.y - a0.y, an = Math.atan2(dy, dx), q = Math.round(an / (Math.PI / 12)) * (Math.PI / 12), L0 = Math.hypot(dx, dy); if (Math.abs(an - q) < .07) raw = { x: a0.x + Math.cos(q) * L0, y: a0.y + Math.sin(q) * L0 }; }   // sans raccord : la direction s'aimante tous les 15°
     const dx = raw.x - a0.x, dy = raw.y - a0.y, L = Math.hypot(dx, dy); if (L < 1) return { b: raw, hit: null, corner: null };
@@ -231,9 +235,9 @@ export async function initPonts(A, ST){
       t.info = `${String(pm / 1000).replace('.', ',')} m${se ? ' ' + se.name : ''}${kg != null ? ' · ' + f(kg, 1) + ' kg' : se ? ' · poids inconnu' : ''}${ext ? ` · prolonge ${link.name} → ${f((len(link) + pm) / 1000, 2)} m` : link ? ` · part de ${link.name} en coin ${corner.angle}°${corner.catalog ? (corner.code ? ' (' + corner.code + ')' : '') : ' hors catalogue'}` : ' · nouveau pont'}`;
       const sp = bar.lastElementChild; if (sp) sp.textContent = t.info; const y = (link ? link.zMm : O.zMm) / 1000 + sect(link || { sectionMm: se ? se.sectionMm : 290 }) / 2, pa = prev.geometry.attributes.position, [ax, az] = m2(a), [bx, bz] = m2(b); pa.setXYZ(0, ax, y, az); pa.setXYZ(1, bx, y, bz); pa.needsUpdate = true; prev.visible = true; if (window.PLAN) PLAN.P.dirty = true; return; }
     if (t.k === 'point'){ const e = trussEnd(raw, 300), n = e ? null : near(x, z, TOLP); t.cur = e ? e.at : n ? mm(n.x, n.z) : free ? raw : { x: Math.round(raw.x / 50) * 50, y: Math.round(raw.y / 50) * 50 }; t.grid = gridPts(t.cur); if (window.PLAN) PLAN.P.dirty = true; return; }
-    if (!t.first){ const e = trussEnd(raw); t.cur = e ? e.at : raw; t.hover = e; }
+    if (!t.first){ const e = trussEnd(raw) || (free ? null : trussBody(raw)); t.cur = e ? e.at : raw; t.hover = e; }
     else { const r = trussSecond(t.first, raw, t.link, free); t.cur = r.b; t.end = r; const L = Math.hypot(r.b.x - t.first.x, r.b.y - t.first.y), se = C.seriesOf(t.link?.series || O.series), bc = se && (r.hit || free) ? bestComp(se, L, true) : null; t.pieces = bc && Math.abs(bc.mm - L) <= 5 ? bc.pieces : null; const c = se ? (bc ? C.compOf(se, { pieces: bc.pieces }, bc.mm) : C.compose(se, L)) : null; if (c && bc) c.restMm = Math.round(L - bc.mm);
-      t.info = `${f(L / 1000, 2)} m${c ? ' · ' + C.piecesText(c.pieces) + (Math.abs(c.restMm) > 5 ? ' · il manque ' + Math.round(c.restMm / 10) + ' cm (aucune pièce du catalogue)' : '') + (c.kg != null ? ' · ' + f(c.kg, 1) + ' kg' : ' · poids inconnu') : ''}${r.corner && r.corner.angle !== 180 ? ' · coin ' + r.corner.angle + '°' + (r.corner.catalog ? (r.corner.code ? ' (' + r.corner.code + ')' : '') : ' hors catalogue') : ''}${r.hit ? ' · raccordé à ' + r.hit.sup.name : ''}`;
+      t.info = `${f(L / 1000, 2)} m${c ? ' · ' + C.piecesText(c.pieces) + (Math.abs(c.restMm) > 5 ? ' · il manque ' + Math.round(c.restMm / 10) + ' cm (aucune pièce du catalogue)' : '') + (c.kg != null ? ' · ' + f(c.kg, 1) + ' kg' : ' · poids inconnu') : ''}${t.linkBody ? ' · départ en T sur ' + t.link.name : r.corner && r.corner.angle !== 180 ? ' · coin ' + r.corner.angle + '°' + (r.corner.catalog ? (r.corner.code ? ' (' + r.corner.code + ')' : '') : ' hors catalogue') : ''}${r.hit ? (r.hit.body ? ' · en T sur ' : ' · raccordé à ') + r.hit.sup.name : ''}`;
       const sp = bar.lastElementChild; if (sp) sp.textContent = t.info; const li = bar.querySelector('[data-po=len]'); if (li && document.activeElement !== li) li.placeholder = (L / 1000).toFixed(2); }
     const y = (t.link ? t.link.zMm : O.zMm) / 1000, pa = prev.geometry.attributes.position; if (t.first){ const [ax, az] = m2(t.first), [bx, bz] = m2(t.cur); pa.setXYZ(0, ax, y, az); pa.setXYZ(1, bx, y, bz); pa.needsUpdate = true; prev.visible = true; }
     if (window.PLAN) PLAN.P.dirty = true; }
@@ -258,9 +262,9 @@ export async function initPonts(A, ST){
   function toolClick(x, z, free){ const t = P.tl; if (!t) return; toolMove(x, z, free);
     if (t.k === 'piece'){ const v = t.pv; if (!v) return; const s = placePiece(v.a, v.b, v.link, v.corner, O.piece); if (!s) return; P.sel = null; build(s); (t.hist = t.hist || []).push(t.from ? { sid: t.from.sup.id, at: t.from.at } : null); t.from = { sup: s, at: { ...v.b } }; t.loose = false; barHtml(); toolMove(x, z, free); return; }
     if (t.k === 'point'){ addPoints(t.grid || [t.cur]); P.sel = null; return; }
-    if (!t.first){ t.first = t.cur; t.link = t.hover ? t.hover.sup : null; barHtml(); return; }
+    if (!t.first){ t.first = t.cur; t.link = t.hover ? t.hover.sup : null; t.linkBody = !!(t.hover && t.hover.body); barHtml(); return; }
     const s = addTruss(t.first, t.cur, t.link, false, t.pieces); if (!s) return; P.sel = null; build(s);
-    if (O.chain && !(t.end && t.end.hit)){ t.first = t.cur; t.link = s; t.info = ''; } else { t.first = null; t.link = null; prev.visible = false; } barHtml(); }
+    if (O.chain && !(t.end && t.end.hit)){ t.first = t.cur; t.link = s; t.linkBody = false; t.info = ''; } else { t.first = null; t.link = null; prev.visible = false; } barHtml(); }
   addEventListener('keydown', e => { if (P.tl && e.code === 'Escape'){ e.stopPropagation(); if (P.tl.k === 'piece' && P.tl.from && !P.tl.loose){ P.tl.loose = true; P.tl.from = null; P.tl.info = ''; prev.visible = false; barHtml(); if (window.PLAN) PLAN.P.dirty = true; } else if (P.tl.first){ P.tl.first = null; P.tl.link = null; prev.visible = false; barHtml(); if (window.PLAN) PLAN.P.dirty = true; } else tool(false); }
     else if (P.tl && P.tl.k === 'piece' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && (e.code === 'KeyR' || e.code === 'Backspace')){ e.preventDefault(); e.stopPropagation(); if (e.code === 'Backspace') pieceBack(); else { O.pieceRot = ((O.pieceRot || 0) + (e.shiftKey ? 15 : 90)) % 360; saveO(); if (P.tl.cur) toolMove(P.tl.cur.x / 1000, -P.tl.cur.y / 1000); } }
     else if (!P.tl && P.sel && !UI.sel.length && (e.code === 'Delete' || e.code === 'Backspace') && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){ e.preventDefault(); remove(P.sel); } }, true);
