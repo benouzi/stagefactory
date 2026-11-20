@@ -2,11 +2,12 @@
 // base : le modèle 3D générique de la bibliothèque sur lequel la référence s'appuie ; dim : [largeur, hauteur, profondeur] en mm (le modèle générique est mis à ces dimensions).
 // over : ce qui remplace les valeurs du modèle générique (flux, zoom, modes DMX en NOMBRE de canaux seulement — l'ordre des canaux n'est pas dans le catalogue, donc l'appareil
 // n'est pas pilotable en DMX tant que sa personnalité n'est pas importée). srcKind : 'fabricant', 'copie' (fiche du fabricant hébergée ailleurs) ou 'revendeur'.
+import { DATA } from './catalog-data.js';
 export const FAMILIES = [
   // clé, libellé, modèle générique, catégorie d'affichage
   ['micro', 'Micro', 'mic-perche'], ['enceinte', 'Enceinte', 'pt12'], ['retour', 'Retour de scène', 'wedge'], ['sub', 'Caisson de basses', 'sub18'],
   ['lyre-wash', 'Lyre wash', 'wash'], ['lyre-spot', 'Lyre spot / beam', 'spot'], ['par', 'PAR / projecteur LED', 'par-led'], ['decoupe', 'Découpe', 'decoupe'], ['fresnel', 'Fresnel / PC', 'fresnel'], ['barre', 'Barre LED', 'barre'], ['line', 'Line source (élément)', 'wedge'],
-  ['fumee', 'Machine à fumée / brouillard', 'gear'], ['videoproj', 'Vidéoprojecteur', 'vp12'], ['dalle-led', 'Dalle / mur LED', 'mur-led'], ['boitier', 'Appareil (boîtier)', 'gear'], ['praticable', 'Praticable', 'prat'],
+  ['fumee', 'Machine à fumée / brouillard', 'gear'], ['videoproj', 'Vidéoprojecteur', 'vp12'], ['dalle-led', 'Dalle LED (une dalle)', 'gear'], ['boitier', 'Appareil (boîtier)', 'gear'], ['praticable', 'Praticable', 'prat'],
 ];
 export const CATALOG = [
   { id: 'shure-sm58', brand: 'Shure', model: 'SM58', fam: 'micro', w: 0.298, dim: [51, 51, 162], p: 0,
@@ -90,4 +91,4 @@ CATALOG.push(
   { id: 'l-acoustics-k3', brand: 'L-Acoustics', model: 'K3', fam: 'line', w: 43, dim: [950, 357, 403], p: 0, over: { spl: 143, hd: 110, vd: 10 }, spec: { Type: 'line source, 2 × 12" + 1 × 4"', 'Bande passante': '42 Hz – 20 kHz', 'SPL max': '143 dB ([K3 70])', Directivité: 'H 70° / 110° symétrique ou 90° asymétrique, V 10°', Remarque: 'Enceinte passive.' }, src: 'https://www.l-acoustics.com/?p=636', srcKind: 'fabricant' },
   { id: 'martin-mac-aura-xip', brand: 'Martin', model: 'MAC Aura XIP', fam: 'lyre-wash', w: 8.95, dim: [338, 380, 226], p: 340, over: { lumens: 6000, zoom: [6.3, 50.4], modes: [['Mode 1', 20], ['Mode 2', 36], ['Mode 3', 57], ['Mode 4', 93]] }, spec: { Source: '7 × 60 W RGBW (faisceau) + 12 × 4 W RGBW (Aura)', Zoom: '6,3° – 50,4°', Flux: '6 000 lm', 'Modes DMX': '20, 36, 57, 93 canaux', Puissance: '340 W maximum' }, src: 'https://fullcompass.com/common/files/86976-MACAuraXIPDatasheet.pdf', srcKind: 'copie' },
 );
-
+{ const k = c => (c.brand + ' ' + c.model).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ''), have = new Set(CATALOG.map(k)); for (const c of DATA) if (!have.has(k(c))){ have.add(k(c)); CATALOG.push(c); } }
