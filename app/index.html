@@ -1,0 +1,1587 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StageFactory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15171c; --panel:#1d2027; --line:#343945; --ink:#efeaff; --mute:#9a93b8;
+    --accent:#b04bff; --accent2:#2affd0; --ok:#2affd0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.4 Inter,system-ui,sans-serif;overflow:hidden}
+  #c{position:fixed;left:0;top:0;display:block;width:var(--vw,100%);height:var(--vhh,100%)}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+  #top{position:fixed;top:12px;left:50%;transform:translateX(-50%);display:flex;gap:4px;background:var(--panel);
+       border:1px solid var(--line);border-radius:10px;padding:4px;z-index:8;backdrop-filter:blur(6px);white-space:nowrap}
+  #top button{all:unset;cursor:pointer;padding:7px 14px;border-radius:7px;color:var(--mute);font-weight:500}
+  #top button:hover{color:var(--ink)}
+  #top button.on{background:#262a33;color:var(--ink)}
+  #side{position:fixed;top:62px;left:12px;bottom:12px;width:250px;background:var(--panel);border:1px solid var(--line);
+        border-radius:12px;padding:14px 14px 10px;z-index:5;overflow:auto;backdrop-filter:blur(6px);transition:transform .2s}
+  #side.hide{transform:translateX(-270px)}
+  h1{font-size:14px;margin:0 0 2px;font-weight:600;letter-spacing:.01em}
+  .sub{color:var(--mute);font-size:11.5px;margin-bottom:6px}
+  .note{color:var(--mute);font-size:11px;line-height:1.35;border-left:2px solid var(--accent2);padding-left:7px;margin:8px 0 4px}
+  h2{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--mute);margin:16px 0 7px;font-weight:600}
+  .layer{display:flex;align-items:center;gap:8px;padding:4px 2px;cursor:pointer;user-select:none;border-radius:5px}
+  .layer:hover{background:#1c1636}
+  .sw{width:11px;height:11px;border-radius:3px;flex:none;border:1px solid rgba(255,255,255,.15)}
+  .layer .n{flex:1}
+  .layer .k{color:var(--mute);font-size:10.5px}
+  .layer.off{opacity:.38}
+  .presets{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  .presets button,.btn{all:unset;cursor:pointer;text-align:center;padding:7px 6px;border:1px solid var(--line);border-radius:7px;font-size:12px}
+  .presets button:hover,.btn:hover{border-color:#4b4278;background:#1c1636}
+  .presets button.on{border-color:var(--accent);color:var(--ink);background:#2a1650}
+  .row{display:flex;align-items:center;gap:8px;margin:6px 0}
+  .row label{flex:none;width:64px;color:var(--mute);font-size:12px}
+  .row input[type=range]{flex:1;accent-color:var(--accent)}
+  .row .v{width:52px;text-align:right;font-size:11px;color:var(--mute)}
+  .chk{display:flex;align-items:center;gap:7px;margin:6px 0;color:var(--ink);font-size:12px;cursor:pointer}
+  .chk input{accent-color:var(--accent)}
+  .fader{display:flex;align-items:center;gap:8px;margin:10px 0 4px}
+  .fader input{flex:1;accent-color:var(--accent2);height:22px}
+  .fader .v{width:40px;text-align:right;font-size:11px;color:var(--ink)}
+  .playb{all:unset;cursor:pointer;border:1px solid var(--line);border-radius:7px;padding:5px 9px;font-size:11.5px;white-space:nowrap}
+  .playb:hover{border-color:#4b4278;background:#1c1636}
+  #tribState{font-size:11px;color:var(--accent2);margin:2px 0 0}
+  select{background:#1c1636;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:12px Inter,sans-serif;flex:1}
+  h3{font-size:11.5px;font-weight:600;margin:14px 0 4px;color:var(--ink)}
+  #cfg{grid-template-columns:1fr 1fr}
+  #cfg button small{display:block;color:var(--mute);font-size:10px;margin-top:1px}
+  #cfginfo{color:var(--mute);font-size:11px;margin-top:6px}
+  #hud{position:fixed;right:calc(100vw - var(--vw,100vw) + 12px);bottom:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+       padding:9px 12px;z-index:5;font-size:11.5px;min-width:190px}
+  #hud div{display:flex;justify-content:space-between;gap:14px}
+  #hud span:first-child{color:var(--mute)}
+  #help{position:fixed;right:calc(100vw - var(--vw,100vw) + 12px);top:62px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+        padding:10px 12px;z-index:5;font-size:11.5px;color:var(--mute);max-width:250px}
+  #help b{color:var(--ink);font-weight:500}
+  kbd{font-family:'JetBrains Mono',monospace;font-size:10.5px;background:#26272e;border:1px solid #3a3c45;border-bottom-width:2px;
+      border-radius:4px;padding:0 5px;color:var(--ink)}
+  #cross{position:fixed;left:50%;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;z-index:4;pointer-events:none;display:none}
+  #cross:before,#cross:after{content:"";position:absolute;background:rgba(255,255,255,.75)}
+  #cross:before{left:6px;top:0;width:2px;height:14px}#cross:after{top:6px;left:0;height:2px;width:14px}
+  #lockmsg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:7;pointer-events:none}
+  #lockmsg div{background:var(--panel);border:1px solid var(--line);padding:14px 20px;border-radius:12px;font-size:14px}
+  #loader{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:9;background:var(--bg)}
+  #bar{width:240px;height:3px;background:#262a33;border-radius:3px;overflow:hidden}
+  #bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+  #measure{position:fixed;z-index:6;pointer-events:none;background:var(--accent);color:#fff;font-size:11px;padding:2px 7px;border-radius:5px;display:none;transform:translate(-50%,-140%)}
+  /* sections repliables */
+  .sec{border-top:1px solid var(--line);margin:0 -2px;padding:0 2px}
+  .sec>h2{cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin:0;padding:11px 0;user-select:none}
+  .sec>h2:hover{color:var(--ink)}
+  .sec>h2:after{content:'▾';font-size:11px;transition:transform .15s}
+  .sec.closed>h2:after{transform:rotate(-90deg)}
+  .sec.closed>.body{display:none}
+  .sec>.body{padding-bottom:12px}
+  #top .sep{width:1px;background:var(--line);margin:4px 3px}
+  #top button.tool{color:var(--ink)}
+  #top button.tool.on{background:#3a2c12;color:var(--accent2)}
+  #help .x{float:right;cursor:pointer;color:var(--mute);margin-left:8px}
+  #help.hide,#hud.hide{display:none}
+  #labels{position:fixed;left:0;top:0;height:var(--vhh,100%);overflow:hidden;width:var(--vw,100%);pointer-events:none;z-index:3;overflow:hidden}
+  #labels span{position:absolute;transform:translate(-50%,-50%);font:10px 'JetBrains Mono',monospace;background:rgba(15,16,19,.82);color:#f0e7d8;border:1px solid #4b4278;border-radius:4px;padding:0 4px;white-space:nowrap}
+  #labels span.sel{border-color:var(--accent2);color:var(--accent2)}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 14px;z-index:20;display:none;max-width:70vw;font-size:12.5px}
+  #toast.warn{border-color:var(--accent2)}
+  .tabs{display:flex;gap:2px;margin:8px -4px 8px;background:#1d2027;border-radius:8px;padding:3px}
+  .tabs button{all:unset;cursor:pointer;flex:1;text-align:center;padding:6px 2px;border-radius:6px;color:var(--mute);font-size:11.5px;font-weight:500}
+  .tabs button.on{background:#262a33;color:var(--ink)}
+  .lib{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  .lib button{all:unset;cursor:pointer;border:1px solid var(--line);border-radius:7px;padding:6px 7px;font-size:11.5px;line-height:1.25}
+  .lib button:hover{border-color:#4b4278;background:#1c1636}
+  .lib button.on{border-color:var(--accent2);background:#122c36}
+  .lib small{display:block;color:var(--mute);font-size:10px}
+  .olist{max-height:210px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  .olist div{display:flex;gap:6px;align-items:center;padding:3px 7px;cursor:pointer;font-size:11.5px}
+  .olist div:hover{background:#1c1636}.olist div.sel{background:#122c36;color:var(--accent2)}
+  .olist .ad{margin-left:auto;color:var(--mute);font-size:10px}
+  .pf{display:grid;grid-template-columns:74px 1fr;gap:5px 8px;align-items:center;margin:6px 0}
+  .pf label{color:var(--mute);font-size:11.5px}
+  .pf input[type=text],.pf input[type=number],.inp{background:#1c1636;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:12px Inter,sans-serif;width:100%;min-width:0}
+  .pf .tri{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
+  .pf input[type=range]{width:100%;accent-color:var(--accent2)}
+  .pf .rv{display:flex;gap:6px;align-items:center}.pf .rv span{width:42px;text-align:right;font-size:10.5px;color:var(--mute)}
+  .btns{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
+  .b{all:unset;cursor:pointer;border:1px solid var(--line);border-radius:7px;padding:5px 9px;font-size:11.5px}
+  .b:hover{border-color:#4b4278;background:#1c1636}.b.on{border-color:var(--accent2);color:var(--accent2)}.b.red{color:#d9a8ff;border-color:#3a1f6a}
+  .info{font-size:11px;color:var(--mute);line-height:1.5;background:#1d2027;border-radius:7px;padding:7px 9px;margin:6px 0}
+  .info b{color:var(--ink);font-weight:500}
+  table.t{width:100%;border-collapse:collapse;font-size:11px}table.t td,table.t th{padding:3px 4px;border-bottom:1px solid #262a33;text-align:left}table.t th{color:var(--mute);font-weight:500}
+  .warn{color:var(--accent2)}
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:30;display:none;align-items:center;justify-content:center}
+  #modal>div{background:#1d2027;border:1px solid var(--line);border-radius:12px;padding:16px;width:min(680px,92vw);max-height:86vh;overflow:auto}
+  .rg-grid{display:grid;grid-template-columns:300px 1fr;gap:18px;margin-top:10px} .rg-two{display:grid;grid-template-columns:240px 1fr;gap:16px}
+  .rg-row{display:grid;grid-template-columns:34px 62px 58px 1fr 46px;gap:6px;align-items:center;padding:5px 8px;border-radius:7px;cursor:pointer;font-size:12px}
+  .rg-row:hover{background:#221b3d} .rg-row.on{background:#13303a;outline:1px solid var(--accent2)} .rg-row.hd{cursor:default;color:var(--mute);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em} .rg-row.hd:hover{background:none}
+  .rg-bar{height:6px;background:#262a33;border-radius:3px;overflow:hidden} .rg-bar i{display:block;height:100%}
+  .rg-form{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center;font-size:12px} .rg-form label{color:var(--mute)}
+  #dmxRoot input[type=text],#dmxRoot input[type=number],#rigRoot input,#rigRoot select{background:#15171c;border:1px solid var(--line);border-radius:6px;color:var(--ink);font:inherit;padding:4px 6px} #rigRoot h2{margin:14px 0 6px}
+  @media (max-width:860px){.rg-grid,.rg-two{grid-template-columns:1fr}}
+  #aiPanel{position:fixed;right:calc(100vw - var(--vw,100vw) + 12px);bottom:36px;width:min(400px,calc(100vw - 24px));max-height:min(560px,calc(100vh - 100px));z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:12.5px;box-shadow:0 10px 30px rgba(0,0,0,.5);flex-direction:column;gap:8px}
+  body.con:not(.split) #aiPanel{right:calc(var(--cw,340px) + 24px)}
+  #aiPanel .ah{display:flex;justify-content:space-between} #aiPanel .ar{display:flex;gap:8px;align-items:stretch}
+  #aiLog{flex:1;min-height:90px;overflow:auto;display:flex;flex-direction:column;gap:6px} #aiLog .moi{align-self:flex-end;background:#13303a;border-radius:9px 9px 2px 9px;padding:6px 9px;max-width:88%;white-space:pre-wrap}
+  #aiLog .ia{align-self:flex-start;background:#1c1634;border-radius:9px 9px 9px 2px;padding:6px 9px;max-width:92%;white-space:pre-wrap;line-height:1.45} #aiLog .ia.err{color:#ffb4b4} #aiLog a{color:var(--accent2);cursor:pointer;text-decoration:underline;margin-left:6px} #aiLog .hint{color:var(--mute);line-height:1.6;font-size:11.5px}
+  #aiTxt{flex:1;resize:none;background:#15171c;border:1px solid var(--line);border-radius:8px;color:var(--ink);font:inherit;padding:7px 8px}
+  #audPanel{position:fixed;left:276px;bottom:36px;width:min(470px,calc(100vw - 24px));max-height:calc(100vh - 100px);overflow:auto;z-index:9;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:12px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  #audPanel .ah{display:flex;justify-content:space-between;margin-bottom:6px} #audPanel .ar{display:flex;gap:8px;align-items:center;margin:6px 0;color:var(--mute)} #audPanel .ar b{color:var(--ink)}
+  #audPanel .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)} #audPanel button:disabled{opacity:.35}
+  #audPanel .ag{display:grid;grid-template-columns:90px 1fr 80px;gap:5px 8px;align-items:center;margin-top:8px} #audPanel select{background:#15171c;border:1px solid var(--line);border-radius:6px;color:var(--ink);font:inherit;padding:3px 5px;min-width:0}
+  #modal textarea{width:100%;height:300px;background:#15171c;color:var(--ink);border:1px solid var(--line);border-radius:8px;font:11px 'JetBrains Mono',monospace;padding:8px}
+  .legend{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--mute);margin-top:4px}
+  .legend i{flex:1;height:8px;border-radius:4px;background:linear-gradient(90deg,#2b3bd1,#19b6c9,#3fc24a,#f0d234,#b04bff)}
+  #planWin{position:fixed;top:62px;bottom:12px;right:12px;z-index:5;background:#fbfaf6;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:none;flex-direction:column}
+  body.split #planWin{display:flex} body.split.con #planWin{right:calc(var(--cw,340px) + 24px)}
+  #planWin .ph{white-space:nowrap;overflow:hidden;display:flex;align-items:center;gap:6px;padding:6px 8px;background:#1d2027;color:var(--ink);font-size:12px;flex:none}
+  #planWin .pv{flex:none;display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;margin-right:auto} #planWin .pv a{padding:3px 10px;cursor:pointer;color:var(--mute)} #planWin .pv a.on{background:var(--grad);color:#15171c;font-weight:600}
+  body.ven-param #side [data-sec=cfg],body.ven-param #side [data-sec=goto],body.ven-param #side [data-sec=layers]{display:none} body:not(.ven-param) #side [data-sec=venue]{display:none} #venueUI h3{margin:8px 0 4px} #venueUI .row label{flex:1}
+  #top button.nav{color:var(--ink);font-weight:600;padding:7px 14px;border:1px solid var(--line);margin-left:6px} #top button.nav.on{background:var(--grad);color:#15171c;border-color:transparent;box-shadow:0 2px 14px rgba(0,0,0,.45)}
+  #top #liveBtn{all:unset;cursor:pointer;margin-left:14px;display:flex;align-items:center;gap:8px;padding:7px 18px;border-radius:999px;font-size:13px;font-weight:700;letter-spacing:.04em;color:#ffd9a8;border:1.5px solid #ff9a1f;background:rgba(255,154,31,.12);white-space:nowrap;transition:background .2s,box-shadow .2s}
+  #top #liveBtn i{width:10px;height:10px;border-radius:50%;background:#ff9a1f;flex:none} #top #liveBtn:hover{background:rgba(255,154,31,.25)}
+  #top #liveBtn.on{color:#15171c;border-color:transparent;background:linear-gradient(90deg,#ff3d6e,#ff9a1f);box-shadow:0 0 18px rgba(255,90,80,.65)} #top #liveBtn.on i{background:#fff;animation:livePulse 1.2s infinite} @keyframes livePulse{50%{opacity:.25}}
+  @media (max-width:980px){#top #liveBtn span{display:none} #top #liveBtn{padding:7px 10px;margin-left:6px}}
+  #planWin .ph b{font-weight:600} #planWin .ph span.xy{color:var(--mute);font-size:11px;min-width:150px;text-align:right}
+  #planWin canvas{flex:1;width:100%;min-height:0;display:block;cursor:grab;touch-action:none}
+  #planGrip{position:absolute;left:0;top:0;bottom:0;width:7px;cursor:ew-resize;z-index:2}
+  #planGrip:hover{background:rgba(240,180,76,.5)}
+  /* console lumière */
+  #console{position:fixed;top:62px;right:12px;bottom:12px;width:var(--cw,340px);background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 12px 10px;z-index:6;overflow:auto;backdrop-filter:blur(6px);transition:transform .2s}
+  #console.hide{transform:translateX(calc(var(--cw,340px) + 60px));visibility:hidden}
+  body.con #help{display:none}
+  body.con:not(.split) #hud{right:calc(var(--cw,340px) + 24px)}
+  .swt{display:flex;align-items:center;justify-content:space-between;background:#1c1636;border:1px solid var(--line);border-radius:9px;padding:9px 10px;margin:8px 0}
+  .swt b{font-weight:600}
+  .tg{position:relative;width:38px;height:21px;border-radius:12px;background:#33353d;cursor:pointer;flex:none;transition:background .15s}
+  .tg:after{content:'';position:absolute;top:3px;left:3px;width:15px;height:15px;border-radius:50%;background:#cfcac3;transition:left .15s}
+  .tg.on{background:var(--accent)} .tg.on:after{left:20px;background:#fff}
+  .card{border:1px solid var(--line);border-radius:9px;margin:7px 0;overflow:hidden}
+  .card>.hd{display:flex;align-items:center;gap:8px;padding:7px 9px;background:#181330;cursor:pointer;user-select:none}
+  .card>.hd .nm{flex:1;font-weight:500;font-size:12.5px}
+  .card>.hd .ad{color:var(--mute);font-size:10px}
+  .card>.hd .dot{width:12px;height:12px;border-radius:50%;border:1px solid rgba(255,255,255,.25);flex:none}
+  .card>.hd input{width:70px;accent-color:var(--accent2)}
+  .card.closed>.bd{display:none}
+  .card>.bd{padding:6px 9px 9px}
+  .sws{display:flex;flex-wrap:wrap;gap:4px;margin:5px 0 7px;align-items:center}
+  .sws i{width:20px;height:20px;border-radius:5px;cursor:pointer;border:1px solid rgba(255,255,255,.18)}
+  .sws i:hover{outline:2px solid #fff}
+  .sws input[type=color]{width:26px;height:22px;border:none;background:none;padding:0;cursor:pointer}
+  .mem{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .mem button{all:unset;cursor:pointer;text-align:center;padding:8px 4px;border:1px solid var(--line);border-radius:7px;font-size:12px}
+  .mem button:hover{background:#1c1636;border-color:#4b4278}
+  .mem button.on{border-color:var(--accent2);color:var(--accent2)}
+  .bo{all:unset;cursor:pointer;display:block;text-align:center;padding:8px;border-radius:7px;background:#2a1414;border:1px solid #3a1f6a;color:#d9a8ff;font-weight:600;margin-top:6px}
+  .bo.on{background:#b04bff;color:#fff}
+  .dmx{font-size:10.5px;color:var(--mute);line-height:1.5}
+  @media (max-width:760px){#side{width:220px}#help{display:none}#console{width:270px}}
+  /* ---- barre d'application, barre d'état, menus ---- */
+  #top{left:0;right:0;top:0;transform:none;border-radius:0;border-width:0 0 1px;height:40px;box-sizing:border-box;padding:4px 8px;align-items:center;z-index:12;overflow-x:auto;scrollbar-width:none;white-space:nowrap}
+  #top::-webkit-scrollbar{display:none} #top .grow,#status .grow{flex:1}
+  #top button{padding:6px 11px;flex:none} #top button.ic{padding:6px 9px;font-size:15px;line-height:1} #top button:disabled{opacity:.3;cursor:default}
+  #top .mn{color:var(--ink);font-weight:500} #top .mn.open,#top .mn:hover{background:#262a33}
+  #menus{display:flex;gap:1px;margin-left:4px}
+  #side,#console,#planWin,#help{top:50px} #side,#console,#planWin{bottom:34px} #hud{bottom:34px} #toast{bottom:44px}
+  #status{position:fixed;left:0;right:0;bottom:0;height:24px;display:flex;align-items:center;gap:14px;padding:0 10px;background:var(--panel);border-top:1px solid var(--line);font-size:11px;color:var(--mute);z-index:12;white-space:nowrap;overflow:hidden}
+  #status span{flex:none} #status #stMsg{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis} #stSnap{cursor:pointer} #stSnap:hover{color:var(--ink)} #stSave.dirty{color:var(--accent2)}
+  #menuPop{position:fixed;z-index:40;display:none;min-width:230px;max-height:calc(100vh - 70px);overflow:auto;background:#181330;border:1px solid var(--line);border-radius:9px;padding:5px;box-shadow:0 12px 34px rgba(0,0,0,.55);font-size:12.5px}
+  #menuPop .mi{display:flex;align-items:center;gap:18px;padding:6px 10px;border-radius:6px;cursor:pointer;color:var(--ink)}
+  #menuPop .mi:hover{background:#30285a} #menuPop .mi.off{opacity:.35;pointer-events:none} #menuPop .mi kbd{margin-left:auto;font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--mute);background:none;border:0;padding:0}
+  #menuPop .mi .ck{width:12px;margin-right:-8px;color:var(--accent2)} #menuPop hr{border:0;border-top:1px solid var(--line);margin:5px 4px} #menuPop .mh{padding:5px 10px 3px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+  .olist{display:flex;flex-direction:column;gap:1px} .olist .or{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;cursor:pointer;font-size:12px}
+  .olist .or:hover{background:#262a33} .olist .or.on{background:#3a2c12;color:var(--accent2)} .olist .or .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .olist .or .n{width:30px;color:var(--mute);font:11px ui-monospace,Menlo,Consolas,monospace} .olist .or i{font-style:normal;width:18px;text-align:center;opacity:.35} .olist .or i.act{opacity:1;color:var(--accent2)} .olist .or i:hover{opacity:1}
+  .olist .oh{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);padding:9px 6px 3px;display:flex;justify-content:space-between;cursor:pointer}
+  table.keys{border-collapse:collapse;width:100%;font-size:12px} table.keys td{padding:3px 8px 3px 0;vertical-align:top} table.keys td:first-child{white-space:nowrap;font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--accent2)} table.keys th{text-align:left;padding:10px 0 3px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+  @media (max-width:900px){#top button{padding:6px 8px}#stCfg,#stPos{display:none}}
+
+  /* ---- thème menthe / violet ---- */
+  :root{ --grad:#f2a93b; --gsoft:linear-gradient(135deg,rgba(242,169,59,.16),rgba(242,169,59,.2) 60%,rgba(0,0,0,.26)); }
+  html,body{background:#15171c}
+  #side,#console,#hud,#help,#menuPop,#audPanel,#aiPanel,#modal>div,#toast,#top,#status{-webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%)}
+  #top{background:linear-gradient(90deg,rgba(242,169,59,.10),rgba(110,119,135,.08) 40%,rgba(242,169,59,.14) 75%,rgba(0,0,0,.2)),var(--panel);border-bottom:1px solid rgba(110,119,135,.28)}
+  #status{background:linear-gradient(90deg,rgba(0,0,0,.2),rgba(242,169,59,.10) 40%,rgba(242,169,59,.08)),var(--panel);border-top:1px solid rgba(110,119,135,.22)}
+  #side,#console,#hud,#help,#audPanel,#aiPanel,#menuPop,#modal>div{border-color:rgba(110,119,135,.22);box-shadow:0 12px 40px rgba(20,6,60,.55),inset 0 1px 0 rgba(255,255,255,.04)}
+  #top button.on,.tabs button.on{background:var(--gsoft);color:#fff;box-shadow:inset 0 0 0 1px rgba(110,119,135,.35)}
+  #top button.tool.on,#menuBtn.on{background:var(--grad);color:#15171c;font-weight:600;box-shadow:0 2px 14px rgba(0,0,0,.45)}
+  #top .mn.open,#top .mn:hover{background:rgba(110,119,135,.18)}
+  .b{transition:border-color .12s,background .12s} .b:hover{border-color:#6e7787;background:rgba(110,119,135,.12)}
+  .b.on{background:var(--grad);border-color:transparent;color:#15171c;font-weight:600}
+  .presets button.on,#cfg button.on,.lib button.on,.mem button.on{background:var(--gsoft);border-color:#6e7787;color:#fff;box-shadow:0 0 0 1px rgba(242,169,59,.25),0 4px 18px rgba(0,0,0,.3)}
+  .mem button.on{color:#2affd0}
+  #menuPop .mi:hover{background:var(--gsoft)} #menuPop .mi .ck{color:#2affd0}
+  .rg-row.on,.olist .or.on{background:var(--gsoft);outline:1px solid rgba(110,119,135,.5);color:#fff}
+  input[type=range]{accent-color:#2affd0} input[type=checkbox],input[type=radio]{accent-color:#b04bff}
+  .tg.on{background:var(--grad)} .bo.on{background:linear-gradient(135deg,#ff4d8d,#b04bff);color:#fff}
+  #side h1,#modal h1,#audPanel .ah b,#aiPanel .ah b,#planWin .ph b{background:linear-gradient(90deg,#2affd0,#b78bff 70%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #side h2,#console h2,#modal h2,.sec>h2{color:#b9a8ff}
+  kbd,.mono{color:inherit} #menuPop .mi kbd{color:#8f86c4}
+  #aiLog .moi{background:var(--gsoft)} #aiLog a,#stSave.dirty{color:#2affd0}
+  #loader{background:radial-gradient(900px 600px at 30% 20%,rgba(242,169,59,.18),transparent 60%),radial-gradient(900px 700px at 70% 80%,rgba(242,169,59,.28),transparent 60%),#15171c}
+  #planWin .ph{background:linear-gradient(90deg,#1d2027,#1d2027)} #planGrip:hover{background:rgba(242,169,59,.5)}
+  *::-webkit-scrollbar{width:9px;height:9px} *::-webkit-scrollbar-thumb{background:#3a3260;border-radius:6px;border:2px solid transparent;background-clip:padding-box} *::-webkit-scrollbar-thumb:hover{background:#5b4fa0;background-clip:padding-box} *::-webkit-scrollbar-track{background:transparent}
+  ::selection{background:rgba(110,119,135,.45)}
+  @media (max-width:900px){#audPanel{left:12px}}
+  #olBody{max-height:calc(100vh - 250px)}
+  #libPanel{position:fixed;left:50%;top:60px;transform:translateX(-50%);width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 120px);z-index:12;display:flex;flex-direction:column;background:var(--panel);border:1px solid rgba(110,119,135,.3);border-radius:12px;font-size:12px;box-shadow:0 16px 50px rgba(20,6,60,.65);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+  #libPanel .th{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line)} #libPanel .th b{background:linear-gradient(90deg,#2affd0,#b78bff 70%);-webkit-background-clip:text;background-clip:text;color:transparent} #libPanel .th .x{margin-left:auto;cursor:pointer;color:var(--mute)}
+  #libPanel .pv{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden} #libPanel .pv a{padding:3px 10px;cursor:pointer;color:var(--mute)} #libPanel .pv a.on{background:var(--grad);color:#15171c;font-weight:600}
+  #libPanel .tb{padding:10px 12px;overflow:auto} #libPanel .libsrc,#libPanel .libcount{color:var(--mute);font-size:11px;margin:2px 0 4px;word-break:break-all} #libPanel a[data-la]{color:#2affd0;cursor:pointer}
+  #libPanel .librow{display:flex;align-items:center;gap:8px;padding:5px 2px;border-bottom:1px solid #262a33} #libPanel .librow span{flex:1;min-width:0} #libPanel .librow small{display:block;color:var(--mute);font-size:10.5px} #libPanel .librow .b{padding:3px 10px;flex:none}
+  #ledPanel{position:fixed;right:calc(100vw - var(--vw,100vw) + 12px);top:50px;width:min(390px,calc(100vw - 24px));max-height:calc(100vh - 100px);overflow:auto;z-index:9;background:var(--panel);border:1px solid rgba(110,119,135,.22);border-radius:12px;padding:10px 12px;font-size:12px;box-shadow:0 12px 40px rgba(20,6,60,.55);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+  body.con:not(.split) #ledPanel{right:calc(var(--cw,340px) + 24px)} body.desk #ledPanel{max-height:calc(100vh - var(--dh,310px) - 90px)}
+  #ledPanel .ah{display:flex;justify-content:space-between;margin-bottom:6px} #ledPanel .ah b{background:linear-gradient(90deg,#2affd0,#b78bff 70%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #ledPanel h4{margin:10px 0 5px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#b9a8ff;font-weight:600} #ledPanel .lr,#ledPanel .lq{display:flex;gap:5px;align-items:center;flex-wrap:wrap} #ledPanel .lq{margin:6px 0;color:var(--mute);font-size:11px}
+  #ledPanel .lg{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:center} #ledPanel .lg label{color:var(--mute)} #ledPanel .lg input[type=range]{width:150px}
+  #ledPanel select,#ledPanel input[type=number],#ledPanel input[type=text]{background:#15171c;border:1px solid var(--line);border-radius:6px;color:var(--ink);font:inherit;padding:3px 6px;max-width:210px} #ledPanel input[type=color]{width:34px;height:22px;padding:0;border:1px solid var(--line);border-radius:5px;background:none}
+  #conGrip{position:fixed;top:50px;bottom:34px;right:calc(var(--cw,340px) + 8px);width:9px;cursor:ew-resize;z-index:7;display:none;border-radius:5px}
+  body.con #conGrip{display:block} #conGrip:hover,#conGrip.drag{background:linear-gradient(180deg,rgba(242,169,59,.6),rgba(242,169,59,.6))}
+  /* ---- pupitre lumière ---- */
+  #desk{position:fixed;left:0;right:0;bottom:24px;height:var(--dh,310px);z-index:6;background:linear-gradient(180deg,rgba(26,20,52,.97),rgba(13,10,28,.98));border-top:1px solid rgba(110,119,135,.4);display:flex;flex-wrap:wrap;align-content:flex-start;gap:0;padding:8px 6px 34px;box-sizing:border-box;font-size:11.5px;overflow:hidden}
+  body.desk #side,body.desk #console,body.desk #planWin,body.desk #conGrip{bottom:calc(var(--dh,310px) + 32px)} body.desk #hud,body.desk #aiPanel,body.desk #audPanel{bottom:calc(var(--dh,310px) + 34px)} body.desk #toast{bottom:calc(var(--dh,310px) + 44px)}
+  #dkGrip{position:absolute;left:0;right:0;top:-3px;height:8px;cursor:ns-resize} #dkGrip:hover{background:linear-gradient(90deg,rgba(242,169,59,.6),rgba(242,169,59,.6))}
+  .dk-col{min-width:200px;height:100%;display:flex;flex-direction:column;gap:6px;padding:0 8px;border-right:1px solid rgba(110,119,135,.16);box-sizing:border-box;overflow:hidden} .dk-col:last-of-type{border-right:0}
+  .dk-col h3{margin:0;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:#b9a8ff;display:flex;justify-content:space-between;gap:8px;white-space:nowrap} .dk-col h3 span{color:var(--mute);text-transform:none;letter-spacing:0;overflow:hidden;text-overflow:ellipsis}
+  .dk-pool{display:flex;flex-wrap:wrap;gap:4px;overflow:auto;align-content:flex-start} .dk-pool.pal{flex:1}
+  .dk-pool button{all:unset;cursor:pointer;min-width:58px;padding:7px 6px;border:1px solid var(--line);border-radius:7px;background:#1c1636;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;box-sizing:border-box}
+  .dk-pool button:hover{border-color:#6e7787} .dk-pool button.on{background:var(--grad);color:#15171c;font-weight:600;border-color:transparent} .dk-pool button small{color:inherit;opacity:.65;font-size:9.5px} .dk-pool button em{width:100%;height:14px;border-radius:4px;display:block} .dk-pool button.add{min-width:34px;color:var(--mute);border-style:dashed;justify-content:center}
+  .dk-row{display:flex;gap:4px;flex-wrap:wrap;align-items:center} .dk-row .b{padding:4px 8px} .dk-row .b.go{padding:4px 16px} .dk-row input[type=color]{width:34px;height:24px;padding:0;border:1px solid var(--line);border-radius:6px;background:none}
+  .dk-fix{display:flex;flex-wrap:wrap;gap:3px;overflow:auto;flex:1;align-content:flex-start} .dk-fix i{font-style:normal;min-width:26px;text-align:center;padding:3px 2px;border-radius:5px;background:#1c1636;border:1px solid var(--line);border-bottom:3px solid var(--c);cursor:pointer;font:10.5px ui-monospace,Menlo,Consolas,monospace} .dk-fix i.on{background:#2affd0;color:#15171c;font-weight:700}
+  .dk-none{color:var(--mute);padding:4px}
+  .dk-fx{display:grid;grid-template-columns:50px 1fr 1fr;gap:5px 6px;align-items:center} .dk-fx label{color:var(--mute)} .dk-fx select{background:#15171c;border:1px solid var(--line);border-radius:6px;color:var(--ink);font:inherit;padding:3px 5px;min-width:0}
+  .dk-prog{display:flex;flex-direction:column;gap:6px;overflow:auto} .dk-prog.off{opacity:.45;pointer-events:none}
+  .dk-enc{display:grid;grid-template-columns:52px 1fr 38px;gap:6px;align-items:center} .dk-enc label{color:var(--mute)} .dk-enc b{text-align:right;font:11px ui-monospace,Menlo,Consolas,monospace} .dk-enc select{grid-column:2/4;background:#15171c;border:1px solid var(--line);border-radius:6px;color:var(--ink);font:inherit;padding:3px 5px}
+  #dkPad{width:96px;min-height:92px;flex:none;position:relative;border-radius:8px;border:1px solid var(--line);background:radial-gradient(circle at 50% 30%,rgba(110,119,135,.22),transparent 70%),#15171c;cursor:crosshair;touch-action:none} #dkPad.off{opacity:.35;pointer-events:none}
+  #dkPad i{position:absolute;width:12px;height:12px;margin:-6px;border-radius:50%;background:#2affd0;box-shadow:0 0 10px #2affd0} #dkPad span{position:absolute;left:5px;bottom:3px;font-size:9.5px;color:var(--mute)}
+  .dk-tabs a,.dk-arm{cursor:pointer;color:var(--mute);margin-right:8px;text-transform:none;letter-spacing:0;font-size:11.5px} .dk-tabs a.on{color:#2affd0;border-bottom:2px solid #2affd0} .dk-arm{margin:0 0 0 5px;padding:1px 7px;border:1px solid var(--line);border-radius:10px} .dk-arm.on{background:#2affd0;color:#15171c;border-color:transparent} .dk-arm.on.red,.b.on.red{background:#e5484d;color:#fff}
+  .dk-cues{flex:1;overflow:auto;border:1px solid var(--line);border-radius:7px} .dk-cues table{width:100%;border-collapse:collapse} .dk-cues td{padding:1px 4px;border-bottom:1px solid #262a33} .dk-cues tr{cursor:pointer} .dk-cues tr.on{background:var(--gsoft)} .dk-cues tr.on td:first-child{color:#2affd0;font-weight:700}
+  .dk-cues input{background:none;border:0;color:var(--ink);font:inherit;width:100%;padding:3px 2px} .dk-cues input[type=number]{width:44px;text-align:right;color:var(--mute)} .dk-cues input:focus{outline:1px solid #6e7787;border-radius:4px}
+  .dk-faders{display:flex;gap:6px;flex:1;overflow-x:auto;align-items:stretch} .dk-faders>div{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:46px} .dk-faders .gm{margin-left:auto;padding-left:8px;border-left:1px solid rgba(110,119,135,.2)}
+  .dk-faders label{font-size:10px;color:var(--mute);max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .dk-faders .fl{padding:3px 6px;font-size:10px}
+  input.vf{writing-mode:vertical-lr;direction:rtl;flex:1;min-height:60px;width:22px}
+  .dk-cmd{position:absolute;left:0;right:0;bottom:0;height:28px;display:flex;align-items:center;gap:8px;padding:0 10px;background:#15171c;border-top:1px solid rgba(110,119,135,.25);font:12px ui-monospace,Menlo,Consolas,monospace}
+  .dk-cmd span{color:#2affd0} .dk-cmd input{flex:1;background:none;border:0;outline:0;color:var(--ink);font:inherit;min-width:120px} .dk-cmd em{font-style:normal;color:#b9a8ff;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .dk-cmd a{cursor:pointer;color:var(--mute);font-family:system-ui,sans-serif}
+  .dk-enc label.act,.dk-fx label.act{color:#ff6b78;font-weight:600} #dkPad.act{border-color:#ff6b78} .dk-fix i.pg{box-shadow:inset 0 -3px #ff4d5e} .pgc{font-style:normal;color:#ff6b78;margin-right:4px}
+  .dk-faders .ex{min-width:58px;padding:3px 4px;border:1px solid var(--line);border-radius:8px;background:#161130} .dk-faders .ex.sel{border-color:#2affd0} .dk-faders .ex.run label{color:#2affd0} .dk-faders .ex label{cursor:pointer;max-width:62px} .dk-faders .ex small{font-size:9.5px;color:var(--mute)}
+  .dk-faders .exb{display:flex;gap:3px} .dk-faders .exb .b{padding:2px 7px;font-size:10px} .dk-faders .sep{width:1px;background:rgba(110,119,135,.25);flex:none;margin:0 2px}
+  body.cine > *:not(canvas):not(#cineUI):not(#modal):not(script){display:none!important} body.cine{--vw:100vw!important;--vhh:100vh!important;cursor:none}
+  body.cine canvas#c{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important}
+  #cineUI{position:fixed;inset:0;z-index:50;pointer-events:none;font-family:Inter,system-ui,sans-serif} #cineUI .cb{position:absolute;left:0;right:0;height:9.5vh;background:#000} #cineUI .top{top:0} #cineUI .bot{bottom:0}
+  #cineBar{position:absolute;left:0;top:0;height:2px;width:0;background:linear-gradient(90deg,#2affd0,#b04bff)} #cineHint{position:absolute;right:18px;bottom:calc(9.5vh - 22px);font-size:11px;color:rgba(255,255,255,.35)}
+  #cineRec{display:none;position:absolute;left:18px;top:calc(9.5vh - 24px);font-size:12px;font-weight:700;color:#ff3d4e;letter-spacing:.08em;animation:livePulse 1.2s infinite}
+  #cineTitle{position:absolute;left:0;right:0;bottom:17vh;text-align:center;color:#fff;opacity:0;text-shadow:0 2px 30px rgba(0,0,0,.9)} #cineTitle b{display:block;font-size:clamp(26px,4.6vw,64px);font-weight:800;letter-spacing:.14em} #cineTitle span{display:block;margin-top:8px;font-size:clamp(12px,1.3vw,18px);letter-spacing:.32em;text-transform:uppercase;color:#2affd0}
+  #curtSel{position:fixed;top:54px;left:calc(var(--vw,100vw) / 2);transform:translateX(-50%);z-index:7;display:flex;gap:8px;align-items:center;padding:6px 10px;border-radius:10px;background:rgba(20,15,42,.95);border:1px solid #2affd0;font-size:12px;box-shadow:0 6px 24px rgba(0,0,0,.5)} #curtSel b{color:#2affd0} #curtSel span{color:var(--mute)} #curtSel a{cursor:pointer;color:var(--mute);padding:0 4px} #curtSel select{background:#15171c;border:1px solid var(--line);border-radius:6px;color:var(--ink);font:inherit;padding:3px 4px} #curtSel .b{padding:3px 8px}
+  @media (max-width:1100px){.dk-play{display:none}}
+
+  /* ---------------------------------------------------------------- habillage StageFactory (repris des jetons de ScenoFactory) */
+  :root{ --bg:#15171c; --panel:#1d2027; --raised:#262a33; --line:#343945; --line2:#6e7787; --ink:#e9ebf0; --mute:#a3abb8; --accent:#f2a93b; --accent2:#f2a93b; --ok:#4fd18b; --onacc:#1a1305; --accsoft:#3a2c12; --grad:#f2a93b; --gsoft:#3a2c12; }
+  html,body{background:var(--bg);font:400 13px/18px Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  #brand{color:var(--accent);font-weight:700;font-size:13.5px;letter-spacing:.01em;padding:0 10px 0 4px;flex:none}
+  #top{background:var(--bg);border-bottom:1px solid var(--line);box-shadow:none}
+  #status{background:var(--panel);border-top:1px solid var(--line)}
+  #top button{border-radius:6px} #top .mn.open,#top .mn:hover{background:var(--raised)}
+  #top button.on,.tabs button.on{background:var(--accsoft);color:var(--ink);box-shadow:inset 0 0 0 1px var(--accent)}
+  #top button.nav{border-color:var(--line)} #top button.nav.on,#top button.tool.on,#menuBtn.on{background:var(--accent);color:var(--onacc);font-weight:600;box-shadow:none;border-color:transparent}
+  #top #liveBtn{border-radius:6px;border:1px solid var(--accent);background:transparent;color:var(--accent);letter-spacing:0;font-weight:600;padding:6px 14px} #top #liveBtn i{background:var(--accent)} #top #liveBtn:hover{background:var(--accsoft)}
+  #top #liveBtn.on{background:var(--accent);color:var(--onacc);box-shadow:none} #top #liveBtn.on i{background:var(--onacc)}
+  .b{border-radius:6px;border-color:var(--line2)} .b:hover{border-color:var(--ink);background:var(--raised)} .b.on{background:var(--accent);border-color:transparent;color:var(--onacc);font-weight:600}
+  #side,#console,#hud,#help,#menuPop,#modal>div,#toast{background:var(--panel);border-color:var(--line);border-radius:6px;backdrop-filter:none;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+  #side,#console{box-shadow:none} #side h1{color:var(--ink)} #side h2,#console h2{color:var(--mute)}
+  #planWin{border-radius:0;border-color:var(--line)} #planWin .ph{background:var(--panel)} #planWin .pv a.on{background:var(--accent);color:var(--onacc)}
+  input.inp,select.inp,.inp,#console input[type=text],#console input[type=number],#console select,#console input[type=search],#modal input[type=text],#modal input[type=number],#modal select,#side input[type=number],#side input[type=text],#side select{background:var(--bg)!important;border:1px solid var(--line2)!important;border-radius:4px!important;color:var(--ink)}
+  input[type=range]{accent-color:var(--accent)} input[type=checkbox]{accent-color:var(--accent)}
+  .info{border-color:var(--line)} .info.warn{border-color:var(--accent)}
+  #stSave.dirty{color:var(--accent)}
+  #side h1,#modal h1,#audPanel .ah b,#aiPanel .ah b,#planWin .ph b{background:none;-webkit-background-clip:border-box;background-clip:border-box;color:var(--ink)}
+  body.blank0 #hud{display:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="cross"></div>
+<div id="measure" class="mono"></div>
+<div id="loader"><div style="font-weight:600">StageFactory — chargement</div><div id="bar"><i></i></div><div id="lt" class="mono" style="color:var(--mute);font-size:11px">0 %</div></div>
+
+<div id="top">
+  <span id="brand">StageFactory</span><button class="tool" id="menuBtn" style="display:none"></button>
+  <span id="menus"></span>
+  <span class="grow"></span>
+  <button class="nav on" id="view3d" title="Vue 3D (1). Marcher, vue de dessus et vue de côté : menu Affichage">3D</button>
+  <button class="nav" id="planBtn" title="Plan technique et vue 3D côte à côte (P)">Plan + 3D</button>
+  <button class="nav" id="planOnly" title="Plan technique seul, sur tout l'écran (Maj + P)">Plan</button>
+  <button class="nav" id="deskBtn" title="Pupitre lumière : programmeur, cues, exécuteurs (U)">Pupitre</button>
+  <button id="liveBtn" title="Passer en mode spectacle : éteint la lumière de service, allume projecteurs et vidéo"><i></i><span>Mode spectacle</span></button>
+  <span class="grow"></span>
+  <button class="tool ic" id="undoBtn" title="Annuler (Ctrl+Z)">↶</button><button class="tool ic" id="redoBtn" title="Rétablir (Ctrl+Y)">↷</button>
+  <span class="sep"></span>
+  <button class="tool" id="helpBtn" title="Aide de navigation">?</button>
+  <button class="tool" id="conBtn" title="Inspecteur : réglages de la sélection et du projet (L)">Inspecteur</button>
+</div>
+
+<aside id="side">
+  <h1>Salle de démonstration</h1>
+  <div class="sub">Salle polyvalente de 1000 places · six configurations · exemple fourni avec StageFactory</div>
+  <div class="note">Reconstruction d'après les plans de concours (échelle relevée sur les fauteuils et les cotes de niveau, précision ± 30 cm). Côtés cour/jardin : convention, orientation réelle non indiquée.</div>
+
+  <section class="sec" data-sec="cfg"><h2>Configuration</h2><div class="body">
+  <div class="presets" id="cfg"></div>
+  <label class="chk" title="À chaque changement de configuration, la scène, le matériel et les mémoires lumière sont remplacés par un plateau adapté. Annulable avec Ctrl+Z."><input type="checkbox" id="followCfg" checked> Adapter la scène et la lumière</label>
+  <div id="cfginfo"></div>
+  <h3>Tribune télescopique</h3>
+  <div class="fader"><input id="trib" type="range" min="0" max="12" step="0.01" value="12"><span class="v mono" id="tribv">12 rangs</span></div>
+  <div style="display:flex;gap:6px;align-items:center"><button class="playb" id="tribPlay">▼ Replier</button><div id="tribState" class="mono"></div></div>
+  <label class="chk"><input type="checkbox" id="frontRow" checked> Rang de chaises au sol, devant</label>
+  <h3>Fosse</h3>
+  <div class="row"><select id="fosMode"></select></div>
+  <div id="fosState" class="mono" style="font-size:11px;color:var(--accent2);margin:2px 0 4px"></div>
+  <label class="chk"><input type="checkbox" id="stRear" checked> Escaliers côté public (deux angles)</label>
+  <label class="chk"><input type="checkbox" id="stFront"> Escalier côté scène (centre)</label>
+  <label class="chk"><input type="checkbox" id="pitRegie"> Régie en fosse</label>
+  <h3>Mobilier de configuration</h3>
+  <label class="chk"><input type="checkbox" id="fTables"> 22 tables rondes de 12 (dîner)</label>
+  <label class="chk"><input type="checkbox" id="fDj"> Scène DJ et barrière (festival)</label>
+  <label class="chk"><input type="checkbox" id="fRid" checked> Rideau de fond et pendrillons</label>
+  </div></section>
+  <section class="sec" data-sec="goto"><h2>Aller à</h2><div class="body">
+  <div class="presets" id="presets"></div>
+  </div></section>
+  <section class="sec closed" data-sec="light"><h2>Lumière</h2><div class="body">
+  <div class="presets" id="amb"></div>
+  <div class="row"><label>Exposition</label><input id="expo" type="range" min="0.3" max="2.5" step="0.05" value="1"><span class="v mono" id="expov">1,00</span></div>
+  <div class="row"><label>Qualité</label><select id="qual"><option value="haute">Haute (ombres + occlusion)</option><option value="moyenne">Moyenne (ombres)</option><option value="basse">Basse (téléphone)</option></select></div>
+  </div></section>
+  <section class="sec closed" data-sec="perches"><h2>Perches et rideaux</h2><div class="body">
+  <div class="row"><label>Toutes</label><input id="flyP" type="range" min="0.5" max="8.8" step="0.05" value="6"><span class="v mono" id="flyPv">6,00 m</span></div>
+  <div id="perchesUI"></div>
+  <div class="note">Distance au nez de scène entre parenthèses. Le matériel accroché à une perche et les rideaux suivent sa hauteur.</div>
+  <label class="chk"><input type="checkbox" id="rFond" checked> Rideau de fond</label>
+  <label class="chk"><input type="checkbox" id="rPend" checked> Pendrillons</label>
+  <div id="curtUI" style="display:grid;grid-template-columns:1fr auto;gap:5px 8px;align-items:center;margin-top:6px;font-size:12px"></div>
+  <div class="note">Chaque rideau peut être accroché à la perche de ton choix ; son poids est compté dans le plan de charge.</div>
+  </div></section>
+  <section class="sec closed" data-sec="layers"><h2>Calques</h2><div class="body">
+  <div id="layers"></div>
+  </div></section>
+  <section class="sec closed" data-sec="cut"><h2>Couper</h2><div class="body">
+  <div class="row"><label>Hauteur</label><input id="cutY" type="range" min="0" max="11.5" step="0.1" value="11.5"><span class="v mono" id="cutYv">—</span></div>
+  <div class="row"><label>Long. X</label><input id="cutX" type="range" min="-10" max="10" step="0.1" value="10"><span class="v mono" id="cutXv">—</span></div>
+  <label class="chk"><input type="checkbox" id="edges"> Arêtes</label>
+  <label class="chk"><input type="checkbox" id="measureOn"> Mesurer (2 clics)</label>
+  </div></section>
+  <section class="sec closed" data-sec="disp"><h2>Affichage</h2><div class="body">
+  <div class="row"><label>Taille</label><input id="eye" type="range" min="1.1" max="1.9" step="0.05" value="1.65"><span class="v mono" id="eyev">1,65 m</span></div>
+  </div></section>
+</aside>
+
+<aside id="console" class="hide"></aside>
+<div id="conGrip" title="Glisser pour élargir le panneau"></div>
+<div id="labels"></div>
+<div id="planWin"><div id="planGrip"></div><div class="ph"><b>Plan technique</b><span class="pv"><a class="on" data-pv="plan" title="Vue de dessus">Plan</a><a data-pv="coupe" title="Coupe longitudinale dans l'axe : scène à gauche, public à droite">Coupe</a></span><span class="xy mono" id="planXY"></span><button class="b" id="planTool" title="Sélection par rectangle (ou Maj + glisser)">▭ Sélection</button><button class="b" id="planFit">Ajuster</button><button class="b" id="planLab" title="Numéros, adresses DMX et noms">Étiquettes</button><button class="b" id="planPng" title="Exporter en PNG (A3, 1:100)">PNG</button><span style="cursor:pointer;color:var(--mute);padding:0 4px" id="planClose">✕</span></div><canvas id="plan2d"></canvas></div>
+<div id="status"><span id="stMsg"></span><span class="grow"></span><span id="stSel"></span><span id="stPos" class="mono"></span><span id="stSnap" title="Pas d'accrochage (clic pour changer)"></span><span id="stCfg"></span><span id="stSave"></span></div>
+<div id="menuPop"></div>
+<div id="toast"></div>
+<div id="modal"><div></div></div>
+<div id="help"></div>
+<div id="hud" class="mono"></div>
+<div id="lockmsg"><div>Clique dans la vue pour marcher · <kbd>Échap</kbd> pour sortir</div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+  "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.8.3/build/index.module.js"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { computeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
+
+const $ = s => document.querySelector(s);
+const fmt = (v, d=2) => v.toFixed(d).replace('.', ',');
+const CUTY_MAX = 11.5, CUTX_MAX = 10;
+const APP = window.APP = { live: false, houseLevel: .04, hooks: { update: [], mode: [], amb: [], perche: [] } };
+
+// ---------- renderer / scene ----------
+const canvas = $('#c');
+const VW = window.VW = () => canvas.clientWidth || window['inner' + 'Width'];
+const VX = window.VX = () => canvas.getBoundingClientRect().left;          // la vue 3D ne commence plus forcément au bord gauche
+const VH = window.VH = () => canvas.clientHeight || window['inner' + 'Height'];
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.localClippingEnabled = true;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#0d0a1c');
+const FOG = new THREE.Fog('#15161a', 60, 140); scene.fog = FOG;
+
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;   // PCF + rayon de flou : bords lisses, sans escalier
+const PR = Math.min(devicePixelRatio, 2);
+
+// environnement (reflets doux) + lumière d'ambiance
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.25;
+const hemi = new THREE.HemisphereLight('#fff1e0', '#2b2622', 0.35); scene.add(hemi);
+const planLight = new THREE.AmbientLight('#ffffff', 0); scene.add(planLight);
+
+// lumière de service : 8 découpes douces sous la grille, 4 avec ombres
+const HOUSE = [], STAGE = [];
+function spot(list, color, pos, tgt, angle, shadow){
+  const s = new THREE.SpotLight(color, 0, 40, angle, 0.85, 2);
+  s.position.set(...pos); s.target.position.set(...tgt); scene.add(s, s.target);
+  if (shadow){ s.castShadow = true; s.shadow.mapSize.set(2048, 2048); s.shadow.radius = 3; s.shadow.bias = -0.0004; s.shadow.normalBias = 0.03; s.shadow.camera.near = 0.5; s.shadow.camera.far = 30; }
+  s.userData.shadow = shadow; list.push(s); return s;
+}
+let k = 0;
+for (const z of [-6, 1.5, 9, 16]) for (const x of [-4.6, 4.6]) spot(HOUSE, '#ffe4c8', [x, 6.75, z], [x * 0.5, 0, z + 0.8], 1.0, (k++ % 2) === 0);
+// face plateau (ambiance « plateau »)
+for (const x of [-4, 0, 4]) spot(STAGE, '#ffd9a8', [x, 6.7, 3.2], [x * 0.7, 0, -3.5], 0.5, x === 0);
+const AMB = {
+  service: { label: 'Service', house: 260, stage: 0,   hemi: 0.35, env: 0.25 },
+  salle:   { label: 'Public tamisé', house: 60, stage: 0, hemi: 0.10, env: 0.08 },
+  plateau: { label: 'Plateau', house: 0,   stage: 700, hemi: 0.04, env: 0.04 },
+  noir:    { label: 'Noir', house: 0,   stage: 0,   hemi: 0.015, env: 0.01 },
+};
+let ambId = 'service';
+function applyAmb(){
+  const a = AMB[ambId], live = APP.live;
+  HOUSE.forEach(l => { l.intensity = a.house; l.visible = !live && a.house > 0; });
+  STAGE.forEach(l => { l.intensity = a.stage; l.visible = !live && a.stage > 0; });
+  const hl = Math.max(APP.houseLevel, APP.liveGuard ? .1 : 0);          // veilleuse : en mode spectacle sans aucun projecteur allumé, on garde de quoi voir la salle
+  hemi.intensity = live ? hl : a.hemi; scene.environmentIntensity = live ? hl * .6 : a.env;
+  document.querySelectorAll('#amb button').forEach(b => b.classList.toggle('on', !live && b.dataset.id === ambId));
+}
+function setAmb(id, user){
+  ambId = id;
+  if (user) for (const f of APP.hooks.amb) f(id);
+  applyAmb();
+}
+for (const [id, a] of Object.entries(AMB)){
+  const b = document.createElement('button'); b.textContent = a.label; b.dataset.id = id; b.onclick = () => setAmb(id, true); $('#amb').appendChild(b);
+}
+$('#expo').oninput = e => { renderer.toneMappingExposure = +e.target.value; $('#expov').textContent = fmt(+e.target.value); };
+
+// ---------- textures procédurales (aucun fichier externe) ----------
+function hash(x, y){ let h = (x * 374761393 + y * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967295; }
+function vnoise(x, y, P){ const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, sm = t => t * t * (3 - 2 * t);
+  const w = v => ((v % P) + P) % P; const a = hash(w(xi), w(yi)), b = hash(w(xi + 1), w(yi)), c = hash(w(xi), w(yi + 1)), d = hash(w(xi + 1), w(yi + 1));
+  const u = sm(xf), v = sm(yf); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+function fbm(x, y, P, o = 4){ let s = 0, a = .5; for (let i = 0; i < o; i++){ s += a * vnoise(x, y, P); x *= 2; y *= 2; P *= 2; a *= .5; } return s; }
+function canvasTex(size, fn, srgb = true){
+  const c = document.createElement('canvas'); c.width = c.height = size; const ctx = c.getContext('2d'); const img = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++){
+    const r = fn(x / size, y / size); const i = (y * size + x) * 4;
+    img.data[i] = r[0]; img.data[i + 1] = r[1]; img.data[i + 2] = r[2]; img.data[i + 3] = r[3] ?? 255;
+  }
+  ctx.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const cl = v => Math.max(0, Math.min(255, v));
+// relief : carte de normales calculée à partir de la luminance d'une texture (joints et pores en creux)
+function normalFrom(tex, strength){
+  const src = tex.image, N = src.width, d = src.getContext('2d').getImageData(0, 0, N, N).data, H = new Float32Array(N * N);
+  for (let i = 0; i < N * N; i++) H[i] = (d[4 * i] * .3 + d[4 * i + 1] * .59 + d[4 * i + 2] * .11) / 255;
+  const c = document.createElement('canvas'); c.width = c.height = N; const ctx = c.getContext('2d'), img = ctx.createImageData(N, N), o = img.data, k = strength * N / 256;
+  for (let y = 0; y < N; y++){ const y0 = ((y - 1 + N) % N) * N, y1 = ((y + 1) % N) * N, yy = y * N;
+    for (let x = 0; x < N; x++){ const x0 = (x - 1 + N) % N, x1 = (x + 1) % N;
+      const dx = (H[yy + x0] - H[yy + x1]) * k, dy = (H[y1 + x] - H[y0 + x]) * k, l = 1 / Math.sqrt(dx * dx + dy * dy + 1), i = (yy + x) * 4;
+      o[i] = (dx * l * .5 + .5) * 255; o[i + 1] = (dy * l * .5 + .5) * 255; o[i + 2] = (l * .5 + .5) * 255; o[i + 3] = 255; } }
+  ctx.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = tex.anisotropy; return t;
+}
+const GEN = {
+  // tasseaux d'épicéa verticaux (texture = 1,2 m, 8 lames de 15 cm)
+  wood: () => canvasTex(1024, (u, v) => {
+    const L = 8, lame = Math.floor(u * L), fu = u * L - lame, tone = 0.86 + 0.2 * hash(lame, 7);
+    const g = fbm(u * 16, v * 2, 16), st = 0.5 + 0.5 * Math.sin((u * 140 + g * 9 + lame * 3) * Math.PI);
+    let k = tone * (0.84 + 0.16 * st) * (0.9 + 0.1 * fbm(u * 64, v * 8, 64)) * (0.94 + 0.06 * fbm(u * 256, v * 24, 256, 2));
+    const kn = fbm(u * 5 + lame * 7.3, v * 3 + lame * 1.7, 64, 3); if (kn > .74) k *= 1 - (kn - .74) * 2.2;                    // nœuds discrets
+    if (fu < 0.035 || fu > 0.98) k *= 0.32; else if (fu < 0.07 || fu > 0.95) k *= 0.8;
+    return [cl(205 * k), cl(168 * k), cl(122 * k)];
+  }),
+  // lamellé-collé : lamelles fines, ton miel
+  glulam: () => canvasTex(512, (u, v) => {
+    const L = 6, lam = Math.floor(u * L), fu = u * L - lam, tone = 0.9 + 0.14 * hash(lam, 3);
+    const g = fbm(u * 8, v * 3, 8), st = 0.5 + 0.5 * Math.sin((u * 60 + g * 7) * Math.PI);
+    let k = tone * (0.86 + 0.14 * st); if (fu < 0.025) k *= 0.7;
+    return [cl(214 * k), cl(176 * k), cl(126 * k)];
+  }),
+  // plancher de scène noir mat, lames de 20 cm dans l'axe de la salle
+  planks: () => canvasTex(1024, (u, v) => {
+    const L = 12, p = Math.floor(u * L), fu = u * L - p, off = hash(p, 1), pv = (v + off) % 1;
+    const seam = (fu < 0.02) || (pv < 0.004);
+    let k = (0.8 + 0.25 * hash(p, Math.floor(v + off))) * (0.85 + 0.3 * fbm(u * 24, v * 4, 24)) * (0.9 + 0.14 * fbm(u * 128, v * 128, 128)) * (0.95 + 0.07 * fbm(u * 320, v * 20, 512, 2));
+    if (seam) k *= 0.45;
+    return [cl(56 * k), cl(53 * k), cl(50 * k)];
+  }),
+  concrete: () => canvasTex(512, (u, v) => { const pore = fbm(u * 96, v * 96, 96, 2), k = 0.82 + 0.3 * fbm(u * 8, v * 8, 8) + 0.06 * hash(Math.floor(u * 512), Math.floor(v * 512)) - (pore > .7 ? (pore - .7) * 1.1 : 0); return [cl(150 * k), cl(147 * k), cl(141 * k)]; }),
+  fabric: () => canvasTex(256, (u, v) => { const wx = Math.sin(u * 128 * Math.PI), wy = Math.sin(v * 128 * Math.PI);
+    const k = 0.82 + 0.09 * wx * wy + 0.05 * Math.abs(wx) + 0.12 * fbm(u * 32, v * 32, 32); return [cl(255 * k), cl(255 * k), cl(255 * k)]; }),
+  // résille acoustique sombre perforée
+  resille: () => canvasTex(256, (u, v) => { const cx = (u * 16) % 1 - .5, cy = (v * 16) % 1 - .5, hole = cx * cx + cy * cy < 0.09;
+    const k = hole ? 0.35 : 0.9 + 0.1 * fbm(u * 8, v * 8, 8); return [cl(52 * k), cl(52 * k), cl(56 * k)]; }),
+  // caillebotis : barreaux pleins, mailles vides (alphaMap)
+  // usure du plancher : zones plus ou moins satinées (carte de rugosité, canal vert)
+  wear: () => canvasTex(256, (u, v) => { const k = cl(255 * (0.5 + 0.45 * fbm(u * 5, v * 5, 5, 5) + 0.1 * fbm(u * 40, v * 40, 40, 2) - .12)); return [k, k, k]; }, false),
+  grating: () => canvasTex(256, (u, v) => { const N = 12, bu = (u * N) % 1, bv = (v * N) % 1, bar = bu < 0.16 || bv < 0.1; const a = bar ? 255 : 0; return [a, a, a]; }, false),
+};
+const TEX = {}, NRM = {};
+function nrmRep(name, m, k){ const key = name + k, base = NRM[key] || (NRM[key] = normalFrom(T(name), k)); const t = base.clone(); t.needsUpdate = true; t.repeat.set(1 / m, 1 / m); return t; }
+const T = n => TEX[n] || (TEX[n] = GEN[n]());
+function texRep(name, m){ const t = T(name).clone(); t.needsUpdate = true; t.repeat.set(1 / m, 1 / m); return t; }
+
+const persp = new THREE.PerspectiveCamera(65, 1, 0.12, 220);
+const ortho = new THREE.OrthographicCamera(-20, 20, 20, -20, -200, 200);
+let camera = persp;
+
+const orbit = new OrbitControls(persp, canvas);
+orbit.enableDamping = true; orbit.dampingFactor = 0.08;
+orbit.target.set(0, 3, 6);
+const orthoCtl = new OrbitControls(ortho, canvas);
+orthoCtl.enableRotate = false; orthoCtl.screenSpacePanning = true; orthoCtl.enabled = false;
+orthoCtl.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+const plc = new PointerLockControls(persp, document.body);
+
+const clipY = new THREE.Plane(new THREE.Vector3(0, -1, 0), CUTY_MAX);
+const clipX = new THREE.Plane(new THREE.Vector3(-1, 0, 0), CUTX_MAX);
+const clips = [clipY, clipX];
+
+// ---------- groups ----------
+const groups = {};
+const floorMeshes = [];
+const pickMeshes = [];
+const FLOOR_IDS = new Set(['sol','gradin','fauteuils','fauteuils_fosse','fauteuils_balcon','fosse','fosse_plat','tribune_repliee','balcon','gril','escaliers']);
+const METAL = new Set(['gril','perches']);
+
+const MATDEF = {
+  sol:        { map: 'planks', m: 2.4, rough: .9, nrm: 1.6, wear: 7 },
+  fosse:      { map: 'planks', m: 2.4, rough: .7, color: '#8f8a84', nrm: 1.6 },
+  fosse_plat: { map: 'planks', m: 2.4, rough: .9, nrm: 1.6, wear: 7 },
+  gradin:     { map: 'planks', m: 2.4, rough: .7, color: '#a6a6ad', nrm: 1.6 },
+  balcon:     { map: 'concrete', m: 3, rough: .85, color: '#a39d94', nrm: 1.2 },
+  escaliers:  { map: 'concrete', m: 3, rough: .85, nrm: 1.2 },
+  toit:       { map: 'concrete', m: 4, rough: .9, color: '#7b776f' },
+  murs:       { map: 'wood', m: 1.2, rough: .62, nrm: 2.6 },
+  murs_haut:  { map: 'resille', m: .6, rough: .9, nrm: 2 },
+  structure:  { map: 'glulam', m: .9, rough: .55, nrm: 1.4 },
+  charpente:  { map: 'glulam', m: .9, rough: .55, nrm: 1.4 },
+  gril:       { alpha: 'grating', m: .4, color: '#767b83', metal: .85, rough: .4 },
+  perches:    { color: '#1b1b1d', metal: .8, rough: .35 },
+  rideaux:    { nrm: 1.5, map: 'fabric', m: .4, color: '#121214', rough: 1, sheen: 1, sheenColor: '#3c3c4a', sheenRough: .45 },
+};
+function mat(color, id){
+  const d = MATDEF[id] || { color };
+  const P = { color: d.color || '#ffffff', roughness: d.rough ?? .8, metalness: d.metal ?? 0, side: THREE.DoubleSide, clippingPlanes: clips };
+  const m = d.sheen ? new THREE.MeshPhysicalMaterial({ ...P, sheen: d.sheen, sheenColor: new THREE.Color(d.sheenColor), sheenRoughness: d.sheenRough })
+                    : new THREE.MeshStandardMaterial(P);
+  if (d.map){ m.map = texRep(d.map, d.m); if (d.bump){ m.bumpMap = m.map; m.bumpScale = d.bump; } if (d.nrm) m.normalMap = nrmRep(d.map, d.m, d.nrm); }
+  if (d.wear) m.roughnessMap = texRep('wear', d.wear);
+  if (d.alpha){ m.alphaMap = texRep(d.alpha, d.m); m.transparent = true; m.depthWrite = false; }
+  return m;
+}
+// UV en projection « boîte », en mètres : chaque face prend la texture à l'échelle réelle
+function prepGeo(geo){
+  const g = geo.toNonIndexed(); g.computeVertexNormals();
+  const p = g.attributes.position, n = g.attributes.normal, uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++){
+    const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i));
+    let u, v;
+    if (ax >= ay && ax >= az){ u = p.getZ(i); v = p.getY(i); } else if (ay >= az){ u = p.getX(i); v = p.getZ(i); } else { u = p.getX(i); v = p.getY(i); }
+    uv[2 * i] = u; uv[2 * i + 1] = v;
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); return g;
+}
+// fauteuils : géométries arrondies partagées + matériaux tissu
+const seatMat = new THREE.MeshPhysicalMaterial({ color: '#6e1f1e', roughness: .9, sheen: .45, sheenColor: new THREE.Color('#b8645c'), sheenRoughness: .6, clippingPlanes: clips });
+const frameMat = new THREE.MeshStandardMaterial({ color: '#1e1b1b', roughness: .5, metalness: .25, clippingPlanes: clips });
+let SEATG = null;
+function seatGeos(){
+  if (SEATG) return SEATG;
+  const cushion = new RoundedBoxGeometry(.46, .09, .46, 3, .035);
+  const back = new RoundedBoxGeometry(.46, .55, .08, 3, .035); back.translate(0, .275, 0);
+  const flank = new RoundedBoxGeometry(.05, .65, .44, 2, .02); flank.translate(0, .325, 0);
+  seatMat.map = texRep('fabric', .25); seatMat.normalMap = nrmRep('fabric', .25, 1.5); seatMat.normalScale.set(.6, .6);
+  return (SEATG = { cushion, back, flank });
+}
+const _M = new THREE.Matrix4(), _Q = new THREE.Quaternion(), _S = new THREE.Vector3(1, 1, 1), _P = new THREE.Vector3(), _E = new THREE.Euler();
+const mtx = (x, y, z, rx = 0, sy = 1) => { _P.set(x, y, z); _Q.setFromEuler(_E.set(rx, 0, 0)); _S.set(1, sy, 1); return _M.compose(_P, _Q, _S); };
+function buildSeatSet(id, label, pos, w = .5){
+  const G = seatGeos(), n = pos.length;
+  const g = groups[id] = { id, label, color: '#8c2f2c', objs: [], visible: true };
+  const mk = (geo, m, c) => { const im = new THREE.InstancedMesh(geo, m, c); im.userData.gid = id; im.castShadow = im.receiveShadow = true; scene.add(im); g.objs.push(im); floorMeshes.push(im); pickMeshes.push(im); return im; };
+  const cu = mk(G.cushion, seatMat, n), ba = mk(G.back, seatMat, n), fl = mk(G.flank, frameMat, 2 * n);
+  pos.forEach(([x, y, z], i) => {
+    cu.setMatrixAt(i, mtx(x, y + .44, z)); ba.setMatrixAt(i, mtx(x, y + .45, z + .24, .18));
+    fl.setMatrixAt(2 * i, mtx(x - w / 2 + .025, y, z + .03)); fl.setMatrixAt(2 * i + 1, mtx(x + w / 2 - .025, y, z + .03));
+  });
+  [cu, ba, fl].forEach(im => { im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); });
+}
+function setGroupVisible(g, v){
+  g.visible = v;
+  g.objs.forEach(o => { if (o === g.edges) o.visible = v && $('#edges').checked; else o.visible = v; });
+  if (g.el) g.el.classList.toggle('off', !v);
+  if (g.id === 'rideaux' && CURT.length) syncCurtains();
+}
+
+async function load(){
+  const res = await fetch('scene-data.json');
+  const total = +res.headers.get('content-length') || 0;
+  const reader = res.body.getReader(); const chunks = []; let got = 0;
+  for(;;){ const { done, value } = await reader.read(); if (done) break; chunks.push(value); got += value.length;
+    const p = total ? got/total : 0; $('#bar i').style.width = (p*100)+'%'; $('#lt').textContent = total ? Math.round(p*100)+' %' : (got/1e6).toFixed(1)+' Mo'; }
+  const raw = new Uint8Array(got); { let o = 0; for (const c of chunks){ raw.set(c, o); o += c.length; } }
+  const meta = JSON.parse(new TextDecoder().decode(raw));
+  const bin = atob(meta.bin); delete meta.bin;
+  const buf = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  const ab = buf.buffer;
+  const toF = (off, n) => { const s = new Int16Array(ab, off, n/2); const f = new Float32Array(s.length); for (let i=0;i<s.length;i++) f[i]=s[i]/1000; return f; };
+
+  for (const g of meta.groups){
+    if (g.id === 'perches') continue;
+    const entry = groups[g.id] = { ...g, objs: [], visible: true };
+    if (g.pos){
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(toF(g.pos[0], g.pos[1]), 3));
+      geo.setIndex(new THREE.BufferAttribute(new Uint32Array(ab, g.idx[0], g.idx[1]/4), 1));
+      const geoN = prepGeo(geo); geoN.computeBoundingSphere(); geoN.computeBoundsTree();
+      const mesh = new THREE.Mesh(geoN, mat(g.color, g.id));
+      mesh.castShadow = !['gril', 'toit', 'reperes'].includes(g.id); mesh.receiveShadow = true;
+      if (g.id === 'gril') mesh.userData.noAO = true;
+      mesh.userData.gid = g.id;
+      scene.add(mesh); entry.objs.push(mesh); entry.mesh = mesh;
+      pickMeshes.push(mesh);
+      if (FLOOR_IDS.has(g.id)) floorMeshes.push(mesh);
+      if (g.id !== 'gril'){
+        const eg = new THREE.EdgesGeometry(geo, 25);
+        entry.edges = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color: '#000', transparent: true, opacity: .4, clippingPlanes: clips }));
+        scene.add(entry.edges); entry.objs.push(entry.edges);
+      }
+    }
+    if (g.lines){
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(toF(g.lines[0], g.lines[1]), 3));
+      const lm = new THREE.LineBasicMaterial({ color: g.id==='perches' ? '#3a3a3f' : (g.id==='gril' ? '#7d838c' : g.color), transparent: true, opacity: g.id==='gril' ? .22 : (g.id==='perches' ? .6 : .85), clippingPlanes: clips });
+      const ls = new THREE.LineSegments(geo, lm);
+      scene.add(ls); entry.objs.push(ls);
+    }
+  }
+  if (meta.seats) SEATS = meta.seats;
+  if (meta.seatPos) SEATPOS_B = meta.seatPos.balcon;
+  if (meta.seatPos){ buildFosse(meta.seatPos.fosse); buildSeatSet('fauteuils_balcon', 'Fauteuils balcon', meta.seatPos.balcon, .52); }
+  buildTribune(); buildFurniture(); buildPerches();
+  buildLayerUI();
+  for (const g of Object.values(groups)) setGroupVisible(g, !g.hidden);
+  setConfig('oneman', true);
+  $('#loader').style.display = 'none';
+  setPreset('ensemble');
+}
+
+// ---------- layer UI ----------
+function buildLayerUI(){
+  const box = $('#layers'); box.innerHTML = '';
+  for (const g of Object.values(groups)){
+    const el = document.createElement('div'); el.className = 'layer';
+    el.innerHTML = `<span class="sw" style="background:${g.color}"></span><span class="n">${g.label}</span>`;
+    el.onclick = () => setGroupVisible(g, !g.visible);
+    g.el = el; box.appendChild(el);
+  }
+}
+
+// ---------- configurations du dossier de concours (p. 33 à 37) ----------
+let SEATS = null, cfgId = null, SEATPOS_B = [];
+const CONFIGS = {
+  oneman:  { label: 'One man show', sub: '500 assis', rows: 12, front: true, fosse: 'gradins', sr: true, regie: false, rid: true,
+             info: 'Dossier : 500 places assises dont 5 PMR. Fosse gradinée 118, tribune 367, balcon 15.' },
+  assisdb: { label: 'Concert assis-debout', sub: '697 places', rows: 9, front: false, fosse: 'debout', sr: true, regie: true, rid: true,
+             info: 'Dossier : 697 places. Fosse 75 m² ≈ 190 debout, parterre 92 m² ≈ 230 debout, tribune 257 assis, balcon 20.' },
+  debout:  { label: 'Concert debout', sub: '850 places', rows: 0, front: false, fosse: 'debout', sr: true, regie: true, rid: true,
+             info: 'Dossier : 850 places. Fosse 75 m² ≈ 190, parterre 255 m² ≈ 640 (2,5 pers./m²), balcon 20 assis.' },
+  danse:   { label: 'Spectacle de danse', sub: '297 assis', rows: 9, front: true, fosse: 'plateau', sr: false, regie: false, rid: true,
+             info: 'Dossier : 297 places assises dont 4 PMR. Fosse couverte : le plateau avance jusqu’à la tribune (281), balcon 16.' },
+  electro: { label: 'Festival électro', sub: '1000 debout', rows: 0, front: false, fosse: 'plateau', sr: false, regie: false, rid: false, dj: true,
+             info: 'Dossier : 1000 personnes. Salle à plat, 400 m² de parterre à 2,5 pers./m².' },
+  diner:   { label: 'Dîner spectacle', sub: '264 couverts', rows: 0, front: false, fosse: 'scene', sr: false, regie: false, rid: false, tables: true,
+             info: 'Dossier : 264 places, 22 tables de 12 autour d’une scène centrale à l’emplacement de la fosse.' },
+};
+function userConfig(id){ const c = CONFIGS[id]; if (!c || VEN.cur.type === 'param') return; before('cfg', 'Configuration ' + c.label); setConfig(id); if (APP.onUserConfig) APP.onUserConfig(id); }
+function setConfig(id, instant){
+  const c = CONFIGS[id]; cfgId = id;
+  $('#frontRow').checked = TRIB.front = c.front;
+  $('#stRear').checked = FOSSE.stRear = c.sr; $('#stFront').checked = FOSSE.stFront = false; $('#pitRegie').checked = FOSSE.regie = c.regie;
+  $('#fTables').checked = !!c.tables; $('#fDj').checked = !!c.dj; $('#fRid').checked = c.rid; syncFurniture();
+  $('#fosMode').value = FOSSE.mode = c.fosse;
+  document.querySelectorAll('#cfg button').forEach(b => b.classList.toggle('on', b.dataset.id === id));
+  $('#cfginfo').textContent = c.info;
+  if (instant){ TRIB.anim = false; updateTribune(rowsToE(c.rows)); jumpFosse(); } else animateTribune(rowsToE(c.rows));
+}
+const before = (k, label) => { if (APP.beforeChange) APP.beforeChange(k, label); };
+function customConfig(){ cfgId = null; document.querySelectorAll('#cfg button').forEach(b => b.classList.remove('on')); $('#cfginfo').textContent = 'Configuration personnalisée.'; }
+for (const [id, c] of Object.entries(CONFIGS)){
+  const b = document.createElement('button'); b.innerHTML = `${c.label}<small>${c.sub}</small>`; b.dataset.id = id; b.onclick = () => userConfig(id); $('#cfg').appendChild(b);
+}
+
+// ---------- boîtes dynamiques (marches, praticables, mobilier) ----------
+const unitGeo = (() => { const g = new THREE.BoxGeometry(1, 1, 1); g.translate(.5, .5, .5); return g; })();
+const stepMat = new THREE.MeshStandardMaterial({ color: '#34322f', roughness: .78, clippingPlanes: clips });
+const nosing = new THREE.MeshStandardMaterial({ color: '#8a8478', roughness: .6, clippingPlanes: clips });
+function ubox(gid, parent, m = stepMat){ const b = new THREE.Mesh(unitGeo, m); b.userData.gid = gid; b.castShadow = b.receiveShadow = true; b.visible = false; (parent || scene).add(b); floorMeshes.push(b); pickMeshes.push(b); return b; }
+function setBox(b, x0, x1, y0, y1, z0, z1){ b.position.set(x0, y0, z0); b.scale.set(x1 - x0, Math.max(1e-3, y1 - y0), z1 - z0); b.visible = y1 - y0 > .01; }
+
+// ---------- tribune télescopique ----------
+// 12 rangs (pas 0,94 m, marche 0,29 m) sur toute la largeur de la salle, 28 fauteuils par rang entre deux circulations latérales de 1,25 m.
+// Les rangs sortent de sous le balcon : celui du bas part en tête, chaque rang s'arrête à sa place. Un déploiement partiel laisse
+// les rangs du bas emboîtés sous le premier rang déployé, comme sur les coupes « assis-debout » et « danse ».
+const TRIB = { rows: [], e: 0, target: 0, anim: false, front: true, steps: [[], []], nseats: 0 };
+const PX = 42.5, zx = px => (px - 545) / PX;
+const ZSTORE = 20.72, DEPTH = 1.15, NEST = 0.055, NROWS = 12, RISE = 0.29, TW = 8.58, AX = 7.6, HALF = RISE / 2;
+let EMAX = 1;
+const rowsToE = n => n <= 0 ? 0 : TRIB.rows[NROWS - Math.min(NROWS, n)].zR - TRIB.rows[NROWS - Math.min(NROWS, n)].zD;
+const eToRows = e => TRIB.rows.filter(r => r.zR - e <= r.zD + 1e-3).length;
+function buildTribune(){
+  const platMat = mat('#3b3d44', 'gradin');
+  const gG = groups.gradin = { id: 'gradin', label: 'Tribune télescopique', color: '#3b3d44', objs: [], edgesList: [], visible: true };
+  const gF = groups.fauteuils = { id: 'fauteuils', label: 'Fauteuils tribune', color: '#7a3b36', objs: [], visible: true };
+  const holder = new THREE.Group(); scene.add(holder); gG.objs.push(holder);
+  for (let r = 0; r < NROWS; r++){
+    const h = RISE * (r + 1), zD = zx(905 + 40 * r) - 0.47, zR = ZSTORE - DEPTH - (NROWS - 1 - r) * NEST;
+    const geo = new THREE.BoxGeometry(2 * (TW - .003 * r), h - .003, DEPTH); geo.translate(0, h / 2 + .0015, DEPTH / 2);
+    const m = new THREE.Mesh(prepGeo(geo), platMat); m.userData.gid = 'gradin'; m.castShadow = m.receiveShadow = true;
+    const ed = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: '#000', transparent: true, opacity: .45, clippingPlanes: clips }));
+    m.add(ed); gG.edgesList.push(ed);
+    holder.add(m); floorMeshes.push(m); pickMeshes.push(m);
+    // demi-marches dans les deux circulations, et nez de marche clair
+    const aisle = [-1, 1].map(sx => { const a = ubox('gradin', m); setBox(a, sx > 0 ? AX : -TW + .05, sx > 0 ? TW - .05 : -AX, .004, h - HALF, -0.47, -.004); const n = ubox('gradin', m, nosing); setBox(n, sx > 0 ? AX : -TW + .05, sx > 0 ? TW - .05 : -AX, h - .012, h + .004, -.002, .05); return [a, n]; }).flat();
+    TRIB.rows.push({ h, zD, zR, z: zR, n: 28, x0: -7.29, mesh: m, aisle });
+  }
+  EMAX = TRIB.rows[0].zR - TRIB.rows[0].zD;
+  for (const side of [0, 1]) for (let k = 0; k < 24; k++) TRIB.steps[side].push(ubox('gradin', holder));
+  const G = seatGeos(), N = NROWS * 28 + 26;
+  const mk = (geo, m, n) => { const im = new THREE.InstancedMesh(geo, m, n); im.userData.gid = 'fauteuils'; im.castShadow = im.receiveShadow = true; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(im); gF.objs.push(im); floorMeshes.push(im); pickMeshes.push(im); return im; };
+  TRIB.cushion = mk(G.cushion, seatMat, N); TRIB.back = mk(G.back, seatMat, N); TRIB.flank = mk(G.flank, frameMat, N * 2);
+  $('#trib').max = NROWS;
+}
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _e = new THREE.Euler();
+const clamp01 = v => Math.max(0, Math.min(1, v));
+const ease = t => t < .5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2;
+function putSeat(i, x, y, zs, fold, k = 1){
+  _s.set(k, k, k);
+  _p.set(x, y + 0.44 - 0.28 * fold, zs); _q.identity(); TRIB.cushion.setMatrixAt(i, _m.compose(_p, _q, _s));
+  _p.set(x, y + 0.45 - 0.25 * fold, zs + 0.24); _q.setFromEuler(_e.set(0.18 * (1 - fold) - Math.PI / 2 * fold, 0, 0)); TRIB.back.setMatrixAt(i, _m.compose(_p, _q, _s));
+  _q.identity(); _s.set(k, k * (1 - 0.62 * fold), k);
+  for (const sx of [-1, 1]){ _p.set(x + sx * 0.235, y, zs + 0.03); TRIB.flank.setMatrixAt(2 * i + (sx > 0 ? 1 : 0), _m.compose(_p, _q, _s)); }
+}
+function updateTribune(e){
+  e = Math.max(0, Math.min(EMAX, e)); TRIB.e = e;
+  let i = 0, r0 = -1, nDep = 0;
+  TRIB.rows.forEach((row, r) => {
+    const z = row.z = Math.max(row.zD, row.zR - e), dep = row.dep = z <= row.zD + 1e-3;
+    if (dep){ nDep++; if (r0 < 0) r0 = r; }
+    row.mesh.position.z = z; row.aisle.forEach(a => a.visible = dep);
+    const fold = ease(clamp01((z - row.zD) / 0.6));
+    for (let k = 0; k < row.n; k++, i++) putSeat(i, row.x0 + k * 0.54, row.h, z + 0.52, fold);
+  });
+  // rang de chaises au sol : devant la tribune, y compris en déploiement partiel (configuration « danse »)
+  const fr = TRIB.front && nDep > 0 && !TRIB.anim, zf = nDep === NROWS ? zx(860) : TRIB.rows[0].z - 0.75;
+  for (let k = 0; k < 26; k++, i++) putSeat(i, -6.75 + k * 0.54, 0, zf, 0, fr ? 1 : 0);
+  for (const im of [TRIB.cushion, TRIB.back, TRIB.flank]){ im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); }
+  // déploiement partiel : escalier d'accès devant le premier rang déployé, dans chaque circulation
+  const face = r0 > 0 && !TRIB.anim ? TRIB.rows[r0] : null, H = face ? face.h - HALF : 0, n = face ? Math.round(H / HALF) - 1 : 0;
+  TRIB.steps.forEach((pool, side) => pool.forEach((b, k) => {
+    if (k >= n) return void (b.visible = false);
+    const z1 = face.z - 0.47 - 0.28 * k, top = H - HALF * (k + 1);
+    setBox(b, side ? AX + .004 : -TW + .054, side ? TW - .054 : -AX - .004, .004, top, z1 - 0.28, z1 - .004);
+  }));
+  TRIB.nseats = nDep * 28 + (fr ? 26 : 0); TRIB.nDep = nDep; TRIB.frontOn = fr; TRIB.frontZ = zf;
+  const front = nDep ? TRIB.rows[r0].z : ZSTORE - DEPTH - (NROWS - 1) * NEST - e;
+  if (document.activeElement !== $('#trib')) $('#trib').value = e >= EMAX ? NROWS : nDep + (nDep < NROWS ? clamp01((e - rowsToE(nDep)) / Math.max(.01, rowsToE(nDep + 1) - rowsToE(nDep))) * .99 : 0);
+  $('#tribv').textContent = nDep + (nDep > 1 ? ' rangs' : ' rang');
+  $('#tribState').textContent = (nDep === 0 && e < .01 ? 'rangée sous le balcon' : `${TRIB.nseats} places`) + ` · front à ${fmt(front, 1)} m`;
+  $('#tribPlay').textContent = TRIB.anim ? '■ Stop' : (e > EMAX / 2 ? '▼ Replier' : '▲ Déployer');
+}
+const CYCLE = 16; // s pour la course complète (démonstration ; un vrai système met plusieurs minutes)
+function animateTribune(e){
+  TRIB.target = e; TRIB.anim = Math.abs(e - TRIB.e) > 1e-3; updateTribune(TRIB.anim ? TRIB.e : e);
+}
+function stepTribune(dt){
+  if (!TRIB.anim) return;
+  const d = TRIB.target - TRIB.e, s = dt * EMAX / CYCLE;
+  if (Math.abs(d) <= s){ TRIB.anim = false; updateTribune(TRIB.target); } else updateTribune(TRIB.e + Math.sign(d) * s);
+}
+$('#trib').oninput = e => { before('trib', 'Tribune'); TRIB.anim = false; const v = +e.target.value, n = Math.floor(v); customConfig(); updateTribune(n >= NROWS ? EMAX : rowsToE(n) + (v - n) * (rowsToE(n + 1) - rowsToE(n))); };
+$('#trib').onchange = e => { animateTribune(rowsToE(Math.round(+e.target.value))); };   // au relâchement : cale sur un nombre entier de rangs
+$('#tribPlay').onclick = () => { before('trib', 'Tribune'); if (TRIB.anim){ TRIB.anim = false; updateTribune(TRIB.e); return; } customConfig(); animateTribune(TRIB.e > EMAX / 2 ? 0 : EMAX); };
+$('#frontRow').onchange = e => { before(0, 'Rang de chaises'); TRIB.front = e.target.checked; customConfig(); updateTribune(TRIB.e); };
+
+// ---------- consoles de régie (son et lumière) : surfaces et écrans dessinés, sans fichier externe
+const CTEX = {};
+function consoleTex(kind){
+  if (CTEX[kind]) return CTEX[kind];
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 512; const x = c.getContext('2d'), rnd = (i, j) => hash(i * 7 + 3, j * 13 + 5);
+  x.fillStyle = '#17181c'; x.fillRect(0, 0, 1024, 512);
+  const fader = (cx, y0, y1, lvl, cap = '#d8d8d8') => { x.fillStyle = '#050506'; x.fillRect(cx - 2, y0, 4, y1 - y0); const y = y1 - (y1 - y0) * lvl; x.fillStyle = cap; x.fillRect(cx - 9, y - 11, 18, 22); x.fillStyle = '#222'; x.fillRect(cx - 9, y - 1, 18, 2); };
+  const knob = (cx, cy, r, col) => { x.fillStyle = '#0a0a0b'; x.beginPath(); x.arc(cx, cy, r + 2, 0, 7); x.fill(); x.fillStyle = col; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); x.fillStyle = '#fff'; x.fillRect(cx - 1, cy - r, 2, r * .7); };
+  const btn = (bx, by, w, h, col) => { x.fillStyle = col; x.fillRect(bx, by, w, h); x.strokeStyle = '#000'; x.strokeRect(bx + .5, by + .5, w - 1, h - 1); };
+  if (kind === 'son'){ const N = 28, sw = 1024 / N; for (let i = 0; i < N; i++){ const cx = i * sw + sw / 2; x.fillStyle = i % 8 === 7 ? '#22242b' : '#1b1c21'; x.fillRect(i * sw + 1, 4, sw - 2, 504);
+      ['#3aa0ff', '#3aa0ff', '#48c774', '#48c774', '#f0b44c'].forEach((col, k) => knob(cx, 26 + k * 34, 9, col)); btn(cx - 11, 196, 22, 12, rnd(i, 1) > .75 ? '#e5484d' : '#3a3d46'); btn(cx - 11, 214, 22, 12, rnd(i, 2) > .6 ? '#48c774' : '#3a3d46');
+      x.fillStyle = '#0b2a14'; x.fillRect(cx - 14, 236, 5, 240); x.fillStyle = '#35d06a'; const m = 240 * (.2 + .6 * rnd(i, 3)); x.fillRect(cx - 14, 476 - m, 5, m); fader(cx + 3, 244, 482, i >= 24 ? .78 : .35 + .5 * rnd(i, 4), i >= 24 ? '#e5484d' : '#d8d8d8'); } }
+  else { for (let i = 0; i < 10; i++){ const cx = 34 + i * 40; btn(cx - 13, 250, 26, 16, rnd(i, 5) > .5 ? '#f0b44c' : '#3a3d46'); fader(cx, 290, 490, .15 + .8 * rnd(i, 6)); btn(cx - 13, 222, 26, 16, '#2d3340'); }
+    for (let r = 0; r < 4; r++) for (let q = 0; q < 10; q++) btn(22 + q * 40, 24 + r * 44, 30, 30, ['#2d3340', '#3a3d46', '#4a3a22', '#263a4a'][(r + q) % 4]);
+    for (let r = 0; r < 6; r++) for (let q = 0; q < 5; q++) btn(470 + q * 46, 250 + r * 42, 38, 34, r === 5 && q > 2 ? '#48c774' : '#30333c');                                   // pavé numérique et commandes
+    for (let q = 0; q < 5; q++) knob(493 + q * 46, 190, 15, '#9aa0ab'); x.fillStyle = '#0c1a2a'; x.fillRect(450, 20, 250, 130); x.fillStyle = '#2f7bd8'; for (let q = 0; q < 6; q++) x.fillRect(460 + q * 40, 30, 32, 110 * rnd(q, 9));
+    for (let r = 0; r < 5; r++) for (let q = 0; q < 6; q++) btn(736 + q * 46, 24 + r * 44, 38, 34, '#30333c'); knob(810, 330, 46, '#3a3d46'); knob(930, 330, 46, '#3a3d46'); btn(740, 420, 110, 60, '#e5484d'); btn(870, 420, 110, 60, '#48c774'); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return (CTEX[kind] = t);
+}
+function screenTex(kind){
+  const key = 's' + kind; if (CTEX[key]) return CTEX[key];
+  const c = document.createElement('canvas'); c.width = 512; c.height = kind === 'son' ? 128 : 300; const x = c.getContext('2d'); x.fillStyle = '#070b12'; x.fillRect(0, 0, c.width, c.height);
+  if (kind === 'son'){ for (let i = 0; i < 32; i++){ const h = 100 * (.25 + .7 * hash(i, 21)); x.fillStyle = '#12301c'; x.fillRect(8 + i * 15.6, 12, 10, 104); const g = x.createLinearGradient(0, 116, 0, 12); g.addColorStop(0, '#2fd16a'); g.addColorStop(.75, '#e8d44a'); g.addColorStop(1, '#e5484d'); x.fillStyle = g; x.fillRect(8 + i * 15.6, 116 - h, 10, h); } }
+  else { x.fillStyle = '#16304f'; x.fillRect(0, 0, 512, 22); for (let r = 0; r < 6; r++) for (let q = 0; q < 10; q++){ const v = hash(q + 40, r + 7); x.fillStyle = v > .7 ? '#f0b44c' : v > .45 ? '#2f7bd8' : '#1a2331'; x.fillRect(8 + q * 50, 30 + r * 30, 44, 24); }
+    x.fillStyle = '#0f1722'; x.fillRect(0, 216, 512, 84); for (let q = 0; q < 9; q++){ x.fillStyle = q === 3 ? '#2fd16a' : '#27405f'; x.fillRect(8 + q * 56, 226, 50, 28); } x.fillStyle = '#e5484d'; x.fillRect(8, 266, 300, 6); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return (CTEX[key] = t);
+}
+function consoleModel(kind, W){
+  const g = new THREE.Group(), w = W || (kind === 'son' ? 1.1 : .92), d = .6, sl = .13;
+  const body = new THREE.MeshStandardMaterial({ color: '#1a1b1f', roughness: .5, metalness: .4, clippingPlanes: clips }), surf = new THREE.MeshStandardMaterial({ map: consoleTex(kind), roughness: .55, metalness: .2, clippingPlanes: clips });
+  const scr = new THREE.MeshBasicMaterial({ map: screenTex(kind), clippingPlanes: clips });
+  const bx = (ww, hh, dd, m, x, y, z, rx = 0) => { const b = new THREE.Mesh(new THREE.BoxGeometry(ww, hh, dd), m); b.position.set(x, y, z); b.rotation.x = rx; b.castShadow = b.receiveShadow = true; g.add(b); return b; };
+  bx(w, .06, d, body, 0, .03, 0); const top = bx(w, .05, d + .01, body, 0, .105, 0, sl);
+  const pl = new THREE.Mesh(new THREE.PlaneGeometry(w - .03, d - .03), surf); pl.rotation.x = -Math.PI / 2; pl.position.y = .0262; pl.receiveShadow = true; top.add(pl);
+  bx(w, .03, .05, body, 0, .075, d / 2 - .02);                                                                                                      // repose-poignets
+  const scrOn = (ww, hh, x, y, z, rx) => { const f = bx(ww, hh, .025, body, x, y, z, rx), p = new THREE.Mesh(new THREE.PlaneGeometry(ww - .025, hh - .025), scr); p.position.z = .0135; f.add(p); bx(.03, y - .1, .03, body, x, (y + .1) / 2, z - .02); };
+  if (kind === 'son') scrOn(w, .16, 0, .29, -d / 2 + .03, -.3); else { scrOn(w / 2 - .03, .27, -w / 4, .36, -d / 2 + .02, -.22); scrOn(w / 2 - .03, .27, w / 4, .36, -d / 2 + .02, -.22); }
+  return g;
+}
+function regieSet(x, y, z, wide){
+  const g = new THREE.Group(), a = consoleModel('lum'), b = consoleModel('son'); a.position.x = -.57; b.position.x = .5; g.add(a, b);
+  if (wide){ const lap = new THREE.Group(), m = new THREE.MeshStandardMaterial({ color: '#b9bcc4', roughness: .4, metalness: .7, clippingPlanes: clips }); const k = new THREE.Mesh(new THREE.BoxGeometry(.33, .015, .23), m), sc = new THREE.Mesh(new THREE.BoxGeometry(.33, .22, .01), m), im = new THREE.Mesh(new THREE.PlaneGeometry(.31, .2), new THREE.MeshBasicMaterial({ map: screenTex('lum'), clippingPlanes: clips }));
+    sc.position.set(0, .115, -.12); sc.rotation.x = -.25; im.position.z = .006; sc.add(im); lap.add(k, sc); lap.position.set(1.2, .008, .05); g.add(lap); }
+  g.position.set(x, y, z); scene.add(g); g.traverse(o => { o.userData.gid = 'mobilier'; }); return g;
+}
+// ---------- fosse : praticables élévateurs, fauteuils escamotables, escaliers ----------
+// Fosse de 15,3 × 5,75 m, fond à −1,40 m. Quatre états relevés sur les coupes : gradinée avec fauteuils (one man show),
+// basse pour le public debout (concerts), remontée au niveau du sol (danse, festival), remontée avec scène centrale (dîner).
+const FOSSE = { zones: [], seats: [], seatK: 1, mode: 'gradins', stRear: true, stFront: false, regie: false, c: 0, rear: [[], []], frontS: [] };
+const FD = -1.40, FXW = 7.65, FZ0 = 0.2, FZ1 = 5.95, PITLOW = -1.30;
+const PZONES = [[FZ0, 2.45, -0.95], [2.45, 3.40, -0.80], [3.40, 4.40, -0.65], [4.40, 5.35, -0.48], [5.35, FZ1, -0.30]];
+const FMODES = {
+  gradins: { label: 'Gradinée, avec fauteuils', h: z => z.hg, seats: 1, txt: 'gradinée, 120 fauteuils' },
+  debout:  { label: 'Basse, public debout', h: () => PITLOW, seats: 0, txt: 'basse (−1,30 m), public debout' },
+  plateau: { label: 'Fermée, au niveau du sol', h: () => 0, seats: 0, txt: 'fermée au niveau du sol' },
+  scene:   { label: 'Fermée, avec scène centrale', h: () => 0, seats: 0, txt: 'fermée, scène centrale +0,30 m' },
+};
+for (const [k, m] of Object.entries(FMODES)){ const o = document.createElement('option'); o.value = k; o.textContent = m.label; $('#fosMode').appendChild(o); }
+function buildFosse(pos){
+  const gP = groups.fosse_prat = { id: 'fosse_prat', label: 'Praticables et escaliers de fosse', color: '#5b5248', objs: [], visible: true };
+  const holder = new THREE.Group(); scene.add(holder); gP.objs.push(holder);
+  const m = mat('#5b5248', 'sol');   // même plancher que le plateau : pas de démarcation fosse fermée
+  for (const [z0, z1, hg] of PZONES){
+    const J = .008, za = z0 === FZ0 ? z0 + J : z0, zb = z1 === FZ1 ? z1 - J : z1;
+    const geo = new THREE.BoxGeometry(2 * (FXW - J), 1, zb - za); geo.translate(0, .5, (za + zb) / 2);
+    const mesh = new THREE.Mesh(prepGeo(geo), m); mesh.userData.gid = 'fosse_prat'; mesh.castShadow = mesh.receiveShadow = true; mesh.position.y = FD + .002;
+    holder.add(mesh); floorMeshes.push(mesh); pickMeshes.push(mesh);
+    FOSSE.zones.push({ mesh, hg, h: hg, z0, z1 });
+  }
+  for (const side of [0, 1]) for (let k = 0; k < 9; k++) FOSSE.rear[side].push(ubox('fosse_prat', holder));
+  for (let k = 0; k < 9; k++) FOSSE.frontS.push(ubox('fosse_prat', holder));
+  FOSSE.regieP = ubox('fosse_prat', holder); FOSSE.regieD = ubox('fosse_prat', holder, frameMat); FOSSE.regieS = ubox('fosse_prat', holder);
+  FOSSE.centre = ubox('fosse_prat', holder, mat('#2a2928', 'sol'));
+  const G = seatGeos(), n = pos.length;
+  const gS = groups.fauteuils_fosse = { id: 'fauteuils_fosse', label: 'Fauteuils fosse', color: '#8c2f2c', objs: [], visible: true };
+  const mk = (geo, mm, c) => { const im = new THREE.InstancedMesh(geo, mm, c); im.userData.gid = 'fauteuils_fosse'; im.castShadow = im.receiveShadow = true; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(im); gS.objs.push(im); floorMeshes.push(im); pickMeshes.push(im); return im; };
+  FOSSE.cu = mk(G.cushion, seatMat, n); FOSSE.ba = mk(G.back, seatMat, n); FOSSE.fl = mk(G.flank, frameMat, 2 * n);
+  FOSSE.seats = pos.map(([x, h, z]) => ({ x, z, zone: Math.max(0, FOSSE.zones.findIndex(q => z >= q.z0 && z < q.z1)) }));
+}
+const fosseSettled = () => { const M = FMODES[FOSSE.mode]; return FOSSE.seatK === M.seats && FOSSE.zones.every(z => Math.abs(z.h - M.h(z)) < 1e-3) && Math.abs(FOSSE.c - (FOSSE.mode === 'scene' ? .3 : 0)) < 1e-3; };
+function updateFosse(){
+  const F = FOSSE, fold = 1 - ease(F.seatK), w = 0.5;
+  F.zones.forEach(q => { q.mesh.scale.y = Math.max(0.001, q.h - FD - .002); });
+  F.seats.forEach((s, i) => {
+    const y = F.zones[s.zone].h - 0.36 * fold, k = F.seatK > 0 ? 1 : 0;   // repliés, ils s'escamotent dans le praticable
+    _S.set(k, k, k);
+    F.cu.setMatrixAt(i, mtx(s.x, y + .44 - .28 * fold, s.z)); F.ba.setMatrixAt(i, mtx(s.x, y + .45 - .25 * fold, s.z + .24, .18 * (1 - fold) - Math.PI / 2 * fold));
+    F.fl.setMatrixAt(2 * i, mtx(s.x - w / 2 + .025, y, s.z + .03, 0, 1 - .62 * fold)); F.fl.setMatrixAt(2 * i + 1, mtx(s.x + w / 2 - .025, y, s.z + .03, 0, 1 - .62 * fold));
+  });
+  for (const im of [F.cu, F.ba, F.fl]){ im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); im.visible = F.seatK > 0 && groups.fauteuils_fosse.visible; }
+  // escaliers : le nombre de marches suit la hauteur réelle des praticables (contremarche ≤ 18 cm, giron 28 cm)
+  const stair = (pool, on, H, put) => { const n = on && H > .2 ? Math.ceil(H / .18) : 0; pool.forEach((b, k) => { if (k < n - 1) put(b, k, -(k + 1) * H / n); else b.visible = false; }); };
+  const Hr = -F.zones[F.zones.length - 1].h, Hf = -F.zones[0].h;
+  F.rear.forEach((pool, side) => stair(pool, F.stRear, Hr, (b, k, top) => setBox(b, side ? 5.9 : -FXW + .014, side ? FXW - .014 : -5.9, FD + .004, top, FZ1 - .014 - .28 * (k + 1), FZ1 - .014 - .28 * k)));
+  stair(F.frontS, F.stFront, Hf, (b, k, top) => setBox(b, -1, 1, FD + .004, top, FZ0 + .014 + .28 * k, FZ0 + .014 + .28 * (k + 1)));
+  const rg = F.regie && F.mode === 'debout' && F.zones.every(z => z.h < -1.2);
+  if (F.regieC) F.regieC.visible = rg;
+  if (rg){ setBox(F.regieP, -1.95, 1.95, FD + .004, -.6, 4.05, FZ1 - .014); setBox(F.regieD, -1.3, 1.3, -.598, .28, 4.2, 4.85); setBox(F.regieS, 1.953, 2.9, FD + .004, -.95, 4.6, FZ1 - .014); } else F.regieP.visible = F.regieD.visible = F.regieS.visible = false;
+  if (F.c > .005) setBox(F.centre, -2.95, 2.95, .003, F.c, .35, FZ1 - .05); else F.centre.visible = false;
+  $('#fosState').textContent = fosseSettled() ? FMODES[F.mode].txt : 'en mouvement…';
+}
+function stepFosse(dt){
+  const F = FOSSE, M = FMODES[F.mode]; if (fosseSettled()) return;
+  const off = F.zones.some(z => Math.abs(z.h - M.h(z)) > 1e-3), ct = F.mode === 'scene' && !off ? .3 : 0;
+  if (off && F.c > 0) F.c = Math.max(0, F.c - dt * .2);                              // la scène centrale redescend d'abord
+  else if (F.seatK > 0 && (off || M.seats === 0)) F.seatK = Math.max(0, F.seatK - dt / 2.5);   // puis les fauteuils se replient
+  else if (off) F.zones.forEach(z => { const d = M.h(z) - z.h; z.h += Math.sign(d) * Math.min(Math.abs(d), dt * .3); });
+  else if (F.seatK < M.seats) F.seatK = Math.min(1, F.seatK + dt / 2.5);
+  else F.c += Math.sign(ct - F.c) * Math.min(Math.abs(ct - F.c), dt * .2);
+  updateFosse();
+}
+function jumpFosse(){ const M = FMODES[FOSSE.mode]; FOSSE.zones.forEach(z => z.h = M.h(z)); FOSSE.seatK = M.seats; FOSSE.c = FOSSE.mode === 'scene' ? .3 : 0; updateFosse(); }
+$('#fosMode').onchange = e => { before(0, 'Fosse'); FOSSE.mode = e.target.value; customConfig(); updateFosse(); };
+$('#stRear').onchange = e => { before(0, 'Escaliers de fosse'); FOSSE.stRear = e.target.checked; updateFosse(); };
+$('#stFront').onchange = e => { before(0, 'Escalier de fosse'); FOSSE.stFront = e.target.checked; updateFosse(); };
+$('#pitRegie').onchange = e => { before(0, 'Régie en fosse'); FOSSE.regie = e.target.checked; updateFosse(); };
+
+// ---------- mobilier de configuration (dîner, festival) ----------
+const FURN = {};
+function buildFurniture(){
+  const g = groups.mobilier = { id: 'mobilier', label: 'Mobilier de configuration', color: '#e9e6df', objs: [], visible: true };
+  // 22 tables de 12 : positions relevées sur le plan « dîner spectacle » (p. 37)
+  const T = [[-6.16, 5.33], [-6.16, 1.57], [-6.16, -1.57], [-6.16, -4.94], [-3.25, 6.43], [-3.25, 3.29], [-3.25, .16], [-3.25, -3.14], [-3.25, -6.5], [.51, 6.27], [.51, -6.35], [4.12, 6.27], [4.12, -6.35],
+    [10.86, 6.43], [10.86, -6.35], [13.76, 5.1], [13.76, 1.73], [13.76, -1.57], [13.76, -4.94], [16.67, 3.29], [16.67, .16], [16.67, -3.14]];
+  FURN.T = T;
+  const tg = FURN.tables = new THREE.Group(); scene.add(tg); g.objs.push(tg);
+  const cloth = new THREE.MeshStandardMaterial({ color: '#ece8df', roughness: .9, clippingPlanes: clips }), wood = new THREE.MeshStandardMaterial({ color: '#3a2c22', roughness: .7, clippingPlanes: clips });
+  const top = new THREE.InstancedMesh(new THREE.CylinderGeometry(.9, .9, .05, 28), cloth, T.length), skirt = new THREE.InstancedMesh(new THREE.CylinderGeometry(.9, .92, .7, 28, 1, true), cloth, T.length);
+  const cs = new THREE.InstancedMesh(new THREE.BoxGeometry(.42, .05, .42), wood, T.length * 12), cb = new THREE.InstancedMesh(new THREE.BoxGeometry(.42, .5, .04), wood, T.length * 12), cl = new THREE.InstancedMesh(new THREE.BoxGeometry(.36, .44, .36), frameMat, T.length * 12);
+  T.forEach(([z, x], i) => {
+    top.setMatrixAt(i, mtx(x, .745, z)); skirt.setMatrixAt(i, mtx(x, .38, z));
+    for (let k = 0; k < 12; k++){ const a = k / 12 * Math.PI * 2, cx = x + Math.sin(a) * 1.28, cz = z + Math.cos(a) * 1.28, j = i * 12 + k;
+      _Q.setFromEuler(_E.set(0, a, 0)); _S.set(1, 1, 1);
+      cs.setMatrixAt(j, _M.compose(_P.set(cx, .46, cz), _Q, _S)); cl.setMatrixAt(j, _M.compose(_P.set(cx, .22, cz), _Q, _S));
+      cb.setMatrixAt(j, _M.compose(_P.set(x + Math.sin(a) * 1.47, .72, z + Math.cos(a) * 1.47), _Q, _S)); }
+  });
+  for (const im of [top, skirt, cs, cb, cl]){ im.castShadow = im.receiveShadow = true; im.userData.gid = 'mobilier'; im.computeBoundingSphere(); tg.add(im); pickMeshes.push(im); }
+  // festival : scène DJ au lointain et barrière (lecture du plan p. 36)
+  const dj = FURN.dj = new THREE.Group(); scene.add(dj); g.objs.push(dj);
+  setBox(ubox('mobilier', dj, mat('#2a2928', 'sol')), -4.5, 4.5, 0, .8, -9.2, -6.9); setBox(ubox('mobilier', dj, frameMat), -1.6, 1.6, .8, 1.75, -8.0, -7.2);
+  for (let x = -7.5; x < 7.4; x += 1.25){ setBox(ubox('mobilier', dj, nosing), x + .03, x + 1.22, .15, 1.1, -5.95, -5.9); setBox(ubox('mobilier', dj, nosing), x, x + .06, 0, 1.1, -5.98, -5.87); }
+  setBox(ubox('mobilier', dj, frameMat), -1.2, 1.2, 0, .95, 17.3, 18.1); { const rc = regieSet(.03, .95, 17.7); scene.remove(rc); dj.add(rc); }
+  groups.balcon.objs.push(regieSet(.03, 5.15, 19.85)); FOSSE.regieC = regieSet(.03, .28, 4.52, true); FOSSE.regieC.visible = false; groups.mobilier.objs.push(FOSSE.regieC);
+  syncFurniture();
+}
+function syncFurniture(){
+  if (FURN.tables) FURN.tables.visible = $('#fTables').checked; if (FURN.dj){ FURN.dj.visible = $('#fDj').checked; FURN.dj.children.forEach(c => c.visible = FURN.dj.visible); }
+  if (FURN.tables) FURN.tables.children.forEach(c => c.visible = FURN.tables.visible);
+  if (CURT.length) syncCurtains();
+}
+for (const id of ['fTables', 'fDj', 'fRid']) $('#' + id).onchange = () => { $('#' + id).checked = !$('#' + id).checked; before(0, 'Mobilier'); $('#' + id).checked = !$('#' + id).checked; customConfig(); syncFurniture(); };
+
+// ---------- edges ----------
+$('#edges').onchange = e => { for (const g of Object.values(groups)){ if (g.edges) g.edges.visible = g.visible && e.target.checked; (g.edgesList||[]).forEach(l => l.visible = e.target.checked); } };
+
+// ---------- clipping ----------
+function syncClip(){
+  const y = +$('#cutY').value, x = +$('#cutX').value;
+  clipY.constant = y; clipX.constant = x;
+  $('#cutYv').textContent = y >= CUTY_MAX ? '—' : fmt(y,1)+' m';
+  $('#cutXv').textContent = x >= CUTX_MAX ? '—' : fmt(x,1)+' m';
+}
+$('#cutY').oninput = syncClip; $('#cutX').oninput = syncClip; syncClip();
+
+// ---------- modes ----------
+let mode = 'orbit';
+const help = {
+  orbit: `<b>Orbite</b><br>Glisser : tourner · Clic droit : déplacer · Molette : zoom<br>Double-clic sur un objet : tous ses réglages · Clic droit : « Aller ici à pied »<br><b>Objets</b> : clic pour sélectionner, Maj + clic pour ajouter<br><kbd>G</kbd> déplacer · <kbd>R</kbd> tourner · <kbd>V</kbd> viser · <kbd>Suppr</kbd><br><kbd>Ctrl</kbd>+<kbd>D</kbd> dupliquer · <kbd>Ctrl</kbd>+<kbd>Z</kbd> annuler · <kbd>L</kbd> inspecteur`,
+  walk: `<b>Marcher</b><br><kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou flèches · <kbd>Maj</kbd> courir<br><kbd>F</kbd> mode vol · <kbd>Espace</kbd>/<kbd>C</kbd> monter / descendre en vol<br><kbd>Échap</kbd> libérer la souris · sinon glisser pour regarder`,
+  top: `<b>Plan</b> (vue de dessus, à l'échelle)<br>Glisser : déplacer · Molette : zoom<br>Les numéros du matériel s'affichent ; clic pour sélectionner<br>Baisse « Hauteur » sous 6,9 m pour ôter les passerelles`,
+  side: `<b>Coupe</b> (vue de côté, dans l'axe)<br>Glisser : déplacer · Molette : zoom<br>Règle « Long. X » pour déplacer la coupe`,
+};
+function setMode(m){
+  mode = m;
+  { const b = $('#view3d'); b.classList.add('on'); b.textContent = { orbit: '3D', walk: '3D · marche', top: '3D · dessus', side: '3D · côté' }[m]; }
+  $('#help').innerHTML = '<span class="x" title="Fermer">✕</span>' + help[m];
+  $('#help .x').onclick = () => toggleHelp(true);
+  orbit.enabled = m === 'orbit';
+  orthoCtl.enabled = m === 'top' || m === 'side';
+  $('#cross').style.display = m === 'walk' ? 'block' : 'none';
+  if (m !== 'walk' && plc.isLocked) plc.unlock();
+  if (m === 'walk'){ camera = persp; $('#lockmsg').style.display = 'flex'; snapToFloor(true); }
+  else $('#lockmsg').style.display = 'none';
+  scene.fog = (m === 'top' || m === 'side') ? null : FOG;
+  planLight.intensity = (m === 'top' || m === 'side') ? 1.6 : 0;
+  if (m === 'orbit'){ camera = persp; }
+  if (m === 'top'){
+    camera = ortho; ortho.up.set(0, 0, -1);
+    ortho.position.set(0, 100, 6); orthoCtl.target.set(0, 0, 6); ortho.zoom = 1; fitOrtho(40);
+    ortho.lookAt(0, 0, 6);
+    if (+$('#cutY').value > 6.8){ $('#cutY').value = 6.8; syncClip(); }
+  }
+  if (m === 'side'){
+    camera = ortho; ortho.up.set(0, 1, 0);
+    ortho.position.set(100, 5, 6); orthoCtl.target.set(0, 5, 6); ortho.zoom = 1; fitOrtho(40);
+    ortho.lookAt(0, 5, 6);
+    if (+$('#cutX').value >= CUTX_MAX){ $('#cutX').value = 0.05; syncClip(); }
+  }
+  orthoCtl.update();
+  for (const f of APP.hooks.mode) f(m);
+}
+function fitOrtho(span){
+  const a = VW() / VH();
+  const h = a > 1 ? span / 2 : span / 2 / a;
+  ortho.left = -h * a; ortho.right = h * a; ortho.top = h; ortho.bottom = -h; ortho.updateProjectionMatrix();
+}
+$('#view3d').onclick = () => setMode('orbit');
+$('#deskBtn').onclick = () => window.DESK && window.DESK.toggle(); setInterval(() => { const on = !!(window.DESK && window.DESK.isOpen()); if ($('#deskBtn').classList.contains('on') !== on) $('#deskBtn').classList.toggle('on', on); }, 200);
+
+// ---------- menus repliables ----------
+const store = { get(k, d){ try { const v = localStorage.getItem('onex.' + k); return v === null ? d : JSON.parse(v); } catch(_){ return d; } },
+                set(k, v){ try { localStorage.setItem('onex.' + k, JSON.stringify(v)); } catch(_){} } };
+document.querySelectorAll('.sec').forEach(sec => {
+  const id = sec.dataset.sec, saved = store.get('sec.' + id, null);
+  if (saved !== null) sec.classList.toggle('closed', saved);
+  sec.querySelector('h2').onclick = () => { sec.classList.toggle('closed'); store.set('sec.' + id, sec.classList.contains('closed')); };
+});
+function toggleSide(force){ const h = force ?? !$('#side').classList.contains('hide'); $('#side').classList.toggle('hide', h); $('#menuBtn').classList.toggle('on', !h); }
+$('#menuBtn').onclick = () => toggleSide(); $('#menuBtn').classList.add('on');
+function toggleHelp(force){ const h = force ?? !$('#help').classList.contains('hide'); $('#help').classList.toggle('hide', h); $('#helpBtn').classList.toggle('on', !h); store.set('help', !h); }
+$('#helpBtn').onclick = () => toggleHelp();
+{ const g = $('#conGrip'), W0 = store.get('conW', 340); if (W0 !== 340) document.documentElement.style.setProperty('--cw', W0 + 'px');
+  g.addEventListener('pointerdown', e => { e.preventDefault(); g.setPointerCapture(e.pointerId); g.classList.add('drag');
+    const mv = ev => { const w = Math.round(Math.max(300, Math.min(window['inner' + 'Width'] * .7, window['inner' + 'Width'] - ev.clientX - 12))); document.documentElement.style.setProperty('--cw', w + 'px'); dispatchEvent(new Event('resize')); };
+    const up = () => { g.removeEventListener('pointermove', mv); g.removeEventListener('pointerup', up); g.classList.remove('drag'); store.set('conW', parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cw')) || 340); };
+    g.addEventListener('pointermove', mv); g.addEventListener('pointerup', up); });
+  g.addEventListener('dblclick', () => { document.documentElement.style.setProperty('--cw', '340px'); store.set('conW', 340); dispatchEvent(new Event('resize')); }); }
+function toggleConsole(force){ const open = force ?? $('#console').classList.contains('hide'); $('#console').classList.toggle('hide', !open); document.body.classList.toggle('con', open); $('#conBtn').classList.toggle('on', open); dispatchEvent(new Event('resize')); }
+$('#conBtn').onclick = () => toggleConsole();
+toggleHelp(!store.get('help', true));
+
+// ---------- perches (hauteur réglable une à une) et rideaux ----------
+const PERCHE_BASE = 6.0, YCH = 9.26, PERCHES = [], CURT = [], PGEO = {};
+function addPerche(i, z){                               // une perche : tube de 16 m mis à l'échelle de sa longueur, et ses quatre câbles
+  const grp = new THREE.Group(); grp.position.set(0, PERCHE_BASE, z); PGEO.holder.add(grp);
+  const m = new THREE.Mesh(PGEO.pipe, PGEO.pm); m.userData.gid = 'perches'; m.userData.pi = i; m.castShadow = true; grp.add(m); pickMeshes.push(m);
+  const cg = new THREE.BufferGeometry(); cg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(48), 3)); const cab = new THREE.LineSegments(cg, PGEO.lm); cab.frustumCulled = false; grp.add(cab);
+  const P = { i, z, y: PERCHE_BASE, grp, cab, len: 16, x: 0, name: '' }; PERCHES.push(P); return P;
+}
+const percheLabel = P => { P.row.querySelector('label').innerHTML = `P${P.i + 1} <span style="font-size:10px">(${P.name ? String(P.name).replace(/</g, '&lt;') + ' · ' : ''}${fmt(P.z, 1)})</span>`; P.row.querySelector('label').title = `Perche ${P.i + 1}, à ${fmt(P.z, 1)} m du nez de scène`; };
+function percheRow(P){
+  const row = document.createElement('div'); row.className = 'row'; row.innerHTML = `<label></label><input type="range" min="0.5" max="8.8" step="0.05" value="${P.y}"><span class="v mono">${fmt(P.y)} m</span>`;
+  P.row = row; P.inp = row.querySelector('input'); P.lab = row.querySelector('.v'); percheLabel(P);
+  P.inp.oninput = () => { before('perche' + P.i, 'Hauteur perche ' + (P.i + 1)); setPerche(P.i, +P.inp.value); notifyPerches(); };
+  $('#perchesUI').appendChild(row);
+}
+function curtUIBuild(){
+  $('#curtUI').innerHTML = ['Rideau de fond', 'Pendrillons 1', 'Pendrillons 2', 'Pendrillons 3'].map((l, k) => `<label>${l}</label><select data-cs="${k}">${PERCHES.map((P, i) => P.off ? '' : `<option value="${i}">P${i + 1} (${fmt(-P.z, 1)} m)</option>`).join('')}</select>`).join('');
+  $('#curtUI').querySelectorAll('select').forEach(el => { el.value = CURT.find(c => c.slot === +el.dataset.cs).pi; el.onchange = () => { const v = +el.value; el.value = CURT.find(c => c.slot === +el.dataset.cs).pi; before(0, 'Rideaux'); el.value = v; setCurtainPerche(+el.dataset.cs, v); }; });
+}
+function buildPerches(){
+  const g = groups.perches = { id: 'perches', label: 'Perches plateau', color: '#d9a640', objs: [], visible: true };
+  const holder = new THREE.Group(); scene.add(holder); g.objs.push(holder);
+  const pipe = new THREE.CylinderGeometry(.025, .025, 16, 10); pipe.rotateZ(Math.PI / 2);
+  const pm = mat('#1b1b1d', 'perches'), lm = new THREE.LineBasicMaterial({ color: '#55555c', transparent: true, opacity: .7, clippingPlanes: clips });
+  Object.assign(PGEO, { pipe, pm, lm, holder });
+  [133, 163, 195, 226, 257, 288, 320, 351, 382, 413, 444, 475, 506, 537].forEach((px, i) => addPerche(i, zx(px)));
+  // rideaux : velours plissé, suspendu sous sa perche et réglé à sa hauteur
+  const gr = groups.rideaux = { id: 'rideaux', label: 'Rideaux et pendrillons', color: '#121214', objs: [], visible: true };
+  const cm = mat('#121214', 'rideaux');
+  const curtain = (pi, x0, x1, kind, slot) => {
+    const w = x1 - x0, geo = new THREE.PlaneGeometry(w, 1, Math.max(16, Math.round(w * 26)), 1); geo.translate(0, .5, 0);
+    const p = geo.attributes.position, uv = geo.attributes.uv;
+    for (let k = 0; k < p.count; k++){ { const x = p.getX(k); p.setZ(k, Math.sin(x * 13) * .05 + Math.sin(x * 29 + 1.3) * .014 + Math.sin(x * 5.3) * .012); } uv.setX(k, uv.getX(k) * w); uv.setY(k, uv.getY(k) * 6); }
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, cm); m.position.set((x0 + x1) / 2, .02, PERCHES[pi].z + .06); m.userData.gid = 'rideaux'; m.castShadow = m.receiveShadow = true;
+    scene.add(m); gr.objs.push(m); pickMeshes.push(m); CURT.push({ m, pi, kind, x0, x1, slot });
+  };
+  curtain(7, -7.6, 7.6, 'fond', 0);
+  [9, 11, 13].forEach((pi, k) => { for (const sx of [-1, 1]) curtain(pi, sx > 0 ? 6.0 : -7.65, sx > 0 ? 7.65 : -6.0, 'pend', k + 1); });
+  curtUIBuild(); PERCHES.forEach(percheRow);
+  PERCHES.forEach(P => setPerche(P.i, P.y)); syncCurtains();
+}
+// ---------------------------------------------------------------- salles : Onex est une salle parmi d'autres ; une salle « sur mesure » se décrit par ses dimensions,
+// ses perches posées une à une, et le plan (DXF, DWG, PDF, image) dont elle a été tirée
+const VOPEN = { type: 'param', name: 'Sans titre', open: true, shell: false, noPipes: true, w: 60, d: 30, h: 15, stageW: 12, stageD: 30, stageH: 0 };          // espace vide : ni murs, ni plateau, ni perches
+const VDEF = { type: 'param', name: 'Nouvel environnement', w: 16, d: 20, h: 9, stageW: 12, stageD: 8, stageH: 1, perches: 8, percheLen: 12, percheY: 6 };
+const VEN = { cur: { type: 'onex' }, onexRoot: null, onexPick: [], onexFloor: [], shared: [], root: null, meshes: [], ych: YCH, k: 1, mats: null, pk: '', tex: null };
+const PLANS = new Map(), MAXP = 60;                     // PLANS : données lourdes des plans importés, hors du projet annulable (id → { kind: 'vec' | 'img', … })
+function venueInit(){                                   // après le chargement : tout le bâti d'Onex passe sous un même parent, pour pouvoir le ranger d'un geste
+  const root = VEN.onexRoot = new THREE.Group(), holder = groups.perches.objs[0];
+  for (const c of scene.children.slice()){ if (c === holder || c.isLight || c.isCamera || c.userData.gid === 'rideaux' || !(c.isMesh || c.isGroup || c.isInstancedMesh || c.isLineSegments || c.isPoints)) continue; root.add(c); }
+  scene.add(root); VEN.shared = pickMeshes.filter(m => m.userData.gid === 'perches' || m.userData.gid === 'rideaux'); VEN.onexPick = pickMeshes.filter(m => !VEN.shared.includes(m)); VEN.onexFloor = floorMeshes.slice();
+  PERCHES.forEach(P => { P.z0 = P.z; }); CURT.forEach(c => { c.mid = c.m.position.x; });
+  const sec = document.createElement('section'); sec.className = 'sec'; sec.dataset.sec = 'venue'; sec.innerHTML = '<h2>Dimensions de l’environnement</h2><div class="body" id="venueUI"></div>'; $('#side').insertBefore(sec, $('#side [data-sec="cfg"]'));
+  sec.querySelector('h2').onclick = () => sec.classList.toggle('closed');
+  sec.addEventListener('change', e => { const k = e.target.dataset.vk, pk = e.target.dataset.vp; if (pk && VEN.cur.plan){ before(0, 'Plan de l’environnement'); setVenue({ ...VEN.cur, plan: { ...VEN.cur.plan, [pk]: e.target.type === 'checkbox' ? e.target.checked : +e.target.value } }, true); if (window.STAGE) window.STAGE.touch(); return; }
+    if (!k) return; before(0, 'Dimensions de l’environnement'); setVenue({ ...VEN.cur, [k]: k === 'name' ? e.target.value : e.target.value === '' ? undefined : +e.target.value }, true); if (k === 'percheY' && !VEN.cur.pipes) PERCHES.forEach(Pq => { if (!Pq.off) setPerche(Pq.i, VEN.cur.percheY); }); notifyPerches(); if (window.STAGE) window.STAGE.touch(); });
+  sec.addEventListener('click', e => { const a = e.target.closest('[data-va]'); if (a && window.VENUE) window.VENUE.ui(a.dataset.va); });
+  VEN.h1 = $('#side h1').textContent; VEN.sub = $('#side .sub').innerHTML; VEN.note = $('#side .note').innerHTML;
+}
+const vclamp = (v, a, b, d) => { v = +v; return isFinite(v) ? Math.max(a, Math.min(b, v)) : d; };
+// une salle sur mesure, remise au propre : mêmes champs dans le même ordre quel que soit l'appelant (le projet se compare et s'annule par son texte)
+function venueNorm(src){
+  const v = { type: 'param' }; if (src.vid) v.vid = String(src.vid).slice(0, 40); const opt = (k, a, b, int) => { const x = +src[k]; if (src[k] === undefined || src[k] === null || src[k] === '' || !isFinite(x) || x < a) return; v[k] = int ? Math.round(Math.min(b, x)) : Math.min(b, x); };
+  v.name = String(src.name || VDEF.name).slice(0, 60); v.w = vclamp(src.w, 4, 120, 16); v.d = vclamp(src.d, 3, 150, 20); v.h = vclamp(src.h, 2.5, 40, 9);
+  v.stageW = vclamp(src.stageW, 2, v.w, Math.min(12, v.w)); v.stageD = vclamp(src.stageD, 1, 60, 8); v.stageH = vclamp(src.stageH, 0, 4, 1);
+  opt('cageH', 2.5, 50); opt('prosW', 2, v.w); opt('prosH', 2, 40); opt('prosZ', .05, 10);                // cage de scène et cadre
+  opt('rows', 1, 80, true); if (v.rows){ v.rowD = vclamp(src.rowD, .4, 3, .9); v.rowH = vclamp(src.rowH, 0, 1.5, .16); opt('rowHLast', .01, 1.5); v.rowStart = vclamp(src.rowStart, 0, 120, 3); v.d = Math.max(v.d, Math.min(150, v.rowStart + v.rows * v.rowD)); }
+  opt('pitD', .3, 20); if (v.pitD){ v.pitY = vclamp(src.pitY, -8, 0, Math.max(-8, -v.stageH - 1.2)); opt('pitW', 1, v.w); }
+  if (Array.isArray(src.galHs)){ const g = src.galHs.map(Number).filter(x => isFinite(x) && x >= 1 && x <= 50).slice(0, 8); if (g.length) v.galHs = g; } opt('backGalH', 1, 50); if (v.galHs || v.backGalH) v.galW = vclamp(src.galW, .3, 5, 1.2);
+  opt('gridH', 2, 50); if (src.shell === false) v.shell = false; if (src.open){ v.open = true; v.shell = false; }          // plein air : ni murs, ni plateau, ni perches
+  const hmax = Math.max(v.h, v.cageH || 0, v.gridH || 0) - .3;
+  v.perches = Math.round(vclamp(src.perches, 1, MAXP, 8)); v.percheLen = vclamp(src.percheLen, 2, v.w, Math.min(12, v.w)); v.percheY = vclamp(src.percheY, 1, hmax, Math.min(6, hmax - .2));
+  if (Array.isArray(src.pipes) && src.pipes.length) v.pipes = src.pipes.slice(0, MAXP).filter(q => q && typeof q === 'object').map(q => ({ n: String(q.n || '').slice(0, 40), z: vclamp(q.z, -100, 120, -1), len: vclamp(q.len, .5, 80, v.percheLen), y: vclamp(q.y, .5, 50, v.percheY), ...(isFinite(+q.x) && Math.abs(+q.x) > .001 ? { x: vclamp(q.x, -50, 50, 0) } : {}), ...(+q.c > 0 ? { c: Math.min(400, Math.round(+q.c)) } : {}), ...(+q.wll > 0 ? { wll: Math.min(5000, Math.round(+q.wll)) } : {}), ...(+q.wllPt > 0 ? { wllPt: Math.min(5000, Math.round(+q.wllPt)) } : {}),
+    ...(q.st === 'truss' ? { st: 'truss', sec: vclamp(q.sec, 15, 80, 29), ...(+q.kgm > 0 ? { kgm: Math.min(60, +q.kgm) } : {}) } : {}), ...(+q.mot > 0 ? { mot: Math.min(8, Math.round(+q.mot)) } : {}), ...(Array.isArray(q.mx) && q.mx.length ? { mx: q.mx.map(Number).filter(isFinite).slice(0, 8).sort((a, b) => a - b) } : {}) }));
+  if (v.pipes && !v.pipes.length) delete v.pipes; if (src.noPipes && !v.pipes) v.noPipes = true;       // salle créée depuis une fiche : aucune perche tant qu'on n'en a pas posé
+  if (src.dimmers && typeof src.dimmers === 'object') v.dimmers = { label: String(src.dimmers.label || '').slice(0, 80), total: Math.max(0, Math.min(2000, Math.round(+src.dimmers.total || 0))) };
+  const pl = src.plan; if (pl && typeof pl === 'object' && pl.id) v.plan = { id: String(pl.id), name: String(pl.name || 'plan').slice(0, 120), kind: pl.kind === 'img' ? 'img' : 'vec', w: +pl.w || 1, h: +pl.h || 1, k: vclamp(pl.k, 1e-7, 1e4, 1), ax: +pl.ax || 0, ay: +pl.ay || 0, rot: +pl.rot || 0,
+    hidden: Array.isArray(pl.hidden) ? pl.hidden.map(String).slice(0, 400) : [], walls: Array.isArray(pl.walls) ? pl.walls.map(String).slice(0, 100) : [], wallH: vclamp(pl.wallH, .2, 50, v.h), show2d: pl.show2d !== false, show3d: pl.show3d !== false, calibrated: !!pl.calibrated };
+  if (Array.isArray(src.curt) && src.curt.length === 4) v.curt = src.curt.map(x => Math.max(-1, Math.min(MAXP - 1, Math.round(+x) || 0)));
+  if (Array.isArray(src.facts) && src.facts.length) v.facts = src.facts.slice(0, 200).filter(f => f && f.sujet).map(f => ({ sujet: String(f.sujet).slice(0, 80), valeur: String(f.valeur ?? '').slice(0, 160), source: String(f.source ?? '').slice(0, 160), confiance: ['lu', 'déduit', 'supposé'].includes(f.confiance) ? f.confiance : 'supposé' }));
+  if (Array.isArray(src.questions) && src.questions.length) v.questions = src.questions.slice(0, 20).map(q => String(q).slice(0, 300)); if (src.notes) v.notes = String(src.notes).slice(0, 8000);
+  return v;
+}
+// du plan importé (unités du dessin ou pixels, Y vers le bas) au repère de la salle : zéro au nez de scène dans l'axe, lointain en haut
+const planXf = pl => { const cs = Math.cos(pl.rot || 0) * pl.k, sn = Math.sin(pl.rot || 0) * pl.k; return { x: (sx, sy) => (sx - pl.ax) * cs - (sy - pl.ay) * sn, z: (sx, sy) => (sx - pl.ax) * sn + (sy - pl.ay) * cs, inv: (x, z) => { const k2 = pl.k * pl.k; return [pl.ax + (x * cs + z * sn) / k2, pl.ay + (-x * sn + z * cs) / k2]; } }; };
+const planLayers = (pl, D) => { const hid = new Set(pl.hidden), wal = new Set(pl.walls); return (D.layers || []).map(n => ({ n, hidden: hid.has(n), wall: wal.has(n) })); };
+function planBounds(pl){ const T = planXf(pl), xs = [], zs = []; for (const [sx, sy] of [[0, 0], [pl.w, 0], [0, pl.h], [pl.w, pl.h]]){ xs.push(T.x(sx, sy)); zs.push(T.z(sx, sy)); } return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) }; }
+// le plan dessiné dans un canevas, dans le repère de la salle (ppm pixels par mètre, coin haut-gauche en x0, z0)
+function planPaint(g, pl, D, x0, z0, ppm, o = {}){
+  const T = planXf(pl); g.save();
+  if (D.kind === 'img'){ if (!D.img){ g.restore(); return false; } const cs = Math.cos(pl.rot || 0) * pl.k * ppm, sn = Math.sin(pl.rot || 0) * pl.k * ppm; g.transform(cs, sn, -sn, cs, (T.x(0, 0) - x0) * ppm, (T.z(0, 0) - z0) * ppm); if (o.invert) g.filter = 'invert(1) grayscale(1)'; g.globalAlpha = o.alpha ?? 1; g.imageSmoothingQuality = 'high'; g.drawImage(D.img, 0, 0, pl.w, pl.h); g.restore(); return true; }
+  const lay = planLayers(pl, D); g.lineWidth = o.lw || 1; g.lineJoin = 'round';
+  for (const pass of [0, 1]){ g.strokeStyle = pass ? (o.wallCol || o.col || '#222') : (o.col || '#555'); g.lineWidth = (o.lw || 1) * (pass ? 1.8 : 1); g.beginPath();
+    for (const q of D.polys){ const L = lay[q.l]; if (!L || L.hidden || +L.wall !== pass) continue; const p = q.p; for (let i = 0; i < p.length; i += 2){ const x = (T.x(p[i], p[i + 1]) - x0) * ppm, y = (T.z(p[i], p[i + 1]) - z0) * ppm; if (i) g.lineTo(x, y); else g.moveTo(x, y); } } g.stroke(); }
+  if (o.texts && D.texts){ g.fillStyle = o.col || '#555'; g.textBaseline = 'alphabetic'; for (const t of D.texts){ const L = lay[t.l]; if (!L || L.hidden) continue; const px = Math.max(0, t.h * pl.k * ppm); if (px < 5 || px > 80) continue; g.save(); g.translate((T.x(t.x, t.y) - x0) * ppm, (T.z(t.x, t.y) - z0) * ppm); g.rotate((pl.rot || 0) - t.r); g.font = px + 'px system-ui,sans-serif'; g.fillText(t.s, 0, 0); g.restore(); } }
+  g.restore(); return true;
+}
+// murs élevés depuis les calques choisis : chaque trait devient une cloison mince, de sol à hauteur de mur
+function planWalls(pl, D, y0){
+  const T = planXf(pl), lay = planLayers(pl, D), pos = [], nor = [], idx = [], TH = .05, y1 = pl.wallH; let n = 0, segs = 0;
+  const quad = (a, b, c2, d, nx, ny, nz) => { for (const p of [a, b, c2, d]){ pos.push(p[0], p[1], p[2]); nor.push(nx, ny, nz); } idx.push(n, n + 1, n + 2, n, n + 2, n + 3); n += 4; };
+  for (const q of D.polys){ const L = lay[q.l]; if (!L || !L.wall || L.hidden) continue; const p = q.p;
+    for (let i = 2; i < p.length && segs < 12000; i += 2){ const ax = T.x(p[i - 2], p[i - 1]), az = T.z(p[i - 2], p[i - 1]), bx = T.x(p[i], p[i + 1]), bz = T.z(p[i], p[i + 1]), dx = bx - ax, dz = bz - az, len = Math.hypot(dx, dz); if (len < .04 || len > 400) continue;
+      const ux = -dz / len * TH, uz = dx / len * TH, A0 = [ax + ux, y0, az + uz], A1 = [ax - ux, y0, az - uz], B0 = [bx + ux, y0, bz + uz], B1 = [bx - ux, y0, bz - uz], up = v => [v[0], y1, v[2]];
+      quad(A0, B0, up(B0), up(A0), ux / TH, 0, uz / TH); quad(B1, A1, up(A1), up(B1), -ux / TH, 0, -uz / TH); quad(up(A0), up(B0), up(B1), up(A1), 0, 1, 0); quad(A1, A0, up(A0), up(A1), -dx / len, 0, -dz / len); quad(B0, B1, up(B1), up(B0), dx / len, 0, dz / len); segs++; } }
+  if (!segs) return null; const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(n * 2), 2)); g.setIndex(idx); g.computeBoundingSphere(); g.computeBoundsTree(); g.userData.segs = segs; return g;
+}
+// pont carré : quatre membrures, montants et une diagonale par travée ; le dessous du pont est à la hauteur de la perche
+function trussGeo(len, s){
+  const pos = [], nor = [], idx = []; let n = 0; const add = g => { pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); for (const i of g.index.array) idx.push(i + n); n += g.attributes.position.count; g.dispose(); };
+  const bar = (ax, ay, az, bx, by, bz, t) => { const dx = bx - ax, dy = by - ay, dz = bz - az, L = Math.hypot(dx, dy, dz), g = new THREE.BoxGeometry(L, t, t), q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(dx / L, dy / L, dz / L)); g.applyQuaternion(q); g.translate((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2); add(g); };
+  const h = len / 2, z = s / 2, T = Math.max(.035, s * .17), t = T * .45, bays = Math.max(2, Math.round(len / (s * 1.6))), bl = len / bays;
+  for (const y of [T / 2, s - T / 2]) for (const zz of [-z + T / 2, z - T / 2]) bar(-h, y, zz, h, y, zz, T);
+  for (let k = 0; k <= bays; k++){ const x = -h + k * bl; for (const zz of [-z + T / 2, z - T / 2]) bar(x, T / 2, zz, x, s - T / 2, zz, t); for (const y of [T / 2, s - T / 2]) bar(x, y, -z + T / 2, x, y, z - T / 2, t);
+    if (k < bays) for (const zz of [-z + T / 2, z - T / 2]) k % 2 ? bar(x, s - T / 2, zz, x + bl, T / 2, zz, t) : bar(x, T / 2, zz, x + bl, s - T / 2, zz, t); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(n * 2), 2)); g.setIndex(idx); g.computeBoundingSphere(); g.computeBoundsTree(); return g;
+}
+// la perche prend la forme d'un tube ou d'un pont, avec ses moteurs (palans) posés dessus
+function percheShape(P, q){
+  const m = P.grp.children[0], tr = !!(q && q.st === 'truss'), key = tr ? P.len.toFixed(3) + '|' + q.sec : '';
+  if (m.userData.tk !== key){ if (m.userData.tk) m.geometry.dispose(); m.geometry = tr ? trussGeo(P.len, q.sec / 100) : PGEO.pipe; m.userData.tk = key; }
+  m.scale.x = tr ? 1 : P.len / 16; P.truss = tr; P.sect = tr ? q.sec / 100 : 0; P.kgm = tr && q.kgm ? q.kgm : 0;
+  const n = q && q.mot ? q.mot : 0, xs = q && q.mx && q.mx.length ? q.mx.filter(x => Math.abs(x) <= P.len / 2 + .01) : Array.from({ length: n }, (_, k) => -P.len / 2 + P.len * (k + .5) / n); P.mot = xs.length; P.mxs = xs.length ? xs : null;
+  if (P.motG){ P.grp.remove(P.motG); P.motG.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); P.motG = null; }
+  if (xs.length){ if (!VEN.mMot){ VEN.mMot = new THREE.MeshStandardMaterial({ color: '#d9a640', roughness: .5, metalness: .3, clippingPlanes: clips }); VEN.mMot2 = new THREE.MeshStandardMaterial({ color: '#17171a', roughness: .6, clippingPlanes: clips }); }
+    const G = P.motG = new THREE.Group(), y0 = tr ? P.sect : .03; for (const x of xs){ const b = new THREE.Mesh(new THREE.BoxGeometry(.2, .3, .24), VEN.mMot); b.position.set(x, y0 + .19, 0); b.castShadow = true; const h = new THREE.Mesh(new THREE.BoxGeometry(.06, .08, .06), VEN.mMot2); h.position.set(x, y0 + .02, 0); G.add(b, h); } P.grp.add(G); }
+}
+const pickOn = m => m.userData.gid !== 'perches' || !PERCHES[m.userData.pi].off;
+function setPlanData(id, D){ PLANS.set(id, D); if (D.kind === 'img' && !D.img && D.url){ const im = new Image(); im.onload = () => { D.img = im; if (VEN.cur.plan && VEN.cur.plan.id === id){ setVenue(VEN.cur, true); if (window.PLAN) window.PLAN.P.dirty = true; } }; im.src = D.url; } }
+function setVenue(v, keepCam){
+  const wasParam = VEN.cur.type === 'param'; v = v && v.type === 'param' ? venueNorm({ ...VDEF, ...v }) : { type: 'onex' };
+  VEN.cur = v; const P = v.type === 'param'; document.body.classList.toggle('ven-param', P); VEN.onexRoot.visible = !P;
+  if (VEN.root){ scene.remove(VEN.root); VEN.root.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); VEN.root = null; VEN.meshes = []; } if (VEN.tex){ VEN.tex.dispose(); VEN.tex = null; }
+  VEN.k = P ? v.percheLen / 16 : 1;
+  if (P){
+    const root = VEN.root = new THREE.Group(), hw = v.w / 2, z0 = -(v.stageD + 1.5), z1 = v.d, fy = -v.stageH, T = .25, floor = [], CH = v.cageH || v.h, HH = v.h, HM = Math.max(CH, HH), pz = -(v.prosZ || 0), hmax = Math.max(HM, v.gridH || 0) - .3;
+    VEN.ych = v.gridH || HM - .05;
+    const box = (x0, x1, y0, y1, za, zb, m, isFloor, gid) => { if (x1 - x0 < .005 || y1 - y0 < .005 || zb - za < .005) return null; const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, zb - za); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (za + zb) / 2); const me = new THREE.Mesh(g, m); me.userData.gid = gid || 'salle'; me.castShadow = me.receiveShadow = true; root.add(me); VEN.meshes.push(me); if (isFloor) floor.push(me); return me; };
+    if (!VEN.mats){ const M = VEN.mats = { F: mat('#3b3d44', 'salle-sol'), S: mat('#141416', 'salle-scene'), W: mat('#6a6258', 'salle-mur'), B: mat('#1c1c20', 'salle-fond'), T: mat('#4a4c55', 'salle-gradin'), G: mat('#2a2b30', 'salle-passerelle'), C: mat('#8a8378', 'salle-cloison') }; M.F.roughness = .7; M.S.roughness = .55; M.T.roughness = .75; }
+    const { F: mF, S: mS, W: mW, B: mB, T: mT, G: mG, C: mC } = VEN.mats;
+    // sol de la salle, fosse devant le nez de scène (plus basse ou plus haute que la salle)
+    const pd = v.pitD ? Math.min(v.pitD, z1 - .5) : 0, py = pd ? v.pitY : fy, pw = Math.min(hw, (v.pitW || v.prosW || v.stageW) / 2);
+    if (pd && py < fy - .01){ box(-hw, hw, fy - .25, fy, z0, 0, mF, true); box(-hw, -pw, fy - .25, fy, 0, pd, mF, true); box(pw, hw, fy - .25, fy, 0, pd, mF, true); box(-hw, hw, fy - .25, fy, pd, z1, mF, true);
+      box(-pw, pw, py - .25, py, 0, pd, mF, true); box(-pw - .1, -pw, py - .25, fy - .25, 0, pd, mB); box(pw, pw + .1, py - .25, fy - .25, 0, pd, mB); box(-pw - .1, pw + .1, py - .25, fy - .25, pd, pd + .1, mB); box(-pw - .1, pw + .1, py - .25, fy, -.1, 0, mS); }
+    else { box(-hw, hw, fy - .25, fy, z0, z1, mF, true); if (pd && py > fy + .01) box(-pw, pw, fy, py, 0, pd, mS, true); }
+    if (!v.open) box(-v.stageW / 2, v.stageW / 2, fy, 0, -v.stageD, 0, mS, true);                     // plateau
+    if (v.shell !== false){                                                                           // murs : la cage de scène peut être plus haute que la salle
+      for (const sx of [-1, 1]){ const xa = sx < 0 ? -hw - T : hw, xb = sx < 0 ? -hw : hw + T; if (CH === HH) box(xa, xb, fy - .25, HH, z0 - T, z1 + T, mW); else { box(xa, xb, fy - .25, CH, z0 - T, pz, mW); box(xa, xb, fy - .25, HH, pz, z1 + T, mW); } }
+      box(-hw, hw, fy - .25, CH, z0 - T, z0, mB); box(-hw, hw, fy - .25, HH, z1, z1 + T, mW);          // mur du lointain, mur du fond de salle
+    }
+    if (v.prosW){ const ow = Math.min(v.prosW, v.w) / 2, oh = v.prosH && v.prosH < HM - .05 ? v.prosH : 0;      // cadre de scène : deux jambages et un linteau
+      box(-hw, -ow, fy - .25, HM, pz - .3, pz, mW); box(ow, hw, fy - .25, HM, pz - .3, pz, mW); if (oh) box(-ow, ow, oh, HM, pz - .3, pz, mW); }
+    if (v.rows){ let y = fy; for (let k = 0; k < v.rows; k++){ y += v.rowH + (v.rowHLast ? (v.rowHLast - v.rowH) * (v.rows > 1 ? k / (v.rows - 1) : 0) : 0); const za = v.rowStart + k * v.rowD; if (za >= z1 - .01) break; box(-hw, hw, fy, y, za, Math.min(z1, za + v.rowD), mT, true, 'gradin'); } }
+    const gw = v.galW || 1.2; for (const gh of v.galHs || []) for (const sx of [-1, 1]) box(sx < 0 ? -hw : hw - gw, sx < 0 ? -hw + gw : hw, gh - .12, gh, z0, pz, mG, true, 'passerelle');
+    if (v.backGalH) box(-hw, hw, v.backGalH - .12, v.backGalH, z0, z0 + gw, mG, true, 'passerelle');
+    if (v.gridH){ const gs = []; for (let x = -hw + .3; x <= hw - .3 + 1e-6; x += .6){ const g = new THREE.BoxGeometry(.1, .06, pz - z0); g.translate(x, v.gridH + .03, (z0 + pz) / 2); gs.push(g); }           // gril : lattes dans le sens de la profondeur
+      if (gs.length){ const pos = [], nor = [], idx = []; let n = 0; for (const g of gs){ pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); for (const i of g.index.array) idx.push(i + n); n += g.attributes.position.count; g.dispose(); }
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(n * 2), 2)); g.setIndex(idx); g.computeBoundsTree();
+        const me = new THREE.Mesh(g, mG); me.userData.gid = 'gril'; me.castShadow = true; root.add(me); VEN.meshes.push(me); } }
+    // plan importé : dessiné au sol (lumière ajoutée, le papier disparaît) et murs élevés depuis ses calques
+    const pl = v.plan, D = pl && PLANS.get(pl.id);
+    if (D){
+      if (pl.walls.length && D.kind === 'vec'){ const g = planWalls(pl, D, fy); if (g){ const me = new THREE.Mesh(g, mC); me.userData.gid = 'salle'; me.userData.planWalls = g.userData.segs; me.castShadow = me.receiveShadow = true; root.add(me); VEN.meshes.push(me); } }
+      if (pl.show3d){ const X0 = -hw - 1, Z0 = z0 - 1, ww = v.w + 2, dd = z1 - z0 + 2, ppm = Math.min(90, 4096 / Math.max(ww, dd)), cv = document.createElement('canvas'); cv.width = Math.round(ww * ppm); cv.height = Math.round(dd * ppm); const g = cv.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, cv.width, cv.height);
+        if (planPaint(g, pl, D, X0, Z0, ppm, { invert: true, col: '#b9c6e8', wallCol: '#ffffff', lw: Math.max(1, ppm * .025) })){
+          const tex = VEN.tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; const pm = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, clippingPlanes: clips, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+          const sheet = (xa, xb, za, zb, y) => { const pg = new THREE.PlaneGeometry(xb - xa, zb - za); pg.rotateX(-Math.PI / 2); pg.translate((xa + xb) / 2, y, (za + zb) / 2); const uv = pg.attributes.uv, p = pg.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, (p.getX(i) - X0) / ww, 1 - (p.getZ(i) - Z0) / dd); const me = new THREE.Mesh(pg, pm); me.userData.planSheet = true; me.renderOrder = 2; root.add(me); };
+          sheet(-hw, hw, z0, z1, fy + .012); if (v.stageH > .02) sheet(-v.stageW / 2, v.stageW / 2, -v.stageD, 0, .014); } }
+    }
+    scene.add(root); floorMeshes.splice(0, floorMeshes.length, ...floor);
+    // perches : posées une à une (v.pipes) ou réparties sur la profondeur du plateau
+    const pipes = v.pipes || null, n = pipes ? pipes.length : v.noPipes ? 0 : v.perches, pk = JSON.stringify(pipes); while (PERCHES.length < n){ const Pn = addPerche(PERCHES.length, 0); percheRow(Pn); VEN.shared.push(Pn.grp.children[0]); }
+    PERCHES.forEach((Pq, i) => { const q = pipes && pipes[i]; Pq.off = i >= n; Pq.grp.visible = !Pq.off; Pq.len = Pq.off ? 16 : q ? q.len : v.percheLen; Pq.x = q && !Pq.off ? q.x || 0 : 0; Pq.name = q && !Pq.off ? q.n : ''; Pq.c = q && !Pq.off ? q.c || 0 : 0; Pq.wllP = q && !Pq.off ? q.wll || 0 : 0; Pq.wllPt = q && !Pq.off ? q.wllPt || 0 : 0;
+      Pq.z = Pq.off ? -99999 : q ? q.z : (n === 1 ? -v.stageD / 2 : -(v.stageD - .5) + (v.stageD - .9) * i / (n - 1)); Pq.grp.position.x = Pq.x; Pq.grp.position.z = Pq.off ? 0 : Pq.z; percheShape(Pq, Pq.off ? null : q);
+      if (Pq.row){ Pq.row.style.display = Pq.off ? 'none' : ''; Pq.inp.max = hmax; percheLabel(Pq); } });
+    $('#flyP').max = hmax; pickMeshes.splice(0, pickMeshes.length, ...VEN.shared.filter(pickOn), ...VEN.meshes);
+    if (pipes && (pk !== VEN.pk || !wasParam || !keepCam)) PERCHES.forEach((Pq, i) => { if (!Pq.off) setPerche(i, Math.min(pipes[i].y, hmax)); });
+    else if (!pipes && (!wasParam || !keepCam)) PERCHES.forEach(Pq => setPerche(Pq.i, v.percheY)); else PERCHES.forEach(Pq => setPerche(Pq.i, Math.min(Pq.y, hmax)));
+    VEN.pk = pk;
+    const kc = (v.prosW ? Math.min(v.stageW, v.prosW + 3) : v.stageW) / 15.3; CURT.forEach(c => { c.m.scale.x = kc; c.m.position.x = c.mid * kc; }); { const onSt = PERCHES.map((q, i) => i).filter(i => !PERCHES[i].off && PERCHES[i].z < 0).sort((a, b) => PERCHES[a].z - PERCHES[b].z), L = onSt.length ? onSt : [0], m = L.length; if (n && !v.curt) [0, Math.round((m - 1) * .35), Math.round((m - 1) * .65), m - 1].forEach((k, slot) => setCurtainPerche(slot, L[k])); else if (n && v.curt) v.curt.forEach((pi, slot) => { if (pi >= 0 && PERCHES[pi] && !PERCHES[pi].off) setCurtainPerche(slot, pi); }); }
+    curtUIBuild();
+    $('#side h1').textContent = v.name; $('#side .sub').textContent = (v.open ? 'Plein air · ' : 'Environnement sur mesure · ') + fmt(v.w, 1) + ' × ' + fmt(v.d + v.stageD, 1) + ' m · hauteur ' + fmt(v.h, 1) + ' m' + (v.plan ? ' · plan « ' + v.plan.name + ' »' : ''); $('#side .note').textContent = (v.open ? 'Espace ouvert, sans murs ni plateau : construis ta scène avec les praticables et les ponts. Origine : le centre du bord de scène, côté public.' : 'Environnement décrit par ses dimensions. Origine : nez de scène, dans l\'axe. Les réglages ci-dessous le redessinent tout de suite.');
+    const val = k => v[k] === undefined ? '' : Math.round(v[k] * 1000) / 1000, F = (k, l, min, max, step, u) => `<div class="row"><label>${l}</label><input type="number" class="inp" data-vk="${k}" min="${min}" max="${max}" step="${step}" value="${val(k)}" placeholder="—" style="width:86px"><span class="v mono">${u ?? 'm'}</span></div>`;
+    const planUI = v.plan ? `<div class="info" style="margin:4px 0">« ${String(v.plan.name).replace(/</g, '&lt;')} »${v.plan.calibrated ? '' : ' · <b>échelle à vérifier</b>'}${D ? '' : ' · <b>fichier du plan absent de ce poste : réimporte-le</b>'}</div><label class="chk"><input type="checkbox" data-vp="show2d" ${v.plan.show2d ? 'checked' : ''}> Afficher sur le plan technique</label><label class="chk"><input type="checkbox" data-vp="show3d" ${v.plan.show3d ? 'checked' : ''}> Afficher au sol dans la vue 3D</label>${v.plan.walls.length ? F('wallH', 'Hauteur des murs du plan', .2, 50, .1).replace('data-vk="wallH"', 'data-vp="wallH"').replace('value=""', `value="${v.plan.wallH}"`) : ''}<div class="btns" style="margin-top:6px"><button class="b" data-va="calib">Caler le plan…</button><button class="b" data-va="layers">Calques et murs…</button><button class="b" data-va="unplan">Retirer</button></div>` : '';
+    $('#venueUI').innerHTML = `<div class="row"><label>Nom</label><input type="text" class="inp" data-vk="name" value="${String(v.name).replace(/"/g, '&quot;')}" style="flex:1"></div>
+      <div class="btns" style="margin:6px 0"><button class="b" data-va="parc" title="Le matériel de cet environnement, avec ses quantités">Parc de matériel…</button><button class="b on" data-va="create" title="Dépose des plans (PDF, DWG, DXF, images), une fiche technique, des notes : l’environnement est construit d'après eux">Créer l’environnement depuis des plans…</button>${v.facts || v.questions ? '<button class="b" data-va="facts">Ce qui a été retenu</button>' : ''}</div>${planUI}
+      <h3>Emprise</h3>${F('w', 'Largeur', 4, 120, .5)}${F('d', 'Profondeur (du nez de scène au fond)', 3, 150, .5)}${F('h', 'Hauteur sous plafond', 2.5, 40, .1)}
+      <h3>Scène</h3>${F('stageW', 'Largeur du plateau', 2, 120, .5)}${F('stageD', 'Profondeur', 1, 60, .5)}${F('stageH', 'Hauteur du plateau', 0, 4, .05)}${F('prosW', 'Ouverture du cadre', 0, 120, .1)}${F('prosH', 'Hauteur du cadre', 0, 40, .1)}${F('cageH', 'Hauteur de la cage de scène', 0, 50, .1)}${F('gridH', 'Hauteur du gril', 0, 50, .1)}
+      <h3>Gradin</h3>${F('rows', 'Rangs', 0, 80, 1, '')}${v.rows ? F('rowStart', 'Début (depuis le nez de scène)', 0, 120, .1) + F('rowD', 'Profondeur d\'un rang', .4, 3, .05) + F('rowH', 'Hauteur d\'un rang', 0, 1.5, .01) : ''}
+      <h3>Fosse</h3>${F('pitD', 'Profondeur devant le nez de scène', 0, 20, .1)}${v.pitD ? F('pitY', 'Niveau (0 = plateau)', -8, 0, .05) : ''}
+      <h3>Perches</h3>${!pipes && v.noPipes ? '<div class="info" style="margin:4px 0">Aucune perche posée pour l\'instant.</div><div class="btns"><button class="b" data-va="pipes">Poser des perches…</button></div>' : pipes ? `<div class="info" style="margin:4px 0">${n} perche${n > 1 ? 's' : ''} posée${n > 1 ? 's' : ''} une à une.</div><div class="btns"><button class="b" data-va="pipes">Modifier les perches…</button></div>` : F('perches', 'Nombre', 1, MAXP, 1, '') + F('percheLen', 'Longueur', 2, 60, .5) + F('percheY', 'Hauteur de départ', 1, 40, .1) + '<div class="btns"><button class="b" data-va="pipes">Les poser une à une…</button></div>'}`;
+    if (!keepCam && camera === persp && v.open){ persp.position.set(-7, 7, 15); orbit.target.set(0, .5, -2); orbit.update(); } else if (!keepCam && camera === persp){ persp.position.set(v.w * .55, HM * 1.5 + 3, v.d * 1.05 + 4); orbit.target.set(0, 1.5, (v.d - v.stageD) * .25); orbit.update(); }
+  } else {
+    VEN.ych = YCH; VEN.pk = '';
+    floorMeshes.splice(0, floorMeshes.length, ...VEN.onexFloor);
+    PERCHES.forEach(Pq => { Pq.off = Pq.i >= 14; Pq.len = 16; Pq.x = 0; Pq.name = ''; Pq.c = 0; Pq.wllP = 0; Pq.wllPt = 0; Pq.grp.visible = !Pq.off; Pq.grp.position.x = 0; percheShape(Pq, null); if (Pq.off){ Pq.z = -99999; if (Pq.row) Pq.row.style.display = 'none'; return; } Pq.z = Pq.z0; Pq.grp.position.z = Pq.z0; if (Pq.row){ Pq.row.style.display = ''; Pq.inp.max = 8.8; percheLabel(Pq); } setPerche(Pq.i, Math.min(Pq.y, 8.8)); });
+    $('#flyP').max = 8.8; pickMeshes.splice(0, pickMeshes.length, ...VEN.shared.filter(pickOn), ...VEN.onexPick);
+    CURT.forEach(c => { c.m.scale.x = 1; c.m.position.x = c.mid; if (PERCHES[c.pi].off) c.pi = 13; c.m.position.z = PERCHES[c.pi].z + .06; }); curtUIBuild();
+    $('#side h1').textContent = VEN.h1; $('#side .sub').innerHTML = VEN.sub; $('#side .note').innerHTML = VEN.note;
+    if (wasParam && camera === persp){ persp.position.set(-14, 19, 30); orbit.target.set(0, 2, 6); orbit.update(); }
+  }
+  if (typeof SECT !== 'undefined') SECT.key = ''; notifyPerches(); syncCurtains();
+}
+const venueBounds = () => { const v = VEN.cur; return v.type === 'param' ? { hw: v.w / 2, z0: -(v.stageD + 1.5), z1: v.d, h: Math.max(v.h, v.cageH || 0), floor: Math.min(-v.stageH, v.pitD ? v.pitY : 0) } : { hw: 8.9, z0: -10, z1: 22, h: 9.3, floor: 0 }; };
+function setPerche(i, y){
+  const P = PERCHES[i]; P.y = y; P.grp.position.y = y;
+  const a = P.cab.geometry.attributes.position, xs = P.mxs && P.mxs.length ? P.mxs : [-6, -2, 2, 6].map(x0 => x0 * (P.len || 16) / 16), y0 = P.truss ? (P.sect || .29) + .34 : 0; for (let k = 0; k < 8; k++){ const x = xs[k] ?? 0, up = k < xs.length ? Math.max(y0, VEN.ych - y) : y0; a.setXYZ(2 * k, x, y0, 0); a.setXYZ(2 * k + 1, x, up, 0); } a.needsUpdate = true;
+  if (P.inp && document.activeElement !== P.inp) P.inp.value = y; if (P.lab) P.lab.textContent = fmt(y) + ' m';
+  for (const c of CURT) if (c.pi === i) c.m.scale.y = Math.max(.05, y - .06);
+}
+function notifyPerches(){ for (const f of APP.hooks.perche) f(); }
+function setCurtainPerche(slot, pi){ if (!PERCHES[pi]) return; if (PERCHES[pi].off) pi = PERCHES.filter(q => !q.off).length - 1; if (pi < 0) return; for (const c of CURT) if (c.slot === slot){ c.pi = pi; c.m.position.z = PERCHES[pi].z + .06; c.m.scale.y = Math.max(.05, PERCHES[pi].y - .06); }
+  const el = document.querySelector(`#curtUI [data-cs="${slot}"]`); if (el) el.value = pi; notifyPerches(); }
+function syncCurtains(){
+  const all = $('#fRid').checked;
+  for (const c of CURT) c.m.visible = all && groups.rideaux.visible && !PERCHES[c.pi].off && !(VEN.cur.curt && VEN.cur.curt[c.slot] < 0) && (c.kind === 'fond' ? $('#rFond').checked : $('#rPend').checked);
+  if (typeof CS !== 'undefined' && CS.slot >= 0){ const k = CS.slot; selectCurtain(-1); if (CURT.some(c => c.slot === k && c.m.visible)) selectCurtain(k); }
+}
+const percheDeltaAt = z => { let best = null; for (const P of PERCHES) if (Math.abs(P.z - z) < .2 && (!best || Math.abs(P.z - z) < Math.abs(best.z - z))) best = P; return best ? best.y - PERCHE_BASE : 0; };
+$('#flyP').oninput = e => { before('perches', 'Hauteur des perches'); const v = +e.target.value; PERCHES.forEach(P => setPerche(P.i, v)); $('#flyPv').textContent = fmt(v) + ' m'; notifyPerches(); };
+$('#rFond').onchange = $('#rPend').onchange = e => { e.target.checked = !e.target.checked; before(0, 'Rideaux'); e.target.checked = !e.target.checked; syncCurtains(); };
+
+// ---------- walking ----------
+const keys = {};
+let fly = false, vy = 0, eye = 1.65;
+$('#eye').oninput = e => { eye = +e.target.value; $('#eyev').textContent = fmt(eye) + ' m'; };
+addEventListener('keydown', e => {
+  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && e.target.type !== 'range' && e.target.type !== 'checkbox') return;
+  keys[e.code] = true;
+  if (mode === 'walk' && e.key.toLowerCase() === 'f'){ fly = !fly; vy = 0; }
+  if (e.code === 'Tab'){ e.preventDefault(); toggleSide(); }
+  if (e.key.toLowerCase() === 'l' && !e.ctrlKey && !e.metaKey && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) toggleConsole();
+});
+addEventListener('keyup', e => keys[e.code] = false);
+canvas.addEventListener('click', () => { if (mode === 'walk' && !plc.isLocked) { try { const r = plc.lock(); if (r && r.catch) r.catch(()=>{}); } catch(_){} } });
+plc.addEventListener('lock', () => $('#lockmsg').style.display = 'none');
+plc.addEventListener('unlock', () => { if (mode === 'walk') $('#lockmsg').style.display = 'flex'; });
+
+let drag = null; const eul = new THREE.Euler(0,0,0,'YXZ');
+canvas.addEventListener('pointerdown', e => { if (mode === 'walk' && !plc.isLocked) drag = { x: e.clientX, y: e.clientY }; });
+addEventListener('pointerup', () => drag = null);
+addEventListener('pointermove', e => {
+  if (!drag || plc.isLocked) return;
+  eul.setFromQuaternion(persp.quaternion);
+  eul.y -= (e.clientX - drag.x) * 0.004; eul.x -= (e.clientY - drag.y) * 0.004;
+  eul.x = Math.max(-1.5, Math.min(1.5, eul.x)); persp.quaternion.setFromEuler(eul);
+  drag = { x: e.clientX, y: e.clientY };
+});
+const ray = new THREE.Raycaster(); ray.firstHitOnly = true;
+const DOWN = new THREE.Vector3(0, -1, 0);
+function floorAt(x, y, z, maxUp = 0.55){
+  ray.set(new THREE.Vector3(x, y + maxUp, z), DOWN); ray.far = 40;
+  const hits = ray.intersectObjects(floorMeshes.filter(m => m.visible), false);
+  for (const h of hits){ if (isClipped(h.point)) continue; return h.point.y; }
+  return null;
+}
+function isClipped(p){ return p.y > clipY.constant || p.x > clipX.constant; }
+function snapToFloor(hard){
+  const p = persp.position;
+  const f = floorAt(p.x, p.y - eye, p.z, hard ? 1.2 : 0.55);
+  if (f !== null) p.y = f + eye;
+}
+const fwd = new THREE.Vector3(), right = new THREE.Vector3();
+function stepWalk(dt){
+  const speed = (keys.ShiftLeft || keys.ShiftRight ? 4.2 : 1.6) * (fly ? 2 : 1);
+  persp.getWorldDirection(fwd); if (!fly) { fwd.y = 0; } fwd.normalize();
+  right.crossVectors(fwd, persp.up).normalize();
+  let mx = 0, mz = 0;
+  if (keys.KeyW || keys.ArrowUp) mz += 1;
+  if (keys.KeyS || keys.ArrowDown) mz -= 1;
+  if (keys.KeyA || keys.ArrowLeft) mx -= 1;
+  if (keys.KeyD || keys.ArrowRight) mx += 1;
+  const p = persp.position;
+  const move = new THREE.Vector3().addScaledVector(fwd, mz).addScaledVector(right, mx);
+  if (move.lengthSq() > 0) move.normalize().multiplyScalar(speed * dt);
+  if (fly){
+    p.add(move);
+    if (keys.Space) p.y += speed * dt;
+    if (keys.KeyC || keys.ControlLeft) p.y -= speed * dt;
+    return;
+  }
+  const feet = p.y - eye;
+  if (move.lengthSq() > 0){
+    const nx = p.x + move.x, nz = p.z + move.z;
+    const f = floorAt(nx, feet, nz, 0.5);
+    if (f !== null && f - feet < 0.5){ p.x = nx; p.z = nz; }
+    else if (f === null){ p.x = nx; p.z = nz; }
+  }
+  p.x = Math.max(-8.6, Math.min(8.6, p.x)); p.z = Math.max(-11.3, Math.min(23.2, p.z));
+  const f = floorAt(p.x, p.y - eye, p.z, 0.5);
+  if (f !== null){
+    const target = f + eye;
+    if (p.y > target + 0.02){ vy -= 9.8 * dt; p.y = Math.max(target, p.y + vy * dt); }
+    else { vy = 0; p.y += (target - p.y) * Math.min(1, dt * 14); }
+  }
+}
+
+// ---------- presets ----------
+const PRESETS = {
+  ensemble: { label: 'Vue d’ensemble', mode: 'orbit', pos: [17, 27, 30], tgt: [0, 1, 5], cut: 9.0 },
+  plateau:  { label: 'Centre plateau', mode: 'walk', pos: [0, 0, -3], look: [0, 1.6, 15] },
+  nez:      { label: 'Nez de scène', mode: 'walk', pos: [0, 0, -0.5], look: [0, 2, 15] },
+  fosse:    { label: 'Fosse · rang 1', mode: 'walk', pos: [0.26, 0.5, 1.995], look: [0, 0.5, -6], seat: true },
+  rang1:    { label: 'Tribune · rang 1', mode: 'walk', pos: [0.27, 0.8, 8.52], look: [0, 1.2, -6], seat: true },
+  rangmil:  { label: 'Tribune · milieu', mode: 'walk', pos: [0.27, 2.2, 13.22], look: [0, 1.2, -6], seat: true },
+  fond:     { label: 'Dernier rang', mode: 'walk', pos: [0.27, 3.8, 18.86], look: [0, 1.2, -6], seat: true },
+  regie:    { label: 'Régie (balcon)', mode: 'walk', pos: [0, 4.6, 20.6], look: [0, 1.5, -6] },
+  gril:     { label: 'Passerelle', mode: 'walk', pos: [0, 7.2, 2.6], look: [0, 3, -8] },
+  porte:    { label: 'Entrée public', mode: 'walk', pos: [8.2, 0.2, 6.6], look: [0, 1.6, 0] },
+};
+function setPreset(id){
+  const p = PRESETS[id];
+  if (p.mode === 'orbit'){
+    setMode('orbit');
+    if (p.cut){ $('#cutY').value = p.cut; syncClip(); }
+    persp.position.set(...p.pos); orbit.target.set(...p.tgt); orbit.update(); return;
+  }
+  if (+$('#cutX').value < CUTX_MAX){ $('#cutX').value = CUTX_MAX; syncClip(); }
+  if (+$('#cutY').value < CUTY_MAX && id !== 'gril'){ $('#cutY').value = CUTY_MAX; syncClip(); }
+  if (id === 'gril' && +$('#cutY').value < 9){ $('#cutY').value = CUTY_MAX; syncClip(); }
+  if (['rang1','rangmil','fond'].includes(id) && TRIB.e < EMAX){ TRIB.anim = false; updateTribune(EMAX); }
+  if (id === 'fosse' && FOSSE.mode !== 'gradins'){ FOSSE.mode = $('#fosMode').value = 'gradins'; jumpFosse(); }
+  setMode('walk');
+  fly = !!p.fly; vy = 0;
+  const e = p.seat ? 0.8 : eye;
+  const f = floorAt(p.pos[0], p.pos[1], p.pos[2], 1.5);
+  persp.position.set(p.pos[0], (f ?? p.pos[1]) + e, p.pos[2]);
+  persp.lookAt(...p.look);
+  if (p.seat) seatedUntilMove = true;
+}
+let seatedUntilMove = false;
+const pb = $('#presets');
+for (const [id, p] of Object.entries(PRESETS)){
+  const b = document.createElement('button'); b.textContent = p.label; b.onclick = () => setPreset(id); pb.appendChild(b);
+}
+
+// ---------- double click teleport / measure ----------
+const mouse = new THREE.Vector2();
+function pick(ev){
+  mouse.set(((ev.clientX - VX()) / VW()) * 2 - 1, -(ev.clientY / VH()) * 2 + 1);
+  ray.setFromCamera(mouse, camera); ray.far = 500;
+  const hits = ray.intersectObjects(pickMeshes.filter(m => m.visible && m.userData.gid !== 'gril'), false).filter(h => !isClipped(h.point));
+  return hits[0];
+}
+function walkTo(ev){
+  if (mode === 'walk' || $('#measureOn').checked || (APP.busy && APP.busy(ev))) return;
+  const h = pick(ev); if (!h) return;
+  const look = camera === persp ? orbit.target.clone() : new THREE.Vector3(0, 1.6, -6);
+  setMode('walk');
+  const f = floorAt(h.point.x, h.point.y, h.point.z, 0.6);
+  const seat = h.object.userData.gid.startsWith('fauteuils');
+  persp.position.set(h.point.x, (f ?? h.point.y) + (seat ? 0.8 : eye), h.point.z);
+  if (seat) { persp.lookAt(h.point.x * .3, persp.position.y - .3, -6); seatedUntilMove = true; }
+  else persp.lookAt(look.x, persp.position.y, look.z === h.point.z ? look.z - 1 : look.z);
+}
+APP.walkTo = walkTo;
+let mA = null, mLine = null;
+canvas.addEventListener('click', ev => {
+  if (!$('#measureOn').checked || mode === 'walk') return;
+  const h = pick(ev); if (!h) return;
+  if (!mA || mLine?.userData.done){
+    mA = h.point.clone();
+    if (mLine){ scene.remove(mLine); }
+    mLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([mA, mA]), new THREE.LineBasicMaterial({ color: '#e2574c', depthTest: false }));
+    mLine.renderOrder = 9; scene.add(mLine);
+  } else {
+    mLine.geometry.setFromPoints([mA, h.point]); mLine.userData.done = true;
+    const d = mA.distanceTo(h.point), dy = Math.abs(h.point.y - mA.y);
+    measureLabel = { p: mA.clone().lerp(h.point, .5), t: `${fmt(d)} m  (Δh ${fmt(dy)} m)` };
+  }
+});
+let measureLabel = null;
+$('#measureOn').onchange = e => { if (!e.target.checked){ if (mLine) scene.remove(mLine); mLine = null; mA = null; measureLabel = null; $('#measure').style.display='none'; } };
+
+// ---------- HUD ----------
+function hud(){
+  const p = camera === persp ? persp.position : orthoCtl.target;
+  const feet = mode === 'walk' ? p.y - eye : p.y;
+  let zone;
+  if (VEN.cur.type === 'param') zone = p.z < 0 ? 'scène' : 'public';
+  else if (p.z < -10) zone = 'dégagement';
+  else if (p.z > 22) zone = 'cage d’escalier';
+  else if (feet > 6.5) zone = 'passerelles techniques';
+  else if (p.z > 19.2 && feet > 4) zone = 'balcon / régie';
+  else if (p.z < 0) zone = 'plateau';
+  else if (p.z > 0.2 && p.z < 5.95 && Math.abs(p.x) < 7.65) zone = 'fosse';
+  else zone = 'public';
+  $('#hud').innerHTML =
+    `<div><span>zone</span><span>${zone}${fly && mode==='walk' ? ' · vol' : ''}</span></div>` +
+    `<div><span>depuis nez de scène</span><span>${fmt(p.z,1)} m</span></div>` +
+    `<div><span>axe (cour + / jardin −)</span><span>${fmt(p.x,1)} m</span></div>` +
+    `<div><span>${mode==='walk' ? 'sol' : 'hauteur'}</span><span>${fmt(feet,2)} m</span></div>`;
+}
+
+// ---------- post-traitement ----------
+const composer = new EffectComposer(renderer);
+composer.setPixelRatio(PR);
+const renderPass = new RenderPass(scene, persp); composer.addPass(renderPass);
+const gtao = new GTAOPass(scene, persp, VW(), VH());
+gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.5, thickness: 1.5, scale: 1.2, samples: 16 });
+gtao.blendIntensity = 1;
+const _ov = gtao.overrideVisibility.bind(gtao);
+gtao.overrideVisibility = function(){ _ov(); scene.traverse(o => { if (o.userData.noAO) o.visible = false; }); };
+composer.addPass(gtao);
+const bloom = new UnrealBloomPass(new THREE.Vector2(VW(), VH()), 0.3, 0.5, 0.92); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const smaa = new SMAAPass(VW() * PR, VH() * PR); composer.addPass(smaa);
+let quality = 'haute';
+function setQuality(q){
+  quality = q;
+  const sh = q !== 'basse';
+  [...HOUSE, ...STAGE].forEach(l => l.castShadow = sh && l.userData.shadow);
+}
+$('#qual').onchange = e => setQuality(e.target.value);
+const cutting = () => +$('#cutY').value < CUTY_MAX || +$('#cutX').value < CUTX_MAX;
+function draw(){
+  if (document.body.classList.contains('planfull')) return;   // plan seul à l'écran : la vue 3D n'est pas calculée
+  if (quality === 'basse' || camera !== persp){ renderer.render(scene, camera); return; }
+  gtao.enabled = quality === 'haute' && !cutting();
+  composer.render();
+}
+
+// ---------- loop ----------
+function resize(){
+  renderer.setSize(VW(), VH(), false);
+  if (typeof composer !== 'undefined') composer.setSize(VW(), VH());
+  persp.aspect = VW() / VH(); persp.updateProjectionMatrix();
+  if (mode === 'top' || mode === 'side') fitOrtho(40);
+}
+addEventListener('resize', resize); resize();
+const clock = new THREE.Clock(); let hudT = 0; let fpsN = 0, fpsT = 0, fpsLow = 0, fpsSaid = false, fpsLast = performance.now();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  stepTribune(dt);
+  stepFosse(dt);
+  for (const f of APP.hooks.update) f(dt);
+  if (mode === 'orbit') orbit.update();
+  else if (mode === 'walk'){
+    const moving = keys.KeyW||keys.KeyS||keys.KeyA||keys.KeyD||keys.ArrowUp||keys.ArrowDown||keys.ArrowLeft||keys.ArrowRight;
+    if (moving) seatedUntilMove = false;
+    if (!seatedUntilMove) stepWalk(dt);
+  } else orthoCtl.update();
+  if (measureLabel){
+    const v = measureLabel.p.clone().project(camera);
+    const el = $('#measure'); el.style.display = 'block'; el.textContent = measureLabel.t;
+    el.style.left = ((v.x + 1) / 2 * VW()) + 'px'; el.style.top = ((1 - v.y) / 2 * VH()) + 'px';
+  }
+  draw();
+  if ((hudT += dt) > .15){ hudT = 0; hud(); }
+  // veille de fluidité : si l'affichage reste lent, on propose une fois d'alléger la qualité
+  { const nowT = performance.now(), rdt = (nowT - fpsLast) / 1000; fpsLast = nowT; if (quality !== 'basse' && !document.hidden && rdt < 1){ fpsN++; fpsT += rdt; } } if (fpsT > 5){ { const fps = fpsN / fpsT; fpsN = fpsT = 0; if (fps < 20 && ++fpsLow >= 2 && !fpsSaid && window.STAGE){ fpsSaid = true; window.STAGE.toast?.(`Affichage à ${Math.round(fps)} images/s. Pour plus de fluidité : menu Affichage → Qualité ${quality === 'haute' ? 'moyenne' : 'basse'}.`, true); } else if (fps >= 20) fpsLow = 0; } }
+});
+// ---------------------------------------------------------------- rideaux et pendrillons sélectionnables dans la vue
+const CS = window.__cs = { slot: -1, helpers: [], drag: null }, CNAMES = ['Rideau de fond', 'Pendrillons 1', 'Pendrillons 2', 'Pendrillons 3'], rayC = new THREE.Raycaster(), cpanel = document.createElement('div');
+cpanel.id = 'curtSel'; cpanel.style.display = 'none'; document.body.appendChild(cpanel);
+const curtRay = ev => { const r = canvas.getBoundingClientRect(); rayC.setFromCamera(new THREE.Vector2((ev.clientX - r.left) / r.width * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1), APP.camera); };
+function pickCurtain(ev){ curtRay(ev); const h = rayC.intersectObjects(CURT.filter(c => c.m.visible).map(c => c.m), false).find(x => !isClipped(x.point)); return h ? { slot: CURT.find(c => c.m === h.object).slot, d: h.distance, point: h.point } : null; }
+function curtPanel(){ if (CS.slot < 0){ cpanel.style.display = 'none'; return; } const pi = CURT.find(c => c.slot === CS.slot).pi; cpanel.style.display = 'flex';
+  cpanel.innerHTML = `<b>${CNAMES[CS.slot]}</b><button class="b" data-cm="-1" title="Une perche vers le lointain">◀ lointain</button><select>${PERCHES.map((P, i) => P.off ? '' : `<option value="${i}"${i === pi ? ' selected' : ''}>P${i + 1} (${fmt(-P.z, 1)} m)</option>`).join('')}</select><button class="b" data-cm="1" title="Une perche vers la face">face ▶</button><span>ou glisse-le dans la vue</span><a data-cx title="Désélectionner">✕</a>`; }
+function selectCurtain(slot){ if (slot === CS.slot && slot < 0) return; CS.slot = slot; for (const h of CS.helpers){ scene.remove(h); h.geometry.dispose(); } CS.helpers = [];
+  if (slot >= 0) for (const c of CURT) if (c.slot === slot && c.m.visible){ const h = new THREE.BoxHelper(c.m, 0x2affd0); h.material.depthTest = false; h.renderOrder = 9; scene.add(h); CS.helpers.push(h); }
+  curtPanel(); }
+function curtMove(slot, pi, label){ const c = CURT.find(q => q.slot === slot); if (!c || !PERCHES[pi] || c.pi === pi) return false; if (label) before(0, label); setCurtainPerche(slot, pi); return true; }
+APP.hooks.perche.push(() => { if (CS.slot < 0) return; for (const h of CS.helpers) h.update(); if (document.activeElement?.parentElement !== cpanel) curtPanel(); });
+cpanel.addEventListener('click', e => { if (e.target.closest('[data-cx]')) return selectCurtain(-1); const b = e.target.closest('[data-cm]'); if (!b) return; const ord = PERCHES.map((P, i) => i).filter(i => !PERCHES[i].off).sort((x, y) => PERCHES[x].z - PERCHES[y].z), k = ord.indexOf(CURT.find(c => c.slot === CS.slot).pi) + +b.dataset.cm; if (ord[k] !== undefined) curtMove(CS.slot, ord[k], 'Déplacer ' + CNAMES[CS.slot].toLowerCase()); });
+cpanel.addEventListener('change', e => { if (e.target.tagName === 'SELECT'){ curtMove(CS.slot, +e.target.value, 'Déplacer ' + CNAMES[CS.slot].toLowerCase()); e.target.blur(); } });
+canvas.addEventListener('pointerdown', e => { if (CS.slot < 0 || e.button !== 0 || mode === 'walk') return; const h = pickCurtain(e); if (!h || h.slot !== CS.slot) return;
+  CS.drag = { pt: h.point.clone(), moved: false, o: orbit.enabled, oc: orthoCtl.enabled }; orbit.enabled = orthoCtl.enabled = false; canvas.style.cursor = 'grabbing'; }, true);
+addEventListener('pointermove', e => { const d = CS.drag; if (!d) return; const r = canvas.getBoundingClientRect(), v = new THREE.Vector3(); let b = -1, bd = 1e9;          // la perche dont la position à l'écran est la plus proche du pointeur
+  PERCHES.forEach((P, i) => { v.set(d.pt.x, d.pt.y, P.z).project(APP.camera); if (v.z > 1) return; const dd = Math.hypot(r.left + (v.x + 1) / 2 * r.width - e.clientX, r.top + (1 - v.y) / 2 * r.height - e.clientY); if (dd < bd){ bd = dd; b = i; } });
+  if (b >= 0 && curtMove(CS.slot, b, d.moved ? null : 'Déplacer ' + CNAMES[CS.slot].toLowerCase())) d.moved = true; });
+addEventListener('pointerup', () => { const d = CS.drag; if (!d) return; CS.drag = null; orbit.enabled = d.o; orthoCtl.enabled = d.oc; canvas.style.cursor = ''; });
+addEventListener('keydown', e => { if (e.key === 'Escape' && CS.slot >= 0) selectCurtain(-1); });
+Object.assign(APP, { VOPEN, pickCurtain, selectCurtain, curtSel: () => CS.slot });
+// Coupe : points d'intersection du bâti avec le plan vertical x = cste (rayons verticaux et horizontaux), pour le plan technique
+const SECT = { key: '', pts: null };
+function sectionPoints(x = .35){
+  const key = x + JSON.stringify(APP.roomState()) + pickMeshes.length + JSON.stringify(VEN.cur), VB = venueBounds(); if (SECT.key === key && SECT.pts) return SECT.pts;
+  const skip = new Set(['rideaux', 'perches', 'mobilier', 'fauteuils', 'fauteuils_fosse']), vis = m => { for (let o = m; o; o = o.parent) if (!o.visible) return false; return true; };
+  const list = pickMeshes.filter(m => !skip.has(m.userData.gid) && !m.isInstancedMesh && vis(m)), rr = new THREE.Raycaster(), o = new THREE.Vector3(), out = []; rr.firstHitOnly = false;
+  const dn = new THREE.Vector3(0, -1, 0), fw = new THREE.Vector3(0, 0, 1);
+  for (let z = VB.z0 - 2.6; z <= VB.z1 + 2.6; z += .06){ rr.set(o.set(x, VB.h + 7, z), dn); rr.far = VB.h + 13; for (const h of rr.intersectObjects(list, false)) out.push(z, h.point.y); }
+  for (let y = -4; y <= VB.h + 5; y += .06){ rr.set(o.set(x, y, VB.z0 - 3), fw); rr.far = VB.z1 - VB.z0 + 6; for (const h of rr.intersectObjects(list, false)) out.push(h.point.z, y); }
+  SECT.key = key; return SECT.pts = new Float32Array(out);
+}
+APP.sectionPoints = sectionPoints; Object.assign(APP, { setVenue, venueBounds, VDEF, percheLen: i => (VEN.cur.type !== 'param' ? 16 : PERCHES[i] && !PERCHES[i].off ? PERCHES[i].len : VEN.cur.percheLen), percheX: i => (PERCHES[i] && !PERCHES[i].off ? PERCHES[i].x || 0 : 0), PLANS, setPlanData, planXf, planPaint, planBounds, planLayers, venueNorm, MAXP }); Object.defineProperty(APP, 'venue', { get: () => VEN.cur });
+// gros bouton du mode spectacle, toujours visible
+{ const lb = $('#liveBtn'); lb.onclick = () => window.STAGE && window.STAGE.setLive(!APP.live); setInterval(() => { if (lb.classList.contains('on') !== !!APP.live){ lb.classList.toggle('on', !!APP.live); lb.querySelector('span').textContent = APP.live ? 'SPECTACLE' : 'Mode spectacle'; lb.title = APP.live ? 'Mode spectacle actif : cliquer pour revenir à la lumière de service' : 'Passer en mode spectacle : éteint la lumière de service, allume projecteurs et vidéo'; } }, 150); }
+setMode('orbit');
+setAmb('service');
+// version installée : la fenêtre prend toute la zone utile de l'écran (elle s'ouvrait à une taille fixe, parfois plus grande que l'écran)
+if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)){ const fit = () => { try { const s = screen, W = s.availWidth, H = s.availHeight; if (outerWidth > W + 8 || outerHeight > H + 8 || outerWidth < W * .8 || screenX < (s.availLeft || 0) - 8 || screenY < (s.availTop || 0) - 8){ moveTo(s.availLeft || 0, s.availTop || 0); resizeTo(W, H); } } catch (e){} }; fit(); setTimeout(fit, 600); }
+Object.assign(APP, { THREE, scene, renderer, canvas, persp, ortho, orbit, orthoCtl, groups, pickMeshes, floorMeshes, clips, $, fmt, ease, clamp01, store,
+  floorAt, isClipped, applyAmb, setConfig, toggleConsole, texRep, prepGeo, HOUSE, STAGE,
+  setMode, setPreset, userConfig, syncCurtains, consoleModel, notifyPerches, setCurtainPerche, resize: () => resize(), toggleSide, toggleHelp, setQuality, CONFIGS, before,
+  roomState: () => ({ cfg: cfgId, e: TRIB.anim ? TRIB.target : TRIB.e, front: TRIB.front, fosse: FOSSE.mode, stRear: FOSSE.stRear, stFront: FOSSE.stFront, regie: FOSSE.regie,
+    tables: $('#fTables').checked, dj: $('#fDj').checked, rid: $('#fRid').checked, rFond: $('#rFond').checked, rPend: $('#rPend').checked, perches: PERCHES.filter(P => !P.off).map(P => P.y), curt: [0, 1, 2, 3].map(k => CURT.find(c => c.slot === k).pi) }),
+  setRoomState: s => { if (!s) return;
+    if (s.cfg && CONFIGS[s.cfg]) setConfig(s.cfg, true); else customConfig();
+    $('#frontRow').checked = TRIB.front = !!s.front; $('#fosMode').value = FOSSE.mode = s.fosse || 'gradins';
+    $('#stRear').checked = FOSSE.stRear = !!s.stRear; $('#stFront').checked = FOSSE.stFront = !!s.stFront; $('#pitRegie').checked = FOSSE.regie = !!s.regie;
+    $('#fTables').checked = !!s.tables; $('#fDj').checked = !!s.dj; $('#fRid').checked = !!s.rid; $('#rFond').checked = s.rFond !== false; $('#rPend').checked = s.rPend !== false; syncFurniture();
+    TRIB.anim = false; updateTribune(s.e ?? 0); jumpFosse();
+    (s.perches || []).forEach((y, i) => { if (PERCHES[i]) setPerche(i, y); }); (s.curt || [7, 9, 11, 13]).forEach((pi, k) => setCurtainPerche(k, pi)); notifyPerches(); syncCurtains(); },
+  snapshot: () => { draw(); return canvas.toDataURL('image/png'); },
+  planState: () => ({ W: 8.9, Z0: -10, Z1: 22, cfg: cfgId ? CONFIGS[cfgId].label : 'Personnalisée', TW, AX, DEPTH,
+    rows: TRIB.rows.map(r => ({ z: r.z, dep: r.dep, n: r.n, x0: r.x0, h: r.h })), front: TRIB.frontOn ? TRIB.frontZ : null, tseats: TRIB.nseats,
+    fosse: { x: FXW, z0: FZ0, z1: FZ1, mode: FOSSE.mode, c: FOSSE.c, zones: FOSSE.zones.map(z => ({ z0: z.z0, z1: z.z1, h: z.h })), seats: FOSSE.seatK > .5 ? FOSSE.seats : [],
+      stRear: FOSSE.stRear && FOSSE.zones[4].h < -.2 ? Math.ceil(-FOSSE.zones[4].h / .18) - 1 : 0, stFront: FOSSE.stFront && FOSSE.zones[0].h < -.2 ? Math.ceil(-FOSSE.zones[0].h / .18) - 1 : 0, regie: FOSSE.regieP && FOSSE.regieP.visible },
+    param: VEN.cur.type === 'param' ? { ...VEN.cur } : null, ...(VEN.cur.type === 'param' ? { W: VEN.cur.w / 2, Z0: -(VEN.cur.stageD + 1.5), Z1: VEN.cur.d, cfg: VEN.cur.name } : {}),
+    perches: PERCHES.filter(P => !P.off).map(P => ({ z: P.z, y: P.y, len: P.len, x: P.x || 0, name: P.name || '', c: P.c || 0, truss: !!P.truss, sect: P.sect || 0, mxs: P.mxs || null, wllP: P.wllP || 0, wllPt: P.wllPt || 0 })), curtains: CURT.filter(c => c.m.visible).map(c => ({ x0: c.x0 * c.m.scale.x, x1: c.x1 * c.m.scale.x, z: PERCHES[c.pi].z, kind: c.kind })),
+    tables: FURN.tables && FURN.tables.visible ? FURN.T : [], dj: !!(FURN.dj && FURN.dj.visible), balcon: SEATPOS_B }),
+  percheDeltaAt, PERCHES, setPerche, simulate: (t, dt = .05) => { for (let k = 0; k < t / dt; k++){ stepTribune(dt); stepFosse(dt); } } });
+for (const [k, f] of Object.entries({ camera: () => camera, mode: () => mode, quality: () => quality, percheDelta: () => 0,
+  config: () => cfgId, measuring: () => $('#measureOn').checked })) Object.defineProperty(APP, k, { get: f });
+load().then(() => { venueInit(); return import('./stage.js'); }).then(m => m.init(APP))
+  .catch(err => { console.error(err); $('#loader').style.display = 'flex'; $('#lt').textContent = 'Erreur de chargement : ' + err.message; });
+</script>
+</body>
+</html>

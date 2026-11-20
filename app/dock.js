@@ -1,0 +1,121 @@
+// Disposition à la ScenoFactory : rail d'outils, panneaux ancrés à gauche ou à droite, plan et vue 3D côte à côte dans l'ordre voulu.
+// Chaque panneau (outils, Atelier, Environnement) et le plan technique peuvent passer d'un côté à l'autre ; le choix est retenu sur ce poste.
+export function initDock(A, ST){
+  const $ = s => document.querySelector(s), root = document.documentElement, UI = ST.UI;
+  const D = { rail: 'left', atelier: 'right', env: 'left', plan: 'left', dom: 'lum', ...A.store.get('dock', {}) }, save = () => A.store.set('dock', D);
+  const css = document.createElement('style'); css.textContent = `
+  #c,#labels{left:var(--vx,0px)!important}
+  #hud,#help,#aiPanel,#ledPanel{right:calc(var(--vr,0px) + 12px)!important} #curtSel{left:calc(var(--vx,0px) + var(--vw,100vw) / 2)!important}
+  #side.hide:not(.fl),#console.hide:not(.fl){display:none!important;transform:none!important}
+  #side:not(.fl),#console:not(.fl){top:46px!important;bottom:30px!important;transition:none!important} #planWin:not(.fl){top:46px!important;bottom:30px!important;right:auto!important}
+  #rail{position:fixed;top:46px;bottom:30px;width:44px;z-index:6;background:var(--panel);border:1px solid var(--line);border-radius:6px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;overflow:hidden auto;scrollbar-width:none}
+  #rail button{all:unset;cursor:pointer;width:34px;height:34px;border-radius:6px;display:grid;place-items:center;color:var(--mute);flex:none} #rail button:hover{background:var(--raised);color:var(--ink)}
+  #rail button.on{background:var(--accsoft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)} #rail hr{width:26px;border:0;border-top:1px solid var(--line);margin:4px 0;flex:none} #rail .grow{flex:1}
+  #rail svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  #doms{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-left:10px;flex:none} #doms button{all:unset;cursor:pointer;padding:5px 11px;color:var(--mute);font-weight:500;border-radius:0!important;border-right:1px solid var(--line)} #doms button:last-child{border-right:0}
+  #doms button:hover{color:var(--ink)} #doms button.on{background:var(--accsoft)!important;color:var(--accent)!important;box-shadow:inset 0 0 0 1px var(--accent)!important}
+  .dockSw{all:unset;cursor:pointer;color:var(--mute);padding:2px 6px;border-radius:4px;font-size:13px} .dockSw:hover{color:var(--ink);background:var(--raised)}
+  #toolHint{position:fixed;top:46px;height:24px;z-index:4;display:flex;align-items:center;gap:8px;padding:0 10px;font-size:12px;color:var(--mute);pointer-events:none;white-space:nowrap;overflow:hidden} #toolHint b{color:var(--ink);font-weight:600}
+  #vwBtn{left:calc(var(--vx,0px) + 12px)!important} #vwPop{left:calc(var(--vx,0px) + 12px)!important}
+  #top{gap:2px} #top button.nav{margin-left:4px;padding:6px 10px} #top #liveBtn{margin-left:8px;padding:6px 10px} #top .mn{padding:6px 8px}
+  #side > .dockSwW{margin-right:0}
+  body.cine #rail,body.cine #toolHint{display:none!important}
+  body.desk #rail{bottom:calc(var(--dh,310px) + 32px)!important} body.desk #console,body.desk #side{bottom:calc(var(--dh,310px) + 32px)!important}
+  @media(max-width:1560px){#top .mn{padding:6px 4px!important} #top .sep{display:none} #top{padding:4px 5px!important} #doms{margin-left:4px} #doms button{padding:5px 7px} #top button.nav{margin-left:2px!important;padding:6px 7px!important} #top #liveBtn{margin-left:4px!important;padding:6px 8px!important} #brand{margin-right:2px}}
+  @media(max-width:1330px){#top #liveBtn span{display:none}}
+  body.planfull #c,body.planfull #labels,body.planfull #hud,body.planfull #planGrip,body.planfull #vwBtn,body.planfull #toolHint,body.planfull #curtSel{visibility:hidden!important}
+  #planWin .ph{overflow-x:auto!important;scrollbar-width:none}`; document.head.appendChild(css);
+
+  // ---------------------------------------------------------------- métiers et outils
+  const I = { sel: '<path d="M5 3l13 9-6 1.5L9.5 20z"/>', box: '<rect x="4" y="5" width="16" height="14" rx="1" stroke-dasharray="3 2.5"/>', dim: '<path d="M3 12h18M3 8v8M21 8v8M7 10l-3 2 3 2M17 10l3 2-3 2"/>', lamp: '<path d="M8 4h8l2 7H6zM9 11v3a3 3 0 006 0v-3M12 17v3"/>', pipe: '<path d="M3 12h18M6 9v6M18 9v6"/>',
+    truss: '<path d="M3 8h18M3 16h18M3 8l4.5 8 4.5-8 4.5 8L21 8"/>', struct: '<path d="M4 21V6h16v15M4 10h16M7 6v4M17 6v4M2 21h5M17 21h5"/>', kg: '<path d="M7 9h10l3 11H4zM10 9a2 2 0 114 0"/><path d="M9.5 16.5l2-3 2 3M11.5 13.5v4"/>', hoist: '<path d="M12 3v7M8 10h8l-1 5H9zM12 15v3a2 2 0 104 0"/>', screen: '<rect x="3" y="5" width="18" height="11" rx="1"/><path d="M12 16v4M8 20h8"/>', led: '<rect x="3" y="5" width="18" height="14"/><path d="M9 5v14M15 5v14M3 12h18"/>', vp: '<rect x="3" y="8" width="14" height="9" rx="1.5"/><circle cx="8" cy="12.5" r="2.4"/><path d="M17 11l4-2v7l-4-2"/>',
+    spk: '<rect x="6" y="3" width="12" height="18" rx="1.5"/><circle cx="12" cy="15" r="3"/><circle cx="12" cy="7.5" r="1.3"/>', deck: '<path d="M3 9l9-4 9 4-9 4zM3 9v4l9 4 9-4V9M12 13v4"/>', stage: '<path d="M3 15h18v4H3zM6 15V9h12v6M6 9l6-4 6 4"/>', curt: '<path d="M4 4h16M6 4c0 6-1 11-1 16M10 4c0 6 1 11 0 16M14 4c0 6-1 11 0 16M18 4c0 6 1 11 1 16"/>', prop: '<path d="M7 20v-7M17 20v-7M5 13h14M7 13V5h10v8"/>',
+    stair: '<path d="M4 19h4v-4h4v-4h4V7h4"/>', aim: '<circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/>', fit: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>', env: '<path d="M3 20V9l9-5 9 5v11M9 20v-6h6v6"/>', lib: '<path d="M4 5h6v14H4zM12 5h4v14h-4zM18 6l2 .5-2.5 12.5-2-.5"/>' };
+  const svg = k => `<svg viewBox="0 0 24 24">${I[k]}</svg>`;
+  const first = cat => (ST.LIBALL().find(t => t.cat === cat) || {}).id;
+  const arm = (id, cat, serie) => { window.PONTS?.tool(false); if (!id) return; UI.placing = UI.placing === id ? null : id; UI.aiming = false; UI.tab = 'lib'; UI.libCat = cat; if (serie && UI.serie < 2) UI.serie = 1; A.toggleConsole(true); ST.render(); };
+  const T = {
+    sel: { ic: 'sel', l: 'Sélection', h: 'Clic pour choisir, glisser pour déplacer : près d\'une perche ou d\'un pont, l\'appareil s\'y accroche (Alt : sans aimant). Maj pour ajouter. Double-clic : réglages.', run: () => { window.PONTS?.tool(false); window.PUB?.tool?.(null); UI.placing = null; UI.aiming = false; if (window.PLAN) PLAN.P.tool = 'pan'; $('#planTool')?.classList.remove('on'); ST.render(); }, on: () => !UI.placing && !UI.aiming && !A.measuring && !(window.PLAN && PLAN.P.tool === 'box') && !(window.PONTS && PONTS.tl) && !(window.PUB && PUB.tl) },
+    box: { ic: 'box', l: 'Sélection par rectangle (plan technique)', h: 'Trace un rectangle sur le plan technique : tout ce qu\'il contient est sélectionné.', run: () => { UI.placing = null; if (window.PLAN){ if (!PLAN.P.on) PLAN.toggle(true); PLAN.P.tool = PLAN.P.tool === 'box' ? 'pan' : 'box'; $('#planTool')?.classList.toggle('on', PLAN.P.tool === 'box'); } ST.render(); }, on: () => !!(window.PLAN && PLAN.P.tool === 'box') },
+    dim: { ic: 'dim', l: 'Mesurer dans la vue 3D', h: 'Deux clics dans la vue 3D donnent la distance.', run: () => { const c = $('#measureOn'); if (c){ c.checked = !c.checked; c.dispatchEvent(new Event('change', { bubbles: true })); } }, on: () => !!A.measuring },
+    aim: { ic: 'aim', l: 'Viser un point', h: 'Sélectionne des projecteurs, puis clique le point à viser.', run: () => ST.runAct('aim'), on: () => !!UI.aiming },
+    lamp: { ic: 'lamp', l: 'Projecteur', h: 'Choisis un projecteur dans la bibliothèque, puis clique pour le poser. Tire une ligne pour en poser plusieurs au même écartement.', run: () => arm(UI.lastLum && ST.LIBALL().some(t => t.id === UI.lastLum) ? UI.lastLum : first('lum'), 'lum', true), on: () => placing('lum') },
+    pipe: { ic: 'pipe', l: 'Perche', h: 'Ouvre la liste des perches : ajoute une perche, règle sa longueur, sa hauteur et sa charge.', run: () => window.VENUE?.ui('pipes') },
+    truss: { ic: 'truss', l: 'Pont', h: 'Clique un bout, puis l\'autre, ou tape la longueur : le pont est découpé en éléments du fabricant, avec le moins de pièces possible. Il reprend les points d\'accroche déjà posés dessous.', run: () => { UI.placing = null; if (window.PLAN && !PLAN.P.on) PLAN.toggle(true); window.PONTS?.tool(PONTS.tl && PONTS.tl.k !== 'point' ? false : 'truss'); }, on: () => !!(window.PONTS && PONTS.tl && PONTS.tl.k !== 'point') },
+    hpt: { ic: 'hoist', l: 'Point d\'accroche, moteur', h: 'Pose d\'abord tes points : moteurs ou points fixes, un par un ou en grille. Un pont tracé dessous les reprend.', run: () => { UI.placing = null; if (window.PLAN && !PLAN.P.on) PLAN.toggle(true); window.PONTS?.tool(PONTS.tl && PONTS.tl.k === 'point' ? false : 'point'); }, on: () => !!(window.PONTS && PONTS.tl && PONTS.tl.k === 'point') },
+    struct: { ic: 'struct', l: 'Structure toute faite…', h: 'Portique, gril sur quatre tours, pont suspendu, ligne de totems : posés d\'un coup.', run: () => window.PONTS?.structOpen() },
+    cote: { ic: 'dim', l: 'Cote', h: 'Deux clics sur le plan pour les deux points, un troisième pour écarter la ligne de cote. Clic droit : retirer une cote.', run: () => window.PUB?.tool(PUB.tl ? null : 'dim'), on: () => !!(window.PUB && PUB.tl) },
+    larr: { ic: 'spk', l: 'Line array…', h: 'Boîtes, angles, poids, point d\'accroche et visée en coupe, d\'après les données publiées par le fabricant.', run: () => window.LARRAY?.open() },
+    rigp: { ic: 'kg', l: 'Rigging et charges', h: 'Ce que reprend chaque point, les vérifications, la nomenclature.', run: () => window.DRAWER?.open('rig') },
+    screen: { ic: 'screen', l: 'Écran', h: 'Clique pour poser un écran de projection ; largeur et hauteur dans ses réglages.', run: () => arm('ecran', 'str'), on: () => UI.placing === 'ecran' },
+    led: { ic: 'led', l: 'Mur LED', h: 'Clique pour poser un mur LED, puis configure dalles et pas de pixel.', run: () => arm('mur-led', 'str'), on: () => UI.placing === 'mur-led' },
+    vp: { ic: 'vp', l: 'Vidéoprojecteur', h: 'Choisis un vidéoprojecteur dans la bibliothèque, puis clique pour le poser.', run: () => arm(first('vid'), 'vid'), on: () => placing('vid') },
+    spk: { ic: 'spk', l: 'Enceinte', h: 'Choisis une enceinte dans la bibliothèque, puis clique pour la poser. Tire une ligne pour une série.', run: () => arm(first('son'), 'son', true), on: () => placing('son') },
+    deck: { ic: 'deck', l: 'Praticable', h: 'Trace un rectangle : il se remplit de praticables. Un clic pose le bloc colonnes × rangées.', run: () => arm('prat', 'str'), on: () => UI.placing === 'prat' },
+    stage: { ic: 'stage', l: 'Scène en praticables…', h: 'Largeur, profondeur, hauteur, jupe, garde-corps, escalier : la scène est posée d\'un coup.', run: () => ST.runAct('scene') },
+    stair: { ic: 'stair', l: 'Escalier', h: 'Clique contre le bord de la scène pour poser un escalier.', run: () => arm('escalier', 'str'), on: () => UI.placing === 'escalier' },
+    curt: { ic: 'curt', l: 'Rideau ou pendrillon', h: 'Clique pour poser un rideau ; largeur et hauteur dans ses réglages.', run: () => arm('rideau-n', 'str'), on: () => UI.placing === 'rideau-n' },
+    prop: { ic: 'prop', l: 'Décor, mobilier, instruments', h: 'Choisis un élément dans la bibliothèque (onglet Décor) : mobilier, instruments, décor, tissus, personnages. Puis clique pour le poser.', run: () => { window.PONTS?.tool(false); UI.placing = null; UI.libCat = 'dec'; window.DRAWER ? DRAWER.open('lib') : (UI.tab = 'lib', A.toggleConsole(true)); ST.render(); } },
+    lib: { ic: 'lib', l: 'Bibliothèque', h: '', run: () => { UI.tab = 'lib'; A.toggleConsole(true); ST.render(); } },
+    env: { ic: 'env', l: 'Environnement : murs, plateau, perches, plans', h: '', run: () => A.toggleSide(), on: () => !$('#side').classList.contains('hide') },
+    fit: { ic: 'fit', l: 'Ajuster le plan à la fenêtre', h: '', run: () => { window.PLAN?.fit(); window.PLAN?.draw(); } },
+  };
+  const placing = cat => { const t = UI.placing && ST.LIBALL().concat(ST.S.lib).find(x => x.id === UI.placing); return !!t && t.cat === cat; };
+  const DOMS = [['lum', 'Lumière', ['sel', 'box', '-', 'lamp', 'pipe', 'aim']], ['rig', 'Rigging', ['sel', 'box', '-', 'hpt', 'truss', 'struct', 'pipe', '-', 'rigp']], ['vid', 'Vidéo', ['sel', 'box', '-', 'screen', 'led', 'vp']], ['son', 'Son', ['sel', 'box', '-', 'spk', 'larr']], ['sce', 'Scène', ['sel', 'box', '-', 'deck', 'stage', 'stair', 'curt', 'prop']]];
+  const LIBCAT = { lum: 'lum', rig: 'str', vid: 'vid', son: 'son', sce: 'str' };
+  const rail = document.createElement('div'); rail.id = 'rail'; document.body.appendChild(rail);
+  const hint = document.createElement('div'); hint.id = 'toolHint'; document.body.appendChild(hint);
+  const doms = document.createElement('span'); doms.id = 'doms'; doms.innerHTML = DOMS.map(([k, l]) => `<button data-dom="${k}" title="Outils et bibliothèque : ${l}">${l}</button>`).join(''); $('#menus').after(doms);
+  doms.addEventListener('click', e => { const b = e.target.closest('[data-dom]'); if (!b) return; D.dom = b.dataset.dom; save(); UI.placing = null; UI.libCat = LIBCAT[D.dom]; ST.render(); build(); });
+  function build(){ const d = DOMS.find(x => x[0] === D.dom) || DOMS[0];
+    rail.innerHTML = d[2].map(k => k === '-' ? '<hr>' : `<button data-t="${k}" title="${T[k].l}">${svg(T[k].ic)}</button>`).join('') + `<hr><button data-t="cote" title="${T.cote.l}">${svg('dim')}</button><button data-t="fit" title="${T.fit.l}">${svg('fit')}</button><span class="grow"></span><button data-t="lib" title="${T.lib.l}">${svg('lib')}</button><button data-t="env" title="${T.env.l}">${svg('env')}</button><button data-sw="rail" title="Passer les outils de l'autre côté" class="dockSw">⇄</button>`;
+    doms.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.dom === D.dom)); sync(); }
+  // trois vues exclusives, comme dans ScenoFactory : 3D seule, plan et 3D côte à côte, plan seul
+  function view(v){ const PL = window.PLAN; if (!PL) return; D.pfull = v === 'plan'; save(); if ((v !== '3d') !== PL.P.on) PL.toggle(v !== '3d'); else layout(); PL.P.fitted = false; requestAnimationFrame(() => { PL.size?.(); if (v !== '3d'){ PL.fit(); PL.draw(); } }); sync(); }
+  $('#planBtn').onclick = () => view('split'); $('#planOnly').onclick = () => view('plan'); $('#view3d').addEventListener('click', () => view('3d'));
+  addEventListener('keydown', e => { if (e.key === 'P' && e.shiftKey && !e.ctrlKey && !e.metaKey && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){ e.stopImmediatePropagation(); view(document.body.classList.contains('planfull') ? 'split' : 'plan'); } }, true);
+  let last = '';
+  function sync(){ { const on = !!(window.PLAN && PLAN.P.on), fl = win.classList.contains('fl'); $('#view3d').classList.toggle('on', !on || fl); $('#planBtn').classList.toggle('on', on && !D.pfull); $('#planOnly').classList.toggle('on', on && !!D.pfull && !fl); } let cur = 'sel'; rail.querySelectorAll('[data-t]').forEach(b => { const t = T[b.dataset.t], on = t.on ? !!t.on() : false; b.classList.toggle('on', on); if (on && b.dataset.t !== 'env') cur = b.dataset.t; });
+    const lum = UI.placing && placing('lum'); if (lum) UI.lastLum = UI.placing;
+    const h = `<b>${T[cur].l}</b><span>${T[cur].h}</span>`; if (h !== last){ last = h; hint.innerHTML = h; } }
+  rail.addEventListener('click', e => { const s = e.target.closest('[data-sw]'); if (s) return swap(s.dataset.sw); const b = e.target.closest('[data-t]'); if (!b) return; T[b.dataset.t].run(); sync(); layout(); });
+  setInterval(sync, 250);
+
+  // ---------------------------------------------------------------- ancrage : chaque panneau à gauche ou à droite
+  const side = $('#side'), con = $('#console'), win = $('#planWin'), grip = $('#conGrip');
+  function swap(k){ D[k] = D[k] === 'left' ? 'right' : 'left'; save(); layout(); window.PLAN?.draw(); ST.toast({ rail: 'Outils', atelier: 'Inspecteur', env: 'Environnement', plan: 'Plan technique' }[k] + ' : à ' + (D[k] === 'left' ? 'gauche' : 'droite') + '.'); }
+  function layout(){
+    const b = document.body, W = innerWidth, P = window.PLAN && PLAN.P; if (b.classList.contains('cine') || b.classList.contains('ext3d')) return;
+    const cw = parseFloat(getComputedStyle(root).getPropertyValue('--cw')) || 340, conOn = b.classList.contains('con') && !con.classList.contains('fl') && !con.classList.contains('hide'), sideOn = !side.classList.contains('hide') && !side.classList.contains('fl');
+    let L = 6, R = 6; const put = (el, where, w) => { el.style.left = where === 'left' ? L + 'px' : 'auto'; el.style.right = where === 'right' ? R + 'px' : 'auto'; if (where === 'left') L += w + 6; else R += w + 6; };
+    put(rail, D.rail, 44);
+    if (conOn){ put(con, D.atelier, cw); grip.style.display = 'block'; grip.style.left = D.atelier === 'right' ? (W - R - 2) + 'px' : (L - 7) + 'px'; grip.style.right = 'auto'; } else grip.style.display = 'none';
+    if (sideOn) put(side, D.env, 250);
+    const x0 = L, x1 = W - R, cwid = Math.max(200, x1 - x0); let vx = x0, vw = cwid; root.style.setProperty('--cx', x0 + 'px'); root.style.setProperty('--cwd', cwid + 'px');
+    const full = !!(P && P.on && D.pfull && !win.classList.contains('fl')); b.classList.toggle('planfull', full);
+    if (full){ win.style.left = x0 + 'px'; win.style.width = cwid + 'px'; }
+    else if (P && P.on && !win.classList.contains('fl') && cwid >= 560){ vw = Math.round(Math.max(240, Math.min(cwid - 260, cwid * P.frac))); const pw = cwid - vw - 6;
+      if (D.plan === 'left'){ win.style.left = x0 + 'px'; vx = x0 + pw + 6; } else { win.style.left = (x0 + vw + 6) + 'px'; } win.style.width = pw + 'px'; }
+    else if (!win.classList.contains('fl')){ win.style.width = ''; }
+    root.style.setProperty('--vx', vx + 'px'); root.style.setProperty('--vw', vw + 'px'); root.style.setProperty('--vr', (W - vx - vw) + 'px');
+    if (window.DRAWER){ DRAWER.place(x0, cwid); if (!b.classList.contains('desk')) root.style.setProperty('--vhh', `calc(100vh - ${DRAWER.h() + 24}px)`); }
+    hint.style.left = (vx + 8) + 'px'; hint.style.width = Math.max(0, vw - 16) + 'px';
+    A.resize(); window.PLAN?.size?.();
+  }
+  // la poignée entre plan et 3D : part de la zone centrale donnée à la vue 3D
+  function fracAt(x){ const cw = parseFloat(getComputedStyle(root).getPropertyValue('--cw')) || 340; let L = 6, R = 6; const add = (where, w) => { if (where === 'left') L += w + 6; else R += w + 6; }; add(D.rail, 44);
+    if (document.body.classList.contains('con') && !con.classList.contains('fl')) add(D.atelier, cw); if (!side.classList.contains('hide') && !side.classList.contains('fl')) add(D.env, 250);
+    const f = (x - L) / Math.max(1, innerWidth - R - L); return Math.max(.15, Math.min(.85, D.plan === 'left' ? 1 - f : f)); }
+  // la poignée de l'Atelier : sa largeur se compte depuis le bord où il est ancré
+  grip.addEventListener('pointerdown', e => { if (D.atelier !== 'left') return; e.stopImmediatePropagation(); e.preventDefault(); grip.setPointerCapture(e.pointerId); const x0 = con.getBoundingClientRect().left;
+    const mv = ev => { root.style.setProperty('--cw', Math.round(Math.max(300, Math.min(innerWidth * .7, ev.clientX - x0))) + 'px'); layout(); }, up = () => { grip.removeEventListener('pointermove', mv); grip.removeEventListener('pointerup', up); A.store.set('conW', parseInt(getComputedStyle(root).getPropertyValue('--cw')) || 340); }; grip.addEventListener('pointermove', mv); grip.addEventListener('pointerup', up); }, true);
+  // boutons ⇄ dans les en-têtes
+  { const ph = win.querySelector('.ph'); if (ph){ const s = document.createElement('button'); s.className = 'dockSw'; s.title = 'Passer le plan de l\'autre côté de la vue 3D'; s.textContent = '⇄'; s.onclick = () => swap('plan'); ph.appendChild(s); } }
+  new MutationObserver(() => { for (const [el, k] of [[con, 'atelier'], [side, 'env']]){ if (el.querySelector(':scope > .dockSwW')) continue; const s = document.createElement('button'); s.className = 'dockSw dockSwW'; s.title = 'Passer ce panneau de l\'autre côté'; s.textContent = '⇄'; s.style.cssText = 'position:relative;float:right;margin:-2px 96px 0 0;z-index:2'; s.onclick = () => swap(k); el.prepend(s); } layout(); }).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: false });
+  for (const el of [con, side, win]) new MutationObserver(layout).observe(el, { attributes: true, attributeFilter: ['class'] });
+  for (const [el, k] of [[con, 'atelier'], [side, 'env']]){ const s = document.createElement('button'); s.className = 'dockSw dockSwW'; s.title = 'Passer ce panneau de l\'autre côté'; s.textContent = '⇄'; s.style.cssText = 'position:relative;float:right;margin:-2px 96px 0 0;z-index:2'; s.onclick = () => swap(k); el.prepend(s); }
+  new MutationObserver(() => { if (!con.querySelector(':scope > .dockSwW')){ const s = document.createElement('button'); s.className = 'dockSw dockSwW'; s.title = 'Passer ce panneau de l\'autre côté'; s.textContent = '⇄'; s.style.cssText = 'position:relative;float:right;margin:-2px 96px 0 0;z-index:2'; s.onclick = () => swap('atelier'); con.prepend(s); } }).observe(con, { childList: true });
+  addEventListener('resize', () => { if (!layout.busy){ layout.busy = true; try { layout(); } finally { layout.busy = false; } } });
+  UI.libCat = UI.libCat || LIBCAT[D.dom]; build(); layout();
+  window.DOCK = { D, layout, fracAt, swap, build, T, view, setDomain: k => { D.dom = k; save(); UI.libCat = LIBCAT[k]; build(); ST.render(); } };
+}

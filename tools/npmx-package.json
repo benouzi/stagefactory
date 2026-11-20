@@ -1,0 +1,14 @@
+{
+  "name": "npmx",
+  "version": "1.0.0",
+  "dependencies": {
+    "@mlightcad/libredwg-web": "^0.8.8",
+    "dxf-parser": "^1.1.2",
+    "esbuild": "^0.28.2",
+    "fflate": "^0.8.2",
+    "gltf-validator": "^2.0.0-dev.3.10",
+    "pdfjs-dist": "^4.6.82",
+    "three": "^0.170.0",
+    "three-mesh-bvh": "^0.8.3"
+  }
+}
