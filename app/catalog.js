@@ -5,7 +5,7 @@
 export const FAMILIES = [
   // clé, libellé, modèle générique, catégorie d'affichage
   ['micro', 'Micro', 'mic-perche'], ['enceinte', 'Enceinte', 'pt12'], ['retour', 'Retour de scène', 'wedge'], ['sub', 'Caisson de basses', 'sub18'],
-  ['lyre-wash', 'Lyre wash', 'wash'], ['lyre-spot', 'Lyre spot / beam', 'spot'], ['par', 'PAR / projecteur LED', 'par-led'], ['decoupe', 'Découpe', 'decoupe'], ['barre', 'Barre LED', 'barre'],
+  ['lyre-wash', 'Lyre wash', 'wash'], ['lyre-spot', 'Lyre spot / beam', 'spot'], ['par', 'PAR / projecteur LED', 'par-led'], ['decoupe', 'Découpe', 'decoupe'], ['fresnel', 'Fresnel / PC', 'fresnel'], ['barre', 'Barre LED', 'barre'], ['line', 'Line source (élément)', 'wedge'],
   ['fumee', 'Machine à fumée / brouillard', 'gear'], ['videoproj', 'Vidéoprojecteur', 'vp12'], ['dalle-led', 'Dalle / mur LED', 'mur-led'], ['boitier', 'Appareil (boîtier)', 'gear'], ['praticable', 'Praticable', 'prat'],
 ];
 export const CATALOG = [
@@ -31,3 +31,63 @@ export const CATALOG = [
     spec: { Type: 'machine à brouillard (hazer) sans compresseur', Chauffe: 'environ 60 s', Réservoir: '2 l', Commande: 'DMX 512, 0–10 V, autonome', Remarque: 'Poids sans bidon. Nombre de canaux DMX non relevé.' },
     src: 'https://www.fullcompass.com/common/files/20954-LookSolutionsUniqueHazer21SpecSheet.pdf', srcKind: 'copie' },
 ];
+
+// ---- Lots lus dans les catalogues des fabricants (lecture automatique du PDF : chaque fiche le dit, et demande de recouper avant un plan de charge)
+const ROBE = 'https://www.robe.cz/res/downloads/catalogues/ROBE_Product_Guide_2022.pdf', LAC = 'https://issuu.com/guillaumecourty/docs/fullline_cat_en_2017_web';
+const AUTO = 'Valeurs lues automatiquement dans le catalogue du fabricant : à recouper avec la fiche du produit avant un plan de charge.';
+// modèle, famille, kg, largeur, hauteur, profondeur (mm), W, [canaux par mode], zoom min, zoom max, lumens, source lumineuse, remarque
+const ROBE_ROWS = [
+  ['BMFL FollowSpot', 'lyre-spot', 35, 483, 813, 335, 2000, [32, 26], 5, 45, 39770, 'lampe à décharge'], ['BMFL FollowSpot LT', 'lyre-spot', 35, 483, 813, 335, 2000, [32, 26], 1, 8, 34600, 'lampe à décharge'],
+  ['BMFL Spot', 'lyre-spot', 36, 483, 813, 335, 2000, [41, 33], 5, 55, 40000, 'lampe à décharge'], ['BMFL Blade', 'lyre-spot', 37.9, 483, 813, 335, 2000, [49, 42], 5, 55, 40000, 'lampe à décharge'],
+  ['BMFL Wash', 'lyre-wash', 35, 483, 826, 335, 2000, [25, 21], 4.5, 55, 38000, 'lampe à décharge'], ['BMFL Wash XF', 'lyre-wash', 35, 483, 826, 335, 2000, [34, 30], 4.5, 55, 38000, 'lampe à décharge'],
+  ['BMFL WashBeam', 'lyre-spot', 38.4, 483, 826, 335, 2000, [48, 41], 5, 45, 41000, 'lampe à décharge'], ['Viva CMY', 'lyre-spot', 19, 382, 664, 250, 500, [32, 26], 9, 40, 14990, 'LED blanche 350 W'],
+  ['TetraX', 'barre', 15.7, 508, 290, 205, 320, [41, 61, 75, 84, 88, 97], 4, 45, 8439, '9 × 40 W RGBW'], ['Tetra2', 'barre', 18.1, 1007, 279, 192, 600, [34, 56, 97, 115, 110, 128], 4, 45, 10500, '18 × 40 W RGBW'],
+  ['Tetra1', 'barre', 11.3, 508, 279, 192, 400, [25, 45, 59, 68, 72, 81], 4, 45, 5300, '9 × 40 W RGBW'], ['Tarrantula', 'lyre-wash', 21.2, 508, 587, 257, 1000, [28, 48, 146, 183, 159, 196], 4, 50, 25200, '1 × 60 W + 36 × 40 W RGBW'],
+  ['iSpiider', 'lyre-wash', 24.9, 450, 534, 277, 660, [49, 27, 33, 90, 27, 47, 91, 110, 104, 123], 4, 50, 13100, '1 × 60 W + 18 × 40 W RGBW'], ['Spiider', 'lyre-wash', 13.3, 390, 477, 252, 600, [49, 27, 33, 90, 27, 47, 91, 110, 104, 123], 4, 50, 13700, '1 × 60 W + 18 × 40 W RGBW'],
+  ['Spikie+', 'lyre-wash', 7.3, 277, 408, 147, 100, [27, 21], 4, 28, 1550, 'LED RGBW 60 W'], ['iPointe65', 'lyre-spot', 42.8, 506, 762, 344, 550, [39, 34], 1.8, 42, 12000, 'Osram Sirius HRI 310 W RO', 'Zoom 1,8–21° en beam, 3–42° en spot.'],
+  ['Pointe', 'lyre-spot', 15, 365, 575, 250, 470, [24, 16, 30], 2.5, 20, 9870, 'Osram Sirius HRI 280 W RO', 'Zoom 2,5–10° en beam, 5–20° en spot. 9 870 lm en beam, 5 150 lm en spot.'],
+  ['miniPointe', 'lyre-spot', 11.8, 317, 480, 204, 260, [22, 17, 27], null, null, 4960, 'Osram Sirius HRI 140 W RO'],
+  ['iFORTE', 'lyre-spot', 42.5, 480, 856, 335, 1250, [54], 5, 55, 50000, 'LED blanche 1 000 W', '50 000 lm avec le moteur HP, 35 000 lm avec le HCF.'], ['FORTE', 'lyre-spot', 39.8, 483.5, 843, 288.5, 1250, [54], 5, 55, 50000, 'LED blanche 1 000 W', '50 000 lm avec le moteur HP, 35 000 lm avec le HCF.'],
+  ['FORTE FS', 'lyre-spot', 41.2, 483.5, 843, 288.5, 1250, [54], 5, 55, 50000, 'LED blanche 1 000 W', '50 000 lm avec le moteur HP, 35 000 lm avec le HCF.'],
+  ['ESPRITE', 'lyre-spot', 28.2, 443, 733, 264, 950, [49, 42, 50, 43], 5.5, 50, 34000, 'LED blanche 650 W', '870 W en mode standard, 950 W en haute puissance. 34 000 lm (HP), 24 000 lm (HCF).'],
+  ['ESPRITE FS', 'lyre-spot', 29.4, 443, 733, 264, 950, [49, 42, 50, 43], 5.5, 50, 24000, 'LED blanche 650 W', '870 W en mode standard, 950 W en haute puissance.'],
+  ['ESPRITE Fresnel', 'lyre-wash', 26, 443, 719, 264, 950, [34, 30, 35, 31], 6, 61, 34500, 'LED blanche 650 W', '870 W en mode standard, 950 W en haute puissance.'], ['ESPRITE PC', 'lyre-wash', 26, 443, 719, 264, 950, [34, 30], 6, 60, 33000, 'LED blanche 650 W', '870 W en mode standard, 950 W en haute puissance.'],
+  ['PAINTE', 'lyre-spot', 19.6, 367, 619, 219, 440, [43], 8, 48, 14900, 'LED blanche 310 W', '14 900 lm (HP), 9 800 lm (HCF).'], ['CUETE', 'lyre-spot', 12.2, 343, 510, 220, 220, [29], null, null, 5300, 'LED blanche 120 W'], ['SPOTE', 'lyre-spot', 11, 343, 510, 220, 130, [25], null, null, 3400, 'LED blanche 70 W'],
+  ['T2 Profile', 'lyre-spot', 36.9, 483, 802, 335, 1150, [52, 36, 56], 5, 55, 22000, 'LED multispectrale 850 W'], ['T2 Profile FS', 'lyre-spot', 37.5, 483, 802, 335, 1150, [52, 36, 56], 5, 55, 22000, 'LED multispectrale 850 W'],
+  ['T2 Fresnel', 'lyre-wash', 33.5, 483, 802, 335, 1150, [35, 24, 39], 7, 62, 15500, 'LED multispectrale 850 W'], ['T2 PC', 'lyre-wash', 33, 483, 802, 335, 1150, [35, 24, 39], 6, 62, 17000, 'LED multispectrale 850 W'],
+  ['T11 Profile', 'decoupe', 15.7, 385, 493, 653, 420, [18, 9, 22, 6, 1, 24, 13, 28], 5, 50, 12000, 'LED multispectrale 350 W'], ['T11 Fresnel', 'fresnel', 14.3, 385, 493, 653, 420, [18, 9, 22, 6, 1, 24, 13, 28], 5, 60, 12050, 'LED multispectrale 350 W'], ['T11 PC', 'fresnel', 14.3, 385, 493, 653, 420, [18, 9, 22, 6, 1, 24, 13, 28], 5, 60, 11750, 'LED multispectrale 350 W'],
+  ['TX1 PosiProfile', 'lyre-spot', 24.3, 400, 739, 258, 640, [40, 27, 44, 48, 33, 52], 5.5, 50, 13600, 'LED multispectrale 500 W'], ['T1 Profile', 'lyre-spot', 24.3, 400, 726, 258, 750, [49, 33, 53], 7, 49, 12600, 'LED multispectrale 550 W'], ['T1 Profile FS', 'lyre-spot', 25.5, 400, 726, 258, 750, [49, 33, 53], 7, 49, null, 'LED multispectrale 550 W'],
+  ['T1 Fresnel', 'lyre-wash', 22.6, 400, 712, 258, 750, [35, 24, 39], 8, 60, 10500, 'LED multispectrale 550 W'], ['T1 PC', 'lyre-wash', 22.6, 400, 712, 258, 750, [35, 24, 39], 7, 50, 13000, 'LED multispectrale 550 W'],
+  ['LEDBeam 350', 'lyre-wash', 9.85, 320, 426, 220, 450, [22, 16, 24], 3.8, 60, 8200, '12 × 40 W RGBW'], ['LEDBeam 350FW', 'lyre-wash', 9.9, 320, 426, 220, 450, [22, 16, 24], 3.8, 60, 7350, '12 × 40 W RGBW'],
+  ['iBeam 250', 'lyre-wash', 13.9, null, null, null, 280, [22, 16], 3.8, 60, 4400, '7 × 40 W RGBW', 'Dimensions non reprises : la largeur lue dans le catalogue est incohérente.'],
+  ['LEDBeam 150', 'lyre-wash', 5.7, 244, 337, 149, 220, [22, 16], 3.8, 60, 3550, '7 × 40 W RGBW'], ['LEDBeam 150FWQ', 'lyre-wash', 5.7, 244, 337, 149, 220, [22, 16], 3.8, 60, 2850, '7 × 40 W RGBW'],
+  ['LEDWash 800X', 'lyre-wash', 10.7, 343, 444, 203, 430, [38, 22, 16, 11, 38, 37], 8, 63, 8990, '37 × 15 W RGBW'], ['LEDWash 600X', 'lyre-wash', 10.6, 343, 444, 203, 430, [37, 21, 15, 10, 37, 24], 8, 63, 8990, '37 × 15 W RGBW'], ['LEDWash 300X', 'lyre-wash', 8.2, 295, 390, 203, 200, [37, 21, 15, 10, 37], 8, 63, 5580, '19 × 15 W RGBW'],
+  ['iBar 15', 'barre', 11.1, 997, 182, 180, 170, [16, 11, 61, 76], null, null, 5041, '15 × 15 W RGBW'], ['ColorStrobe', 'par', 16.8, 315, 350, 300, 1300, [9, 14, 18, 28, 84], null, null, null, '120 × 15 W RGBW', 'Stroboscope.'],
+  ['ParFect S1', 'par', 4.4, null, null, null, 150, [1, 2, 3], null, null, null, 'LED COB 130 W'], ['ParFect 150 RGBW', 'par', 5, null, null, null, 220, [17, 11], 3.8, 60, 2842, '7 × 40 W RGBW', 'Dimensions non reprises : hauteur et profondeur se contredisent d\'une variante à l\'autre dans le catalogue.'],
+  ['ParFect 100', 'par', 4.1, 240, 173, 343, 200, [14, 9, 4, 30, 35, 4], null, null, 3220, '12 × 15 W RGBW'], ['Divine 160 RGBW', 'par', 13.6, 463, 314, 175, 440, [10, 22], null, null, 11836, '40 × 15 W RGBW'], ['Divine 60 UV', 'par', 14, 463, 314, 175, 180, [2, 3, 9], null, null, null, '60 LED UV 365 nm'],
+  ['PATT 2017', 'par', 10.3, 695, 680, 356, null, [13, 32, 40, 47, 53, 60], null, null, null, '7 × 40 W RGBW'], ['PATT 2013', 'par', 7.2, 695, 691, 324, 750, [1], null, null, null, 'lampe halogène HPL 750 W', 'Sur gradateur : 1 canal.'], ['picklePATT', 'par', 5.3, 531, 520, 241, 575, [1], null, null, null, 'lampe halogène HPL 575 W', 'Sur gradateur : 1 canal.'],
+];
+for (const [model, fam, w, dw, dh, dd, p, ch, z0, z1, lm, light, note] of ROBE_ROWS){ const over = { modes: ch.map((n, i) => ['Mode ' + (i + 1), n]) }; if (z0 != null) over.zoom = [z0, z1]; if (lm != null) over.lumens = lm;
+  CATALOG.push({ id: 'robe-' + model.toLowerCase().replace(/[^a-z0-9]+/g, '-'), brand: 'Robe', model, fam, w, dim: dw ? [dw, dh, dd] : null, p, over, noZoom: z0 == null, noLm: lm == null,
+    spec: { Source: light, Zoom: z0 == null ? 'non relevé' : `${String(z0).replace('.', ',')}° – ${z1}°`, Flux: lm == null ? 'non relevé' : lm.toLocaleString('fr-FR') + ' lm', 'Modes DMX': ch.join(', ') + ' canaux', ...(dw ? { Hauteur: 'tête à la verticale' } : {}), Remarque: (note ? note + ' ' : '') + AUTO }, src: ROBE, srcKind: 'catalogue' }); }
+// modèle, famille, kg, largeur, hauteur, profondeur (mm), SPL max, ouverture H, ouverture V, bande passante, description, directivité telle qu'écrite
+const LAC_ROWS = [
+  ['5XT', 'enceinte', 3.5, 165, 165, 165, 121, 110, 110, '95 Hz – 20 kHz', 'coaxiale ultra-compacte 5"', '110° axisymétrique'], ['X8', 'enceinte', 12, 250, 424, 264, 129, 100, 100, '60 Hz – 20 kHz', 'coaxiale passive compacte', '100° axisymétrique'],
+  ['X15 HiQ', 'retour', 21, 430, 580, 375, 138, 40, 60, '55 Hz – 20 kHz', 'retour de scène actif coaxial', '40° × 60°'], ['108P', 'enceinte', 13, 250, 421, 299, 127, 100, 100, '55 Hz – 22 kHz', 'coaxiale amplifiée', '100° axisymétrique'],
+  ['112P', 'enceinte', 32, 410, 540, 390, 133, 90, 90, '50 Hz – 20 kHz', 'coaxiale amplifiée', '90° axisymétrique'], ['Syva', 'enceinte', 21, 144, 1304, 209, 137, 140, 26, '87 Hz – 20 kHz', 'colonne « segment source »', '140° × (+5° / −21°)'],
+  ['ARCS WiFo (Wide)', 'line', 36, 365, 759, 444, 137, 90, 30, '55 Hz – 20 kHz', 'line source à courbure constante, large', '90° × 30°'], ['ARCS WiFo (Focus)', 'line', 38, 365, 759, 444, 139, 90, 15, '55 Hz – 20 kHz', 'line source à courbure constante, serrée', '90° × 15°'],
+  ['ARCS II', 'line', 50, 439, 820, 652, 142, 60, 22.5, '50 Hz – 20 kHz', 'line source à courbure constante', '60° × 22,5°'], ['Kiva II', 'line', 14, 520, 202, 357, 138, 100, 15, '70 Hz – 20 kHz', 'line source ultra-compacte', '100° × 15°'],
+  ['Kara', 'line', 26, 730, 250, 482, 141, 110, 10, '55 Hz – 20 kHz', 'line source modulaire', '110° × 10°'], ['K1', 'line', 106, 1342, 438, 520, 149, 90, 5, '35 Hz – 20 kHz', 'line source à courbure variable', '90° × 5°'],
+  ['Syva Sub', 'sub', 27, 334, 849, 350, 128, 360, 360, 'jusqu\'à 27 Hz', 'caisson pour Syva', 'standard ou cardioïde'], ['Syva Low', 'sub', 29, 334, 849, 350, 137, 360, 360, 'jusqu\'à 40 Hz', 'caisson pour Syva', 'standard ou cardioïde'],
+  ['SB15P', 'sub', 36, 520, 445, 520, 133, 360, 360, 'jusqu\'à 40 Hz', 'caisson amplifié', 'standard ou cardioïde'], ['SB15m', 'sub', 36, 580, 439, 520, 137, 360, 360, 'jusqu\'à 40 Hz', 'caisson, accrochable avec Kiva II', 'standard ou cardioïde'],
+  ['SB18', 'sub', 52, 750, 540, 707, 138, 360, 360, 'jusqu\'à 32 Hz', 'caisson 18"', 'standard ou cardioïde'], ['K1-SB', 'sub', 83, 1342, 434, 520, 145, 360, 360, 'jusqu\'à 30 Hz', 'caisson accrochable avec K1 et K2', 'standard ou cardioïde'],
+  ['SB28', 'sub', 93, 1300, 550, 700, 142, 360, 360, 'jusqu\'à 25 Hz', 'caisson 2 × 18"', 'standard ou cardioïde'], ['KS28', 'sub', 79, 1351, 565, 719, 143, 360, 360, 'jusqu\'à 25 Hz', 'caisson de référence 2 × 18"', 'standard ou cardioïde'],
+];
+for (const [model, fam, w, dw, dh, dd, spl, hd, vd, bw, type, dir] of LAC_ROWS) CATALOG.push({ id: 'l-acoustics-' + model.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, ''), brand: 'L-Acoustics', model, fam, w, dim: [dw, dh, dd], p: null, over: { spl, hd, vd },
+  spec: { Type: type, 'Bande passante': bw, 'SPL max': spl + ' dB', Directivité: dir, Remarque: 'Pour un élément trapézoïdal, la plus grande cote est retenue. ' + AUTO }, src: LAC, srcKind: 'catalogue' });
+CATALOG.push(
+  { id: 'l-acoustics-k2', brand: 'L-Acoustics', model: 'K2', fam: 'line', w: 56, dim: [1338, 354, 400], p: 0, over: { spl: 147, hd: 110, vd: 10 }, spec: { Type: 'line source à courbure variable, 2 × 12" + 4 × 6,5" + 2 × 3"', 'Bande passante': '35 Hz – 20 kHz', 'SPL max': '147 dB', Directivité: 'H 70° / 90° / 110°, V 10°', Remarque: 'Enceinte passive.' }, src: 'https://www.l-acoustics.com/?p=640', srcKind: 'fabricant' },
+  { id: 'l-acoustics-k3', brand: 'L-Acoustics', model: 'K3', fam: 'line', w: 43, dim: [950, 357, 403], p: 0, over: { spl: 143, hd: 110, vd: 10 }, spec: { Type: 'line source, 2 × 12" + 1 × 4"', 'Bande passante': '42 Hz – 20 kHz', 'SPL max': '143 dB ([K3 70])', Directivité: 'H 70° / 110° symétrique ou 90° asymétrique, V 10°', Remarque: 'Enceinte passive.' }, src: 'https://www.l-acoustics.com/?p=636', srcKind: 'fabricant' },
+  { id: 'martin-mac-aura-xip', brand: 'Martin', model: 'MAC Aura XIP', fam: 'lyre-wash', w: 8.95, dim: [338, 380, 226], p: 340, over: { lumens: 6000, zoom: [6.3, 50.4], modes: [['Mode 1', 20], ['Mode 2', 36], ['Mode 3', 57], ['Mode 4', 93]] }, spec: { Source: '7 × 60 W RGBW (faisceau) + 12 × 4 W RGBW (Aura)', Zoom: '6,3° – 50,4°', Flux: '6 000 lm', 'Modes DMX': '20, 36, 57, 93 canaux', Puissance: '340 W maximum' }, src: 'https://fullcompass.com/common/files/86976-MACAuraXIPDatasheet.pdf', srcKind: 'copie' },
+);
+
