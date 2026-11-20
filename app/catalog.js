@@ -7,7 +7,7 @@ export const FAMILIES = [
   // clé, libellé, modèle générique, catégorie d'affichage
   ['micro', 'Micro', 'mic-perche'], ['enceinte', 'Enceinte', 'pt12'], ['retour', 'Retour de scène', 'wedge'], ['sub', 'Caisson de basses', 'sub18'],
   ['lyre-wash', 'Lyre wash', 'wash'], ['lyre-spot', 'Lyre spot / beam', 'spot'], ['par', 'PAR / projecteur LED', 'par-led'], ['decoupe', 'Découpe', 'decoupe'], ['fresnel', 'Fresnel / PC', 'fresnel'], ['barre', 'Barre LED', 'barre'], ['line', 'Line source (élément)', 'wedge'],
-  ['fumee', 'Machine à fumée / brouillard', 'gear'], ['videoproj', 'Vidéoprojecteur', 'vp12'], ['dalle-led', 'Dalle LED (une dalle)', 'gear'], ['boitier', 'Appareil (boîtier)', 'gear'], ['praticable', 'Praticable', 'prat'],
+  ['fumee', 'Machine à fumée / brouillard', 'gear'], ['videoproj', 'Vidéoprojecteur', 'vp12'], ['dalle-led', 'Dalle LED (une dalle)', 'gear'], ['console', 'Console', 'gear'], ['rack', 'Ampli, stagebox, rack', 'gear'], ['di', 'Boîte de direct', 'gear'], ['moteur', 'Moteur de levage', 'gear'], ['levage', 'Pied ou tour de levage', 'gear'], ['boitier', 'Autre appareil', 'gear'], ['praticable', 'Praticable', 'prat'],
 ];
 export const CATALOG = [
   { id: 'shure-sm58', brand: 'Shure', model: 'SM58', fam: 'micro', w: 0.298, dim: [51, 51, 162], p: 0,
@@ -92,3 +92,8 @@ CATALOG.push(
   { id: 'martin-mac-aura-xip', brand: 'Martin', model: 'MAC Aura XIP', fam: 'lyre-wash', w: 8.95, dim: [338, 380, 226], p: 340, over: { lumens: 6000, zoom: [6.3, 50.4], modes: [['Mode 1', 20], ['Mode 2', 36], ['Mode 3', 57], ['Mode 4', 93]] }, spec: { Source: '7 × 60 W RGBW (faisceau) + 12 × 4 W RGBW (Aura)', Zoom: '6,3° – 50,4°', Flux: '6 000 lm', 'Modes DMX': '20, 36, 57, 93 canaux', Puissance: '340 W maximum' }, src: 'https://fullcompass.com/common/files/86976-MACAuraXIPDatasheet.pdf', srcKind: 'copie' },
 );
 { const k = c => (c.brand + ' ' + c.model).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ''), have = new Set(CATALOG.map(k)); for (const c of DATA) if (!have.has(k(c))){ have.add(k(c)); CATALOG.push(c); } }
+// ---- classement fin, déduit de ce que dit la fiche (jamais une donnée ajoutée) : sert au rangement et au choix du modèle 3D
+for (const c of CATALOG){ const s = c.spec || {}, T = ((s.Type || '') + ' ' + c.model).toLowerCase();
+  if (c.fam === 'boitier') c.fam = s['Capacité de levage'] ? 'moteur' : (s['Charge maximale'] || s['Hauteur maximale']) ? 'levage' : /console|pupitre|surface|mixer|mélangeur|table de mixage|wing|desk/.test(T) ? 'console' : /ampli|processeur|stage ?box|rack|interface|engine|moteur de mixage/.test(T) ? 'rack' : /direct|\bdi\b/.test(T) ? 'di' : 'boitier';
+  if (c.fam === 'micro'){ const d = c.dim ? Math.min(...c.dim) : 0, M = c.model;
+    c.mic = /91A|e ?901|surface|boundary/i.test(T) ? 'plat' : /Beta 52|D ?112|e ?902|\bD6\b/i.test(M) ? 'grave' : /U ?87|TLM|C ?414|C ?214|KSM ?32|KSM ?44|AT40|AE3000|SM7B|RE ?20|RE ?320|M ?160/i.test(M) ? 'large' : (d && d <= 26) || /KM ?18|C ?451|SM ?81|SM ?137|KSM ?137|e ?914|401[18]|4006|MKH|C ?535/i.test(M) ? 'crayon' : 'boule'; } }
