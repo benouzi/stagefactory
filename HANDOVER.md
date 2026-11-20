@@ -1,7 +1,7 @@
 # StageFactory — passation (version 3.12.0, 19.11.2026)
 
 > **RÈGLE DE LIVRAISON (Benjamin, rappelée le 20.11.2026)** : il travaille sur l'ARTEFACT. Chaque lot = publier l'artefact, rien d'autre. Ne construire et n'envoyer les installeurs QUE si le changement touche ce qui est propre au PC local (passerelle `local/serveur.js`, connecteur `local/mcp.js`, `pack/`, DMX/réseau local) ou s'il le demande.
-> **DÉPÔT GIT** : `/home/claude` est un dépôt git local (branche `main`, depuis la 4.0.6). Un enregistrement par lot. Destination prévue : GitHub `benouzi/stagefactory` (privé) — pas encore poussé le 20.11.2026 : GitHub n'est pas relié à Claude.
+> **DÉPÔT GIT** : `/home/claude` est un dépôt git local (branche `main`, depuis la 4.0.6). Un enregistrement par lot. Destination prévue : GitHub `benouzi/stagefactory` (privé) — poussé le 20.11.2026. Après chaque lot : enregistrer puis `git push origin main`.
 
 
 StageFactory (ex-Onex Previz) : logiciel de prévisualisation de spectacle de Benjamin (régisseur général AV, Genève). Réponses en français, simples, résultat d'abord ; commandes shell en blocs de code.
