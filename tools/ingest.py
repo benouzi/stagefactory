@@ -21,6 +21,7 @@ for f in sorted(glob.glob('/home/claude/research/*.json')):
         if w is not None and c['w'] is None: notes.append('poids écarté (valeur hors bornes)')
         d=r.get('dim'); c['dim']=[round(x,1) for x in d] if isinstance(d,list) and len(d)==3 and all(num(x) and 1<=x<=6000 for x in d) else None
         if d and c['dim'] is None: notes.append('dimensions écartées (incomplètes ou hors bornes)')
+        if r['fam']=='praticable' and isinstance(d,list) and len(d)==3 and num(d[0]) and num(d[2]) and c['dim'] is None: c['plat']=[d[0],d[2]]; notes=[n for n in notes if not n.startswith('dimensions')]
         p=r.get('p'); c['p']=p if num(p) and 0<=p<=60000 else None
         o=r.get('over') if isinstance(r.get('over'),dict) else {}; ov={}
         if num(o.get('lumens')) and 10<=o['lumens']<=200000: ov['lumens']=o['lumens']
