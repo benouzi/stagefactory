@@ -24,8 +24,8 @@ with sync_playwright() as p:
     ok(near(d['M4'][1:4],[580,363,505]) and d['Unique 2.1'][1]==250 and abs(d['Unique 2.1'][3]-470)<=45 and near(d['X12'][1:4],[430,496,375]),'M4, X12 et Unique 2.1 aux dimensions de la fiche',[d['M4'],d['X12'],d['Unique 2.1']])
     ok(abs(d['SM58'][4]-0.298)<1e-6,'SM58 : 298 g',d['SM58'])
     # recherche
-    pg.fill('#libQ','shure'); pg.wait_for_timeout(500); r=ev("[...document.querySelectorAll('#drawer [data-a=pick]')].map(b=>b.firstChild.textContent)"); ok('Shure SM57' in r and 'Shure SM58' in r and all('Shure' in x for x in r) and ev("document.activeElement.id")=='libQ','recherche « shure » : 2 résultats, le champ garde la main',r)
-    pg.fill('#libQ','retour'); pg.wait_for_timeout(500); r=ev("[...document.querySelectorAll('#drawer [data-a=pick]')].map(b=>b.firstChild.textContent)"); ok('d&b audiotechnik M4' in r and any('Retour' in x for x in r),'recherche « retour » : générique et référence réelle',r)
+    pg.fill('#libQ','shure'); pg.wait_for_timeout(500); r=ev("[...document.querySelectorAll('#drawer [data-a=pick]')].map(b=>b.querySelector('span').firstChild.textContent)"); ok('Shure SM57' in r and 'Shure SM58' in r and all('Shure' in x for x in r) and ev("document.activeElement.id")=='libQ','recherche « shure » : 2 résultats, le champ garde la main',r)
+    pg.fill('#libQ','retour'); pg.wait_for_timeout(500); r=ev("[...document.querySelectorAll('#drawer [data-a=pick]')].map(b=>b.querySelector('span').firstChild.textContent)"); ok('d&b audiotechnik M4' in r and any('Retour' in x for x in r),'recherche « retour » : générique et référence réelle',r)
     pg.fill('#libQ',''); pg.wait_for_timeout(400)
     # nouveau modèle + doublon
     pg.click('[data-a=libnew]'); pg.wait_for_timeout(200); pg.select_option('#nm_fam','micro'); pg.fill('#nm_brand','shure'); pg.fill('#nm_model','sm 58'); pg.click('[data-a=libok]'); pg.wait_for_timeout(300)
