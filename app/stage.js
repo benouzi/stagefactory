@@ -814,6 +814,7 @@ function bindCanvas(){
     if (cu && cu.d < pickObj.d){ if (UI.sel.length) select([]); A.selectCurtain(cu.slot); return; } A.selectCurtain?.(-1);
     if (id) select(e.shiftKey || e.ctrlKey || e.metaKey ? (UI.sel.includes(id) ? UI.sel.filter(x => x !== id) : [...UI.sel, id]) : [id]);
     else if (UI.sel.length && !e.shiftKey) select([]);
+    if (!id && window.DRAW && DRAW.pick3D(e)){ window.PONTS?.select(null); return; } if (id) window.DRAW?.select(null);
     if (!id && window.PONTS) PONTS.pick3D(e); else if (id && window.PONTS) PONTS.select(null);
   });
   for (const el of [A.canvas, document.querySelector('#plan2d')]) el?.addEventListener('pointerdown', () => { const f = document.activeElement; if (f && f !== document.body && f.blur) f.blur(); }, true);
@@ -866,7 +867,7 @@ function recCue(i){ const E = window.ENG; if (!E) return toast('Moteur lumière 
 function goCue(i, o = {}){ const E = window.ENG; if (!E || !S.cues[i]) return; if (!o.keepProg) E.clearProg(); E.go(0, i, o); syncConsole(); }
 
 // ============================================================ annuler / rétablir / enregistrer
-const serialize = () => JSON.stringify({ v: 3, name: S.name, objs: S.objs, cues: S.cues, lib: [...S.lib, ...LIB.filter(t => t.userCat && !S.lib.some(x => x.id === t.id) && S.objs.some(o => o.type === t.id))].map(({ raw, ...t }) => t), master: S.master, haze: S.haze, room: A.roomState(), rig: S.rig, audio: S.audio, follow: S.follow, pal: S.pal, salle: A.venue, prog: S.prog, xseq: S.xseq, seqMaster: S.seqMaster, seqName: S.seqName, sups: S.sups || [], cornerKg: S.cornerKg || {}, safety: S.safety || null, dims: S.dims || [], layers: S.layers || {}, arrays: S.arrays || [] });
+const serialize = () => JSON.stringify({ v: 3, name: S.name, objs: S.objs, cues: S.cues, lib: [...S.lib, ...LIB.filter(t => t.userCat && !S.lib.some(x => x.id === t.id) && S.objs.some(o => o.type === t.id))].map(({ raw, ...t }) => t), master: S.master, haze: S.haze, room: A.roomState(), rig: S.rig, audio: S.audio, follow: S.follow, pal: S.pal, salle: A.venue, prog: S.prog, xseq: S.xseq, seqMaster: S.seqMaster, seqName: S.seqName, sups: S.sups || [], cornerKg: S.cornerKg || {}, safety: S.safety || null, dims: S.dims || [], shapes: S.shapes || [], layers: S.layers || {}, arrays: S.arrays || [] });
 function pushUndo(key, label){ const now = performance.now(); if (key && pushUndo.k === key && now - pushUndo.t < 900){ pushUndo.t = now; return; } pushUndo.k = key; pushUndo.t = now; undoStack.push({ s: serialize(), label: label || ULAB[key] || 'Modification', at: Date.now() }); if (undoStack.length > 100) undoStack.shift(); redoStack.length = 0; UI.dirty = true; histChanged(); }
 const ULAB = { pcolor: 'Couleur', drag: 'Déplacement' };
 function histChanged(){ const u = $('#undoBtn'), r = $('#redoBtn'); if (u){ u.disabled = !undoStack.length; u.title = undoStack.length ? 'Annuler : ' + undoStack[undoStack.length - 1].label + ' (Ctrl+Z)' : 'Rien à annuler'; r.disabled = !redoStack.length; r.title = redoStack.length ? 'Rétablir : ' + redoStack[redoStack.length - 1].label + ' (Ctrl+Y)' : 'Rien à rétablir'; } window.WS?.status(); }
@@ -878,12 +879,12 @@ function loadShow(d, keepSel){
   for (const id of [...RT.keys()]) unbuild(id);
   const raws = new Map(S.lib.filter(t => t.raw).map(t => [t.id, t.raw]));
   S.name = d.name || 'Sans titre'; S.objs = d.objs || []; { const known = new Set([...LIB, ...(d.lib || [])].map(t => t.id)), n0 = S.objs.length; S.objs = S.objs.filter(o => o && known.has(o.type) && Array.isArray(o.pos)); if (S.objs.length < n0) setTimeout(() => toast(`${n0 - S.objs.length} objet(s) d'un type inconnu ont été ignorés à l'ouverture.`, true), 50); } S.cues = d.cues || []; S.prog = d.prog && typeof d.prog === 'object' ? d.prog : {}; S.xseq = Array.isArray(d.xseq) ? d.xseq : []; S.seqMaster = d.seqMaster ?? 1; S.seqName = d.seqName || ''; S.lib = (d.lib || []).map(t => ({ ...t, raw: raws.get(t.id) })); S.master = d.master ?? 1; S.haze = d.haze ?? .5; S.pal = d.pal && d.pal.color ? d.pal : null; S.follow = d.follow !== false; { const fc = document.querySelector('#followCfg'); if (fc) fc.checked = S.follow; }
-  S.sups = Array.isArray(d.sups) ? d.sups : []; S.safety = d.safety && typeof d.safety === 'object' ? d.safety : null; S.cornerKg = d.cornerKg && typeof d.cornerKg === 'object' ? d.cornerKg : {}; S.dims = Array.isArray(d.dims) ? d.dims : []; S.layers = d.layers && typeof d.layers === 'object' ? d.layers : {}; S.arrays = Array.isArray(d.arrays) ? d.arrays : [];
+  S.shapes = Array.isArray(d.shapes) ? d.shapes : []; S.sups = Array.isArray(d.sups) ? d.sups : []; S.safety = d.safety && typeof d.safety === 'object' ? d.safety : null; S.cornerKg = d.cornerKg && typeof d.cornerKg === 'object' ? d.cornerKg : {}; S.dims = Array.isArray(d.dims) ? d.dims : []; S.layers = d.layers && typeof d.layers === 'object' ? d.layers : {}; S.arrays = Array.isArray(d.arrays) ? d.arrays : [];
   S.rig = d.rig && d.rig.def ? d.rig : { def: {}, per: {} }; S.audio = d.audio && d.audio.groups ? d.audio : { groups: {}, sens: 1, bpm: 120 }; window.AUDIO?.render();
   { const pd = d.planData && d.salle && d.salle.plan && d.salle.plan.id; if (pd) A.setPlanData(d.salle.plan.id, d.planData); const cur = JSON.stringify(A.venue), nv = d.salle && d.salle.type === 'param' ? d.salle : { type: 'onex' }; if (pd || JSON.stringify(nv) !== cur) A.setVenue(nv, keepSel); }
   S.objs.forEach(build); UI.fade = null; if (d.room) A.setRoomState(d.room);
   if (!keepSel) UI.cue = -1; window.ENG?.reset(!keepSel);
-  window.PONTS?.sync(keepSel); window.PUB?.sync(); if (A.live && !keepSel && noLight()) setTimeout(() => { if (A.live && noLight()) setLive(false); }, 0);
+  window.PONTS?.sync(keepSel); window.PUB?.sync(); window.DRAW?.sync(); if (A.live && !keepSel && noLight()) setTimeout(() => { if (A.live && noLight()) setLive(false); }, 0);
   const sel = keepSel ? UI.sel.filter(id => RT.has(id)) : []; touch(true); select(sel);
 }
 let saveT = 0, db = null, me = null, dl = null, cloudState = '';
@@ -1455,6 +1456,7 @@ export function init(APP){
   import('./decor.js').then(m => m.initDecor(A, window.STAGE)).catch(e => console.error(e));
   import('./linearray.js').then(m => m.initLineArray(A, window.STAGE)).catch(e => console.error(e));
   import('./publish.js').then(m => m.initPublish(A, window.STAGE)).catch(e => console.error(e));
+  import('./draw.js').then(m => m.initDraw(A, window.STAGE)).catch(e => console.error(e));
   setTimeout(() => import('./thumbs.js').then(m => m.initThumbs(A, window.STAGE)).catch(e => console.error(e)), 1500);
   setTimeout(() => import('./drawer.js').then(m => m.initDrawer(A, window.STAGE)).catch(e => console.error(e)), 1000);
   import('./plan.js').then(m => m.initPlan(A, window.STAGE)).catch(e => console.error(e));

@@ -5,7 +5,7 @@ export function initPublish(A, ST){
   const f = (v, d = 2) => (+v).toFixed(d).replace('.', ','), uid = () => 'c' + Math.random().toString(36).slice(2, 9);
   const dims = () => S.dims || (S.dims = []), L = () => S.layers || (S.layers = {}), cart = () => L().cart || (L().cart = {});
   const P = { tl: null };
-  const LAYERS = [['lum', 'Lumière'], ['vid', 'Vidéo'], ['son', 'Son'], ['str', 'Structure et scène'], ['dec', 'Décor et personnages'], ['ponts', 'Ponts et structures'], ['cotes', 'Cotes']];
+  const LAYERS = [['lum', 'Lumière'], ['vid', 'Vidéo'], ['son', 'Son'], ['str', 'Structure et scène'], ['dec', 'Décor et personnages'], ['ponts', 'Ponts et structures'], ['dessin', 'Dessin'], ['cotes', 'Cotes']];
   const on = k => L()[k] !== false;
 
   // ---------------------------------------------------------------- cotes
@@ -55,7 +55,7 @@ export function initPublish(A, ST){
     <div class="info">Les listes et les charges sortent en A4 portrait. « Ajustée » : l'échelle réelle est écrite dans le cartouche, arrondie à l'échelle usuelle inférieure quand c'est possible.</div>
     <div class="btns"><button class="b" data-a="close">Annuler</button><button class="b on" data-pu="pdfGo">Fabriquer le PDF</button></div>`); }
   document.addEventListener('change', e => { const el = e.target, d = el.dataset; if (!d) return;
-    if (d.ly){ e.stopPropagation(); ST.pushUndo('ly', 'Calques'); L()[d.ly] = el.checked; window.PONTS?.layer(); ST.touch(); ST.select(UI.sel.filter(id => { const o = ST.byId(id); return o && !A.layHid(o); })); return; }
+    if (d.ly){ e.stopPropagation(); ST.pushUndo('ly', 'Calques'); L()[d.ly] = el.checked; window.PONTS?.layer(); window.DRAW?.sync(); ST.touch(); ST.select(UI.sel.filter(id => { const o = ST.byId(id); return o && !A.layHid(o); })); return; }
     if (d.ct){ e.stopPropagation(); ST.pushUndo('ct' + d.ct, 'Cartouche'); cart()[d.ct] = el.value; ST.touch(true); return; }
     if (d.po2){ O[d.po2] = d.po2 === 'fmt' ? el.value : d.po2 === 'land' ? el.value === '1' : +el.value; A.store.set('pubOpt', O); return; }
     if (d.pg2){ O.pages[d.pg2] = el.checked; A.store.set('pubOpt', O); } }, true);
