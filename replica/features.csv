@@ -1,0 +1,86 @@
+feature,area,priority,original,clone,notes
+"Ligne (longueur tapée, verrou de direction)",Dessin 2D,must,SketchUp Line (L) ; Vectorworks Line,yes,"Tracé : longueur tapée, Maj = d'équerre"
+Polyligne / polygone à main levée de points,Dessin 2D,must,"Vectorworks Polyline, Polygon",yes,"Entrée = finir, clic sur le 1er point = fermer"
+"Rectangle (2 coins, cotes tapées)",Dessin 2D,must,SketchUp Rectangle (R) ; Vectorworks Rectangle,yes,« 4x3 »
+Rectangle depuis le centre,Dessin 2D,should,SketchUp Rectangle + Alt,no,
+Rectangle tourné,Dessin 2D,should,SketchUp Rotated Rectangle ; Vectorworks Rectangle mode tourné,partial,Rotation après coup seulement
+Rectangle arrondi,Dessin 2D,could,Vectorworks Rounded Rectangle,no,
+Cercle (centre + rayon tapé),Dessin 2D,must,SketchUp Circle (C) ; Vectorworks Circle,yes,
+Cercle par diamètre / 3 points,Dessin 2D,could,Vectorworks Circle (modes),no,
+Ovale / ellipse,Dessin 2D,should,Vectorworks Oval,no,
+Arc 2 points + flèche,Dessin 2D,must,SketchUp 2 Point Arc (A),no,
+"Arc centre + angles, arc 3 points, secteur",Dessin 2D,should,"SketchUp Arc, 3 Point Arc, Pie ; Vectorworks Arc",no,
+Polygone régulier (n côtés),Dessin 2D,should,SketchUp Polygon ; Vectorworks Regular Polygon,yes,
+Courbe (Bézier / spline) dans une polyligne,Dessin 2D,should,Vectorworks Polyline (modes courbes),no,
+Main levée,Dessin 2D,could,SketchUp Freehand ; Vectorworks Freehand,no,
+Double ligne / cloison à épaisseur,Dessin 2D,should,"Vectorworks Double Line, Wall",partial,Cloison sans épaisseur
+Texte,Dessin 2D,must,SketchUp Text ; Vectorworks Text,partial,"Plan seulement, une taille, pas de police ni d'alignement"
+Texte 3D,Dessin 2D,could,SketchUp 3D Text,no,
+"Point repère / locus, lignes guides",Dessin 2D,should,SketchUp Tape Measure (guides) ; Vectorworks Locus,no,
+"Remplissage, hachure, épaisseur et type de trait",Dessin 2D,must,Vectorworks Attributes palette,partial,Couleur seule
+Aimant grille,Aides au tracé,must,Vectorworks Snapping (grid),yes,Pas de 1 cm à 1 m
+Aimant extrémités / sommets,Aides au tracé,must,SketchUp inférences ; Vectorworks Snap to Object,yes,Sommets des dessins seulement
+"Aimant milieu, intersection, perpendiculaire, tangente",Aides au tracé,must,SketchUp inférences ; Vectorworks Smart Points,no,
+"Aimant sur les objets du projet (ponts, projecteurs, salle)",Aides au tracé,must,Vectorworks Snap to Object,no,
+"Verrou de direction (axes, flèches du clavier)",Aides au tracé,should,SketchUp flèches ; Vectorworks Angle snap,partial,Maj : 0/45/90°
+Angle tapé (longueur + angle),Aides au tracé,should,Vectorworks Data bar,no,
+Barre de données flottante au curseur,Aides au tracé,should,Vectorworks Data bar ; SketchUp Measurements,partial,Champ dans la barre du dessin
+Origine / axes de dessin déplaçables,Aides au tracé,could,SketchUp Axes ; Vectorworks Working Planes,no,
+"Sélection au clic, plan et 3D",Modifier,must,SketchUp Select (Espace) ; Vectorworks Selection,yes,
+"Sélection multiple, cadre, lasso",Modifier,must,SketchUp Select/Lasso ; Vectorworks Selection (modes),no,Une forme à la fois
+"Déplacer (glisser, flèches, distance tapée)",Modifier,must,SketchUp Move (M) ; Vectorworks Move,partial,Pas de distance tapée
+"Copie par déplacement, réseau linéaire (n copies)",Modifier,must,"SketchUp Move + Ctrl, « 5x » ; Vectorworks Move by Points, Duplicate Array",partial,Ctrl+D : une copie décalée
+Réseau polaire / le long d'un chemin,Modifier,should,"SketchUp Rotate + Ctrl ; Vectorworks Duplicate Array, Duplicate Along Path",no,
+"Tourner (angle tapé, autour d'un point choisi)",Modifier,must,SketchUp Rotate (Q) ; Vectorworks Rotate,partial,"Angle tapé, autour du centre seulement"
+Mettre à l'échelle,Modifier,must,SketchUp Scale (S) ; Vectorworks Scale Objects,no,
+Miroir,Modifier,must,SketchUp Flip ; Vectorworks Mirror,no,
+Déformer par les sommets,Modifier,must,Vectorworks Reshape,yes,Rectangle reste d'équerre
+"Ajouter / retirer un sommet, changer un sommet en courbe",Modifier,should,Vectorworks Reshape (modes),no,
+Décalage d'un contour (offset),Modifier,must,SketchUp Offset (F) ; Vectorworks Offset,no,
+"Couper, prolonger, joindre des lignes",Modifier,should,"Vectorworks Trim, Split, Connect/Combine",no,
+Congé / chanfrein d'un angle,Modifier,should,"Vectorworks Fillet, Chamfer",no,
+"Unir, soustraire, intersecter des surfaces 2D",Modifier,must,Vectorworks Add / Clip / Intersect Surface,no,
+Aligner et répartir,Modifier,should,Vectorworks Align/Distribute,no,
+Ordre d'empilement (devant / derrière),Modifier,could,Vectorworks Send,no,
+"Grouper, dégrouper, entrer dans un groupe",Modifier,must,SketchUp Group ; Vectorworks Group,no,
+Symboles / composants réutilisables,Modifier,should,SketchUp Make Component ; Vectorworks Symbols,partial,"« Nouveau modèle » de la bibliothèque, pas depuis un dessin"
+"Verrouiller, masquer",Modifier,should,Vectorworks Lock ; SketchUp Hide,partial,Par calque seulement
+Gomme,Modifier,could,SketchUp Eraser (E),yes,Suppr
+Pipette / reporter les attributs,Modifier,could,SketchUp Paint Bucket (Alt) ; Vectorworks Eyedropper,no,
+Extrusion d'un contour (hauteur),Modélisation 3D,must,SketchUp Push/Pull (P) ; Vectorworks Extrude,yes,"Dans la barre, pas à la souris"
+"Pousser-tirer une face à la souris, distance tapée",Modélisation 3D,must,SketchUp Push/Pull ; Vectorworks Push/Pull,no,
+Pousser-tirer en creusant (percer un volume),Modélisation 3D,must,SketchUp Push/Pull ; Vectorworks Push/Pull (sub-face),no,
+"Primitives : boîte, cylindre, prisme",Modélisation 3D,must,Vectorworks Extrude ; SketchUp Rectangle + Push/Pull,yes,
+"Sphère, hémisphère, cône, pyramide",Modélisation 3D,should,"Vectorworks Sphere, Hemisphere, Cone",no,
+Extrusion effilée (dépouille) et multiple,Modélisation 3D,could,"Vectorworks Tapered Extrude, Multiple Extrude",no,
+Extrusion le long d'un chemin,Modélisation 3D,should,SketchUp Follow Me ; Vectorworks Extrude Along Path,no,
+Révolution autour d'un axe,Modélisation 3D,should,Vectorworks Sweep ; SketchUp Follow Me sur un cercle,no,
+"Unir, soustraire, intersecter des volumes",Modélisation 3D,must,SketchUp Solid Tools ; Vectorworks Add / Subtract / Intersect Solids,no,
+"Coque (évider), congé et chanfrein d'arêtes",Modélisation 3D,could,"Vectorworks Shell Solid, Fillet Edge, Chamfer Edge",no,
+Cloison / mur depuis un tracé,Modélisation 3D,should,Vectorworks Wall,partial,Sans épaisseur
+"Plancher, rampe, escalier paramétriques",Modélisation 3D,could,"Vectorworks Slab, Stair",partial,Praticables et escalier de scène de la bibliothèque
+"Dessiner directement dans la vue 3D, sur une face",Modélisation 3D,should,SketchUp (toutes les faces) ; Vectorworks Automatic Working Plane,no,Tracé dans le plan seulement
+Rotation 3D libre d'un volume (basculer),Modélisation 3D,should,SketchUp Rotate ; Vectorworks 3D Rotate,no,Rotation en plan seulement
+Élévation d'un volume,Modélisation 3D,must,Vectorworks Z ; SketchUp Move (axe bleu),yes,
+Matériaux et textures sur les faces,Modélisation 3D,should,SketchUp Paint Bucket (B) ; Vectorworks Textures,partial,Couleur unie
+Plan de coupe,Modélisation 3D,could,SketchUp Section Plane ; Vectorworks Clip Cube,partial,Coupe dans l'axe de la salle
+"Import de modèles 3D (GLB, OBJ, SKP, 3DS)",Modélisation 3D,should,SketchUp 3D Warehouse ; Vectorworks Import,partial,GDTF seulement
+"Export des volumes (OBJ, GLB, DXF)",Modélisation 3D,could,Vectorworks Export,no,
+Mesurer une distance,Cotes et mesures,must,SketchUp Tape Measure (T),yes,Mesure dans la vue 3D
+Cote linéaire,Cotes et mesures,must,SketchUp Dimensions ; Vectorworks Constrained Linear Dimension,yes,Outil Cote du plan
+"Cotes en chaîne, angulaire, de rayon",Cotes et mesures,should,Vectorworks Dims/Notes,no,
+Cote attachée à la forme (suit la modification),Cotes et mesures,should,Vectorworks associative dimensions,no,
+Mesurer un angle,Cotes et mesures,could,SketchUp Protractor,no,
+"Surface, périmètre, volume affichés",Cotes et mesures,must,Vectorworks Object Info,yes,
+Bulle de légende / repère avec flèche,Cotes et mesures,should,Vectorworks Callout,no,
+Calques,Organisation,must,SketchUp Tags ; Vectorworks Layers,partial,Un seul calque « Dessin »
+Classes / étiquettes par forme,Organisation,should,Vectorworks Classes ; SketchUp Tag,no,
+Palette d'informations de l'objet,Organisation,must,Vectorworks Object Info ; SketchUp Entity Info,yes,Barre du dessin
+Annuler / rétablir,Organisation,must,tous,yes,
+Raccourcis d'une touche par outil,Organisation,must,SketchUp L R C A P F M Q S E T B,no,Aucun raccourci pour les outils de dessin
+"Vues standard (dessus, face, côté, iso)",Organisation,should,SketchUp Top/Front/Right/Iso ; Vectorworks Standard Views,partial,"Plan, coupe, 3D libre"
+Rendu filaire / rayons X / lignes cachées,Organisation,could,SketchUp Styles,no,
+"Terrain (bac à sable), géolocalisation",Hors périmètre,skip,"SketchUp Sandbox, Add Location",no,Sans usage en régie
+Entrepôts de modèles en ligne,Hors périmètre,skip,"SketchUp 3D Warehouse, Extension Warehouse",no,Contenu qui appartient à l'éditeur
+"NURBS, surfaces de subdivision",Hors périmètre,skip,"Vectorworks NURBS, Subdivision",no,Modélisation organique : hors modélisation de base
+"Outils d'architecture, paysage, mécanique",Hors périmètre,skip,"Vectorworks Architect, Landmark, Machine Components",no,Autres métiers

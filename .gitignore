@@ -5,6 +5,7 @@
 !/sfb/
 !/docs/
 !/pack/
+!/replica/
 !/HANDOVER.md
 !/.gitignore
 /local/dist/
