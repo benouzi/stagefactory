@@ -270,7 +270,9 @@ const BEAMT = { value: 0 }, BEAMK = .26;       // BEAMK : réglage d'affichage d
 // Le cône est un volume fermé : la face avant porte la première moitié du trajet, la face arrière la seconde ; un objet dans le faisceau cache donc ce qui est derrière lui.
 const beamVS = `varying vec3 vP; varying vec3 vO; varying vec3 vW;
 void main(){ vP = position; vO = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
-const beamFS = `uniform vec3 color; uniform float amount; uniform float time; uniform float soft; uniform float fade; uniform vec2 scl; varying vec3 vP; varying vec3 vO; varying vec3 vW;
+const beamFS = `uniform vec3 color; uniform float amount; uniform float time; uniform float soft; uniform float fade; uniform vec2 scl; uniform sampler2D shMap; uniform mat4 shMat; uniform float shOn;
+#include <packing>
+ varying vec3 vP; varying vec3 vO; varying vec3 vW;
 float h3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
 float n3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y), mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
@@ -286,9 +288,10 @@ void main(){ const float A0 = 0.03, B0 = 0.97; vec3 o = vO, d = vP - vO;        
     else { float a1 = min(t1, r0), b0 = max(t0, r1); if (a1 - t0 > t1 - b0) t1 = a1; else t0 = b0; } }
   bool inside = t0 <= 0.0; t0 = max(t0, 0.0); if (t1 <= t0) discard;
   float tm = 0.5 * (t0 + t1), ta = inside ? t0 : gl_FrontFacing ? t0 : tm, tb = inside ? t1 : gl_FrontFacing ? tm : t1; if (inside && gl_FrontFacing) discard;
-  float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))), sum = 0.0; const int N = 8;
+  float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))), sum = 0.0; const int N = 14;
   for (int i = 0; i < N; i++){ float t = mix(ta, tb, (float(i) + jit) / float(N)); vec3 p = o + d * t; float s = clamp(-p.y, 0.0, 1.0), rl = A0 + B0 * s, rho = length(p.xz) / rl, rw = max(rl * scl.x, 0.1);
-    sum += (1.0 - smoothstep(1.0 - soft, 1.0, rho)) * (1.0 - fade * smoothstep(0.82, 1.0, s)) / (rw * rw); }
+    float lit = 1.0; if (shOn > 0.5){ vec4 sc = shMat * vec4(mix(cameraPosition, vW, t), 1.0); vec3 q = sc.xyz / sc.w; if (q.x > 0.0 && q.x < 1.0 && q.y > 0.0 && q.y < 1.0 && q.z > 0.0 && q.z < 1.0) lit = step(q.z - 0.0015, unpackRGBAToDepth(texture2D(shMap, q.xy))); }      // ombre réelle : ce point de fumée voit-il la source ?
+    sum += lit * (1.0 - smoothstep(1.0 - soft, 1.0, rho)) * (1.0 - fade * smoothstep(0.82, 1.0, s)) / (rw * rw); }
   float wl = length(d * vec3(scl.x, scl.y, scl.x)) * (tb - ta) / float(N);                     // longueur réelle d'un pas, en mètres
   vec3 pm = o + d * (0.5 * (ta + tb)); vec3 lw = normalize(vec3(pm.x * scl.x, pm.y * scl.y - 0.03 * scl.y, pm.z * scl.x)), vw = -normalize(d * vec3(scl.x, scl.y, scl.x));
   float c = dot(lw, vw), g = 0.3, ph = pow(1.0 + g * g, 1.5) / pow(1.0 + g * g - 2.0 * g * c, 1.5);   // plus lumineux quand on regarde vers la source ; 1 de profil
@@ -354,7 +357,8 @@ function build(o){
     const lens = k === 'bar' ? new THREE.Mesh(new THREE.PlaneGeometry(.96, .08), r.lensMat) : new THREE.Mesh(new THREE.CircleGeometry(lensR, 32), r.lensMat);
     lens.rotation.x = Math.PI / 2; lens.position.y = -.03; r.head.add(lens);
     r.light = new THREE.SpotLight('#fff', 0, 0, .3, k === 'beam' ? .15 : k === 'prof' || k === 'spot' ? .25 : .5, 2);
-    r.bm = new THREE.ShaderMaterial({ uniforms: { color: { value: new THREE.Color() }, amount: { value: 0 }, time: BEAMT, soft: { value: k === 'prof' ? .08 : k === 'beam' || k === 'spot' ? .16 : .5 }, fade: { value: 1 }, scl: { value: new THREE.Vector2(1, 1) } }, vertexShader: beamVS, fragmentShader: beamFS,
+    { const sh = r.light.shadow; sh.autoUpdate = false; sh.mapSize.set(512, 512); sh.camera.near = .15; sh.camera.far = 40; sh.bias = -.0008; sh.normalBias = .02; sh.radius = 2; }
+    r.bm = new THREE.ShaderMaterial({ uniforms: { color: { value: new THREE.Color() }, amount: { value: 0 }, time: BEAMT, soft: { value: k === 'prof' ? .08 : k === 'beam' || k === 'spot' ? .16 : .5 }, fade: { value: 1 }, shMap: { value: null }, shMat: { value: new THREE.Matrix4() }, shOn: { value: 0 }, scl: { value: new THREE.Vector2(1, 1) } }, vertexShader: beamVS, fragmentShader: beamFS,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
     r.beam = new THREE.Mesh(beamGeo, r.bm); r.beam.userData.noAO = true; r.beam.frustumCulled = false;
     r.flare = new THREE.Sprite(new THREE.SpriteMaterial({ map: flareTex(), color: 0x000000, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); r.flare.userData.noAO = true; r.flare.visible = false; r.flare.renderOrder = 5;
@@ -525,10 +529,14 @@ const AUD = { on: false, mod: () => null };              // rempli par audio.js 
 let LEDW = null;
 const HIL = new Set(), FLS = new Set();                 // remplis par le pupitre : Highlight et Flash
 const DMXIN = { on: false, read: () => null };          // rempli par dmx.js : valeurs reçues des consoles
+// ---- ombres réelles : les projecteurs allumés les plus puissants portent une ombre (limite du nombre de cartes d'ombre que la carte graphique accepte à la fois)
+const SHK = 6; let shT = -1;
+function shadowPick(){ const c = []; for (const [id, r] of RT){ if (!r.light || r.t.cat !== 'lum' || !r.light.visible || String(id).startsWith('__th')) continue; const d = r.cdim ?? r.o.dim ?? 0; if (d > .02) c.push([d * (r.t.lumens || 8000) * (r.light.castShadow ? 1.25 : 1), r]); }
+  c.sort((a, b) => b[0] - a[0]); const keep = new Set(c.slice(0, SHK).map(x => x[1])); for (const r of RT.values()) if (r.light && r.t.cat === 'lum' && r.light.castShadow !== keep.has(r)){ r.light.castShadow = keep.has(r); if (r.light.castShadow) r.light.shadow.needsUpdate = true; } }
 function update(dt){
   UI.t += dt; BEAMT.value = UI.t; if (LEDW) LEDW.update(dt);
   if (UI.auto && S.cues.length && window.ENG){ const r0 = ENG.rt(0); if (!(r0.on && r0.k < 1)){ UI.autoT = (UI.autoT || 0) + dt; const c = S.cues[UI.cue]; if (!c || UI.autoT >= (c.hold ?? 6)){ UI.autoT = 0; goCue((UI.cue + 1) % S.cues.length, { keepProg: true }); render(); } } }
-  const live = A.live, master = S.black ? 0 : S.master, t = UI.t;
+  const live = A.live, master = S.black ? 0 : S.master, t = UI.t; if (UI.t - shT > .3 || UI.t < shT){ shT = UI.t; shadowPick(); }
   let nvp = 0; const grpCount = {}, grpIdx = {};
   for (const o of S.objs) if (o.grp) grpCount[o.grp] = (grpCount[o.grp] || 0) + 1;
   for (const o of S.objs){
@@ -563,8 +571,11 @@ function update(dt){
         r.light.color.copy(_c); r.light.angle = Math.min(1.5, ang * 1.05); r.light.intensity = dim * dispI(candela(ty.lumens, zoom));
         // le faisceau s'arrête sur le premier obstacle rencontré dans son axe (décor, praticable, mur, sol) : il ne traverse plus les objets
         const L0 = _d.y < -.05 ? Math.min(18, (_v.y + 1.5) / -_d.y) : 16, ok_ = (_v.x * 50 | 0) + ',' + (_v.y * 50 | 0) + ',' + (_v.z * 50 | 0) + ',' + (_d.x * 400 | 0) + ',' + (_d.y * 400 | 0) + ',' + (_d.z * 400 | 0);
-        if (r.occN === undefined) r.occN = Math.random() * 20 | 0; if (r.occK !== ok_ || ((UI.t * 60 | 0) + r.occN) % 20 === 0){ r.occK = ok_; const h = hitAlong(_v, _d, L0); r.occD = h ? h.distance : null; }
-        const cut = r.occD != null && r.occD < L0 - .05, L = cut ? r.occD + .03 : L0, R = Math.tan(ang) * L; r.bm.uniforms.fade.value = cut ? 0 : 1; r.light.distance = cut ? r.occD * 1.6 + .5 : 0;
+        if (r.occN === undefined) r.occN = Math.random() * 20 | 0; const due = s => { if (!(UI.t - (r.occT || 0) < s + r.occN * .004)){ r.occT = UI.t; return true; } return false; }, moved = r.occK !== ok_ + '|' + (ang * 500 | 0), shd = r.light.castShadow; r.occK = ok_ + '|' + (ang * 500 | 0);
+        // ombre réelle (surfaces et fumée) pour les projecteurs qui en portent une : la carte n'est recalculée que si l'appareil bouge, et de temps en temps pour suivre le décor
+        if (shd){ if (moved || !r.light.shadow.map || due(.13)) r.light.shadow.needsUpdate = true; r.occD = null; } else if (moved || due(.33)){ const h = hitAlong(_v, _d, L0); r.occD = h ? h.distance : null; }
+        { const u = r.bm.uniforms, mp = shd && r.light.shadow.map; u.shOn.value = mp ? 1 : 0; if (mp){ u.shMap.value = mp.texture; u.shMat.value.copy(r.light.shadow.matrix); } }
+        const cut = !shd && r.occD != null && r.occD < L0 - .05, L = cut ? r.occD + .03 : L0, R = Math.tan(ang) * L; r.bm.uniforms.fade.value = cut ? 0 : 1; r.light.distance = cut ? r.occD * 1.6 + .5 : 0;
         r.beam.position.copy(_v); r.beam.quaternion.copy(r.head.quaternion); r.beam.scale.set(R, L, R);
         r.bm.uniforms.amount.value = dim * S.haze * BEAMK * clamp(Math.sqrt((ty.lumens || 8000) / 8000), .5, 2.3); r.bm.uniforms.scl.value.set(R, L); r.bm.uniforms.color.value.copy(_c);
         r.lensMat.color.copy(_c).multiplyScalar(dim * 6);

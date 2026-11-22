@@ -15,8 +15,11 @@ with sync_playwright() as p:
     ok(L0>8,'sans obstacle : faisceau long',[L0,d])
     # un volume posé dans l'axe, à 2,5 m de l'appareil
     ev("([dx,dy,dz])=>{STAGE.place('ampli-b',STAGE.hitAt(4+dx*2.5,dz*2.5),true);STAGE.render()}",d); pg.wait_for_timeout(1200)
-    L1=ev("STAGE.RT.get(STAGE.S.objs[0].id).beam.scale.y"); li=ev("STAGE.RT.get(STAGE.S.objs[0].id).light.distance"); ok(1.5<L1<3.2 and li>0,'avec un volume dans l\'axe : le faisceau s\'arrête dessus',[L1,li])
-    ev("(()=>{APP.camera.position.set(5,2,5);APP.orbit.target.set(5.5,.6,0);APP.orbit.update()})()"); pg.wait_for_timeout(1000); pg.screenshot(path=OUT+'/t77.png',clip={'x':60,'y':45,'width':1090,'height':560})
-    ev("STAGE.S.objs[1].pos[0]+=30;STAGE.RT.get(STAGE.S.objs[1].id).dirty=true;STAGE.render()"); pg.wait_for_timeout(1200); L2=ev("STAGE.RT.get(STAGE.S.objs[0].id).beam.scale.y"); ok(L2>8,'volume retiré de l\'axe : le faisceau repart',L2)
+    st=ev("(()=>{const r=STAGE.RT.get(STAGE.S.objs[0].id);return {cast:r.light.castShadow,map:!!r.light.shadow.map,on:r.bm.uniforms.shOn.value,L:r.beam.scale.y,dist:r.light.distance}})()"); ok(st['cast'] and st['map'] and st['on']==1 and st['L']>8 and st['dist']==0,'projecteur à ombre réelle : carte d\'ombre active, cône entier (l\'ombre le découpe)',st)
+    ev("(()=>{APP.camera.position.set(4.5,3.2,5.5);APP.orbit.target.set(6.5,.4,0);APP.orbit.update()})()"); pg.wait_for_timeout(1000); pg.screenshot(path=OUT+'/t77.png',clip={'x':60,'y':45,'width':1090,'height':560})
+    # au-delà de la limite de cartes d'ombre : les projecteurs les moins puissants gardent la coupure dans l'axe
+    ev("()=>{for(let i=0;i<7;i++){STAGE.place('poursuite',STAGE.hitAt(-6+i,6),true);const o=STAGE.S.objs[STAGE.S.objs.length-1];o.pos[1]=4;o.dim=1}STAGE.render()}"); pg.wait_for_timeout(6000)
+    c=ev("STAGE.S.objs.map(o=>{const r=STAGE.RT.get(o.id);return r.light&&STAGE.typeOf(o).cat==='lum'?(r.light.castShadow?1:0):null}).filter(x=>x!==null)"); ok(sum(c)==6 and c[0]==0,'8 projecteurs allumés : 6 portent une ombre, le moins puissant repasse à la coupure dans l\'axe',c)
+    L1=ev("STAGE.RT.get(STAGE.S.objs[0].id).beam.scale.y"); ok(1.5<L1<3.2,'celui-là s\'arrête sur l\'obstacle',L1)
     ok(not errs,'aucune erreur de page',errs[:3]); b.close()
 print('ECHECS',bad) if bad else print('TOUT PASSE')
