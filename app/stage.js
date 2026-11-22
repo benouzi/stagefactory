@@ -397,7 +397,8 @@ function build(o){
     r.extra.push(r.cov);
   } else {
     const k = t.kind;
-    if (k === 'sprop'){ const [w, d, h] = o.size || t.size, g = window.DECOR && DECOR.ready ? DECOR.build(t.key, w, h, d, o.tint) : null; if (g) r.head.add(g); else { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: 0x6e7787, wireframe: true })); m.position.y = h / 2; r.head.add(m); window.DECOR?.load(); } }
+    if (k === 'sprop'){ const [w, d, h] = o.size || t.size, g = window.DECOR && DECOR.ready ? DECOR.build(t.key, w, h, d, o.tint) : null; if (g){ g.traverse(m => { if (m.isMesh) m.userData.noBake = true; }); r.head.add(g); }          // jamais fusionné : un personnage est un maillage articulé, le fusionner le remet en pose neutre et perd des morceaux
+    else { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: 0x6e7787, wireframe: true })); m.position.y = h / 2; r.head.add(m); window.DECOR?.load(); } }
     else if (k === 'screen'){ const [w, h] = o.size || t.size; const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, h), M.screen); pl.position.y = h / 2; r.head.add(pl);
       r.head.add(box(w + .12, .06, .05, M.frame, 0, h + .03, -.03), box(w + .12, .06, .05, M.frame, 0, -.03, -.03), box(.06, h + .12, .05, M.frame, -w / 2 - .03, h / 2, -.03), box(.06, h + .12, .05, M.frame, w / 2 + .03, h / 2, -.03)); }
     else if (k === 'gear'){ gearModel(t, r); }
