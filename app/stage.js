@@ -270,7 +270,7 @@ const BEAMT = { value: 0 }, BEAMK = .26;       // BEAMK : réglage d'affichage d
 // Le cône est un volume fermé : la face avant porte la première moitié du trajet, la face arrière la seconde ; un objet dans le faisceau cache donc ce qui est derrière lui.
 const beamVS = `varying vec3 vP; varying vec3 vO; varying vec3 vW;
 void main(){ vP = position; vO = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
-const beamFS = `uniform vec3 color; uniform float amount; uniform float time; uniform float soft; uniform vec2 scl; varying vec3 vP; varying vec3 vO; varying vec3 vW;
+const beamFS = `uniform vec3 color; uniform float amount; uniform float time; uniform float soft; uniform float fade; uniform vec2 scl; varying vec3 vP; varying vec3 vO; varying vec3 vW;
 float h3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
 float n3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y), mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
@@ -288,7 +288,7 @@ void main(){ const float A0 = 0.03, B0 = 0.97; vec3 o = vO, d = vP - vO;        
   float tm = 0.5 * (t0 + t1), ta = inside ? t0 : gl_FrontFacing ? t0 : tm, tb = inside ? t1 : gl_FrontFacing ? tm : t1; if (inside && gl_FrontFacing) discard;
   float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))), sum = 0.0; const int N = 8;
   for (int i = 0; i < N; i++){ float t = mix(ta, tb, (float(i) + jit) / float(N)); vec3 p = o + d * t; float s = clamp(-p.y, 0.0, 1.0), rl = A0 + B0 * s, rho = length(p.xz) / rl, rw = max(rl * scl.x, 0.1);
-    sum += (1.0 - smoothstep(1.0 - soft, 1.0, rho)) * (1.0 - smoothstep(0.82, 1.0, s)) / (rw * rw); }
+    sum += (1.0 - smoothstep(1.0 - soft, 1.0, rho)) * (1.0 - fade * smoothstep(0.82, 1.0, s)) / (rw * rw); }
   float wl = length(d * vec3(scl.x, scl.y, scl.x)) * (tb - ta) / float(N);                     // longueur réelle d'un pas, en mètres
   vec3 pm = o + d * (0.5 * (ta + tb)); vec3 lw = normalize(vec3(pm.x * scl.x, pm.y * scl.y - 0.03 * scl.y, pm.z * scl.x)), vw = -normalize(d * vec3(scl.x, scl.y, scl.x));
   float c = dot(lw, vw), g = 0.3, ph = pow(1.0 + g * g, 1.5) / pow(1.0 + g * g - 2.0 * g * c, 1.5);   // plus lumineux quand on regarde vers la source ; 1 de profil
@@ -354,7 +354,7 @@ function build(o){
     const lens = k === 'bar' ? new THREE.Mesh(new THREE.PlaneGeometry(.96, .08), r.lensMat) : new THREE.Mesh(new THREE.CircleGeometry(lensR, 32), r.lensMat);
     lens.rotation.x = Math.PI / 2; lens.position.y = -.03; r.head.add(lens);
     r.light = new THREE.SpotLight('#fff', 0, 0, .3, k === 'beam' ? .15 : k === 'prof' || k === 'spot' ? .25 : .5, 2);
-    r.bm = new THREE.ShaderMaterial({ uniforms: { color: { value: new THREE.Color() }, amount: { value: 0 }, time: BEAMT, soft: { value: k === 'prof' ? .08 : k === 'beam' || k === 'spot' ? .16 : .5 }, scl: { value: new THREE.Vector2(1, 1) } }, vertexShader: beamVS, fragmentShader: beamFS,
+    r.bm = new THREE.ShaderMaterial({ uniforms: { color: { value: new THREE.Color() }, amount: { value: 0 }, time: BEAMT, soft: { value: k === 'prof' ? .08 : k === 'beam' || k === 'spot' ? .16 : .5 }, fade: { value: 1 }, scl: { value: new THREE.Vector2(1, 1) } }, vertexShader: beamVS, fragmentShader: beamFS,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
     r.beam = new THREE.Mesh(beamGeo, r.bm); r.beam.userData.noAO = true; r.beam.frustumCulled = false;
     r.flare = new THREE.Sprite(new THREE.SpriteMaterial({ map: flareTex(), color: 0x000000, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); r.flare.userData.noAO = true; r.flare.visible = false; r.flare.renderOrder = 5;
@@ -439,8 +439,8 @@ const dispI = cd => 6 * Math.pow(Math.max(1, cd), .45);     // intensité d'affi
 const rc = new THREE.Raycaster();
 function hitAlong(origin, dir, far = 60){
   rc.set(origin, dir); rc.far = far; rc.near = .3;
-  const list = A.pickMeshes.filter(m => m.visible && m.userData.gid !== 'gril' && m.userData.gid !== 'perches');
-  for (const r of RT.values()) if (r.t.cat === 'str') r.head.traverse(m => { if (m.isMesh) list.push(m); });
+  const list = A.pickMeshes.filter(m => m.visible && m.userData.gid !== 'gril' && m.userData.gid !== 'perches' && m.userData.gid !== 'ponts');
+  for (const r of RT.values()) if (r.t.cat === 'str' && !String(r.o?.id || '').startsWith('__th')) r.root.traverse(m => { if (m.isMesh && m.visible) list.push(m); });
   const h = rc.intersectObjects(list, false); return h.length ? h[0] : null;
 }
 function splAt(P, list){
@@ -561,7 +561,10 @@ function update(dt){
         r.head.getWorldPosition(_v); r.light.position.copy(_v).addScaledVector(_d, .02);
         r.light.target.position.copy(_v).addScaledVector(_d, 10); r.light.target.updateMatrixWorld();
         r.light.color.copy(_c); r.light.angle = Math.min(1.5, ang * 1.05); r.light.intensity = dim * dispI(candela(ty.lumens, zoom));
-        const L = _d.y < -.05 ? Math.min(18, (_v.y + 1.5) / -_d.y) : 16, R = Math.tan(ang) * L;
+        // le faisceau s'arrête sur le premier obstacle rencontré dans son axe (décor, praticable, mur, sol) : il ne traverse plus les objets
+        const L0 = _d.y < -.05 ? Math.min(18, (_v.y + 1.5) / -_d.y) : 16, ok_ = (_v.x * 50 | 0) + ',' + (_v.y * 50 | 0) + ',' + (_v.z * 50 | 0) + ',' + (_d.x * 400 | 0) + ',' + (_d.y * 400 | 0) + ',' + (_d.z * 400 | 0);
+        if (r.occN === undefined) r.occN = Math.random() * 20 | 0; if (r.occK !== ok_ || ((UI.t * 60 | 0) + r.occN) % 20 === 0){ r.occK = ok_; const h = hitAlong(_v, _d, L0); r.occD = h ? h.distance : null; }
+        const cut = r.occD != null && r.occD < L0 - .05, L = cut ? r.occD + .03 : L0, R = Math.tan(ang) * L; r.bm.uniforms.fade.value = cut ? 0 : 1; r.light.distance = cut ? r.occD * 1.6 + .5 : 0;
         r.beam.position.copy(_v); r.beam.quaternion.copy(r.head.quaternion); r.beam.scale.set(R, L, R);
         r.bm.uniforms.amount.value = dim * S.haze * BEAMK * clamp(Math.sqrt((ty.lumens || 8000) / 8000), .5, 2.3); r.bm.uniforms.scl.value.set(R, L); r.bm.uniforms.color.value.copy(_c);
         r.lensMat.color.copy(_c).multiplyScalar(dim * 6);
