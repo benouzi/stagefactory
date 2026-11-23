@@ -406,7 +406,7 @@ function build(o){
     r.extra.push(r.cov);
   } else {
     const k = t.kind;
-    if (k === 'prim'){ const [w, d, h0] = o.size || t.size, h = Math.max(h0, .001), sp = t.shape, mat = new THREE.MeshStandardMaterial({ color: o.pcol || '#8a93a6', roughness: .75, metalness: 0, side: sp === 'plane' ? THREE.DoubleSide : THREE.FrontSide }); let g;          // formes de base : géométrie unité mise aux cotes, posée sur sa base
+    if (k === 'prim'){ const [w, d, h0] = o.size || t.size, h = Math.max(h0, .001), sp = t.shape, mat = matFor(o.mat || 'peint', o.pcol, { side: sp === 'plane' ? THREE.DoubleSide : THREE.FrontSide }); let g;          // formes de base : géométrie unité mise aux cotes, posée sur sa base
       if (sp === 'plane'){ g = new THREE.PlaneGeometry(1, 1); g.rotateX(-Math.PI / 2); g.scale(w, 1, d); g.translate(0, .002, 0); }
       else if (sp === 'sphere'){ g = new THREE.SphereGeometry(.5, 40, 24); g.scale(w, h, d); g.translate(0, h / 2, 0); }
       else if (sp === 'dome'){ g = new THREE.SphereGeometry(.5, 40, 14, 0, Math.PI * 2, 0, Math.PI / 2); g.scale(w, h * 2, d); }
@@ -414,6 +414,7 @@ function build(o){
       else if (sp === 'torus'){ const mn = Math.max(.02, Math.min(w, d)), tr = Math.min(h / 2, mn / 4); g = new THREE.TorusGeometry(mn / 2 - tr, tr, 18, 56); g.rotateX(Math.PI / 2); g.scale(w / mn, 1, d / mn); g.translate(0, tr, 0); }
       else if (sp === 'wedge'){ const s2 = new THREE.Shape(); s2.moveTo(-.5, 0); s2.lineTo(.5, 0); s2.lineTo(.5, 1); s2.closePath(); g = new THREE.ExtrudeGeometry(s2, { depth: 1, bevelEnabled: false }); g.translate(0, 0, -.5); g.rotateY(Math.PI / 2); g.scale(w, h, d); }
       else { g = new THREE.BoxGeometry(w, h, d); g.translate(0, h / 2, 0); }
+      if (matTile(o.mat)) g = boxUV(g, matTile(o.mat));
       const m = new THREE.Mesh(g, mat), piv = new THREE.Group(); m.castShadow = m.receiveShadow = true; m.userData.noBake = true; piv.rotation.set((o.rx || 0) * D2R, 0, (o.rz || 0) * D2R); piv.add(m); r.head.add(piv); }
     else if (k === 'sprop'){ const [w, d, h] = o.size || t.size, g = window.DECOR && DECOR.ready ? DECOR.build(t.key, w, h, d, o.tint) : null; if (g){ g.traverse(m => { if (m.isMesh) m.userData.noBake = true; }); r.head.add(g); }          // jamais fusionné : un personnage est un maillage articulé, le fusionner le remet en pose neutre et perd des morceaux
     else { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: 0x6e7787, wireframe: true })); m.position.y = h / 2; r.head.add(m); window.DECOR?.load(); } }
@@ -550,10 +551,40 @@ const HIL = new Set(), FLS = new Set();                 // remplis par le pupitr
 const DMXIN = { on: false, read: () => null };          // rempli par dmx.js : valeurs reçues des consoles
 // ---- ombres réelles : les projecteurs allumés les plus puissants portent une ombre (limite du nombre de cartes d'ombre que la carte graphique accepte à la fois)
 const SHK = 6; let shT = -1;
+// ---------------------------------------------------------------- matières de base : chacune réagit à la lumière selon sa nature (mat, satiné, brillant, métal, velours, verre)
+// r : rugosité (1 = mat, 0 = miroir) · m : métal · cc : vernis · sheen : duvet du velours · op : opacité · env : reflète la salle · tex/tile : motif et sa taille réelle en mètres
+const MATS = [['peint', 'Peinture mate', { col: '#8a93a6', r: .88 }], ['satin', 'Peinture satinée', { col: '#8a93a6', r: .45 }], ['laque', 'Laqué brillant', { col: '#16161a', r: .1, cc: 1, env: 1 }],
+  ['noir-mat', 'Noir mat (scène)', { col: '#0d0d0e', r: .96 }], ['tapis-n', 'Tapis de danse noir', { col: '#0e0e10', r: .36, env: 1 }], ['tapis-b', 'Tapis de danse blanc', { col: '#e6e6e2', r: .42 }],
+  ['bois', 'Bois (plancher)', { col: '#ffffff', r: .62, tex: 'wood', tile: .96 }], ['cp', 'Contreplaqué', { col: '#ffffff', r: .74, tex: 'ply', tile: 1.25 }], ['moquette', 'Moquette', { col: '#5b5f68', r: 1, tex: 'noise', tile: .4 }],
+  ['velours', 'Velours noir', { col: '#09090b', r: 1, sheen: 1 }], ['tissu', 'Toile, coton blanc', { col: '#eeeae0', r: .96, tex: 'weave', tile: .16 }], ['beton', 'Béton', { col: '#9a9a96', r: .9, tex: 'noise', tile: 1.6 }],
+  ['metal', 'Métal brossé', { col: '#b9bcc2', r: .34, m: 1, tex: 'brush', tile: .5, env: 1 }], ['alu', 'Alu poli, chrome', { col: '#d9dbe0', r: .07, m: 1, env: 1 }], ['miroir', 'Miroir', { col: '#ffffff', r: 0, m: 1, env: 1 }], ['verre', 'Verre, plexi', { col: '#dfeef2', r: .04, op: .22, env: 1 }]];
+const MATBY = new Map(MATS.map(m => [m[0], m[2]])), MTEX = new Map();
+function matTex(k){ if (MTEX.has(k)) return MTEX.get(k); const N = 512, cv = document.createElement('canvas'); cv.width = cv.height = N; const c = cv.getContext('2d'); let sd = 7 + k.length * 131; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  if (k === 'wood' || k === 'ply'){ const pl = k === 'wood' ? 8 : 1, ph = N / pl; for (let i = 0; i < pl; i++){ const b = k === 'wood' ? 150 + rnd() * 50 : 205 + rnd() * 10; c.fillStyle = `rgb(${b},${b * (k === 'wood' ? .7 : .86)},${b * (k === 'wood' ? .44 : .66)})`; c.fillRect(0, i * ph, N, ph);
+      for (let j = 0; j < (k === 'wood' ? 70 : 420); j++){ const y = i * ph + rnd() * ph, a = .03 + rnd() * .1; c.strokeStyle = rnd() > .5 ? `rgba(60,30,8,${a})` : `rgba(255,235,200,${a * .7})`; c.lineWidth = .5 + rnd() * 1.6; c.beginPath(); c.moveTo(0, y); const w = (rnd() - .5) * 5; c.bezierCurveTo(N / 3, y + w, N * 2 / 3, y - w, N, y); c.stroke(); }
+      if (k === 'wood'){ c.fillStyle = 'rgba(25,12,4,.55)'; c.fillRect(0, i * ph, N, 1.5); const x = rnd() * N; c.fillRect(x, i * ph, 1.5, ph); } } }
+  else if (k === 'noise'){ c.fillStyle = '#d2d2d2'; c.fillRect(0, 0, N, N); for (let j = 0; j < 26000; j++){ const v = 150 + rnd() * 105; c.fillStyle = `rgba(${v},${v},${v},${.25 + rnd() * .5})`; c.fillRect(rnd() * N, rnd() * N, 1 + rnd() * 2, 1 + rnd() * 2); } for (let j = 0; j < 40; j++){ c.fillStyle = `rgba(${rnd() > .5 ? 255 : 90},${rnd() > .5 ? 255 : 90},${rnd() > .5 ? 255 : 90},.035)`; c.beginPath(); c.arc(rnd() * N, rnd() * N, 20 + rnd() * 70, 0, 7); c.fill(); } }
+  else if (k === 'weave'){ c.fillStyle = '#e9e9e9'; c.fillRect(0, 0, N, N); const n = 64, st = N / n; for (let i = 0; i < n; i++){ c.fillStyle = `rgba(0,0,0,${.06 + rnd() * .1})`; c.fillRect(0, i * st, N, st * .34); c.fillRect(i * st, 0, st * .34, N); c.fillStyle = `rgba(255,255,255,${.1 + rnd() * .12})`; c.fillRect(0, i * st + st * .5, N, st * .3); } }
+  else { c.fillStyle = '#dcdcdc'; c.fillRect(0, 0, N, N); for (let j = 0; j < 2600; j++){ const v = rnd() > .5 ? 255 : 110; c.strokeStyle = `rgba(${v},${v},${v},${.04 + rnd() * .1})`; c.lineWidth = .4 + rnd(); const y = rnd() * N; c.beginPath(); c.moveTo(0, y); c.lineTo(N, y + (rnd() - .5) * 2); c.stroke(); } }
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; MTEX.set(k, t); return t; }
+// reflet de la salle pour les matières brillantes : une sonde cubique rendue depuis le milieu des objets concernés, rafraîchie toutes les 1,5 s
+let envRT = null, envCam = null, envT = -9;
+const envTex = () => { if (!envRT){ envRT = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType }); envCam = new THREE.CubeCamera(.15, 90, envRT); } return envRT.texture; };
+function envTick(){ if (!envRT || (UI.t - envT < 1.5 && UI.t >= envT)) return; let n = 0, x = 0, y = 0, z = 0; for (const o of S.objs){ if (o.mat && MATBY.get(o.mat)?.env && !o.hidden){ n++; x += o.pos[0]; y += o.pos[1] + ((o.size && o.size[2]) || 1) / 2; z += o.pos[2]; } }
+  for (const s of S.shapes || []){ if (s.mat && MATBY.get(s.mat)?.env){ const p = s.k === 'poly' ? s.p[0] : s.c; n++; x += p[0]; y += (s.y || 0) + (s.h || 0) / 2; z += p[1]; } } if (!n) return; envT = UI.t; envCam.position.set(x / n, Math.max(.3, y / n), z / n);
+  const gv = gizmo && gizmo.visible, hv = gizmoHelper && gizmoHelper.visible; if (gizmoHelper) gizmoHelper.visible = false; try { envCam.update(A.renderer, A.scene); } catch (e){ } if (gizmoHelper) gizmoHelper.visible = hv; }
+function matFor(id, col, o = {}){ const d = MATBY.get(id) || MATBY.get('peint'), phys = d.cc || d.sheen, P = { color: col || d.col, roughness: d.r, metalness: d.m || 0, side: o.side ?? THREE.FrontSide };
+  if (d.tex) P.map = matTex(d.tex); if (d.op){ P.transparent = true; P.opacity = d.op; P.depthWrite = false; P.side = THREE.DoubleSide; } if (d.cc){ P.clearcoat = d.cc; P.clearcoatRoughness = .06; } if (d.sheen){ P.sheen = d.sheen; P.sheenRoughness = .45; P.sheenColor = new THREE.Color('#3a3a44'); }
+  const m = phys ? new THREE.MeshPhysicalMaterial(P) : new THREE.MeshStandardMaterial(P); if (d.env){ m.envMap = envTex(); m.envMapIntensity = 1; envT = -9; } return m; }
+// coordonnées de texture par projection sur les trois plans, en mètres réels : le motif garde sa taille quelle que soit la forme
+function boxUV(g, tile = 1){ if (g.index) g = g.toNonIndexed(); const p = g.attributes.position, uv = new Float32Array(p.count * 2), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
+  for (let i = 0; i < p.count; i += 3){ a.fromBufferAttribute(p, i); b.fromBufferAttribute(p, i + 1); c.fromBufferAttribute(p, i + 2); n.subVectors(b, a).cross(c.clone().sub(a)); const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z), k = ay >= ax && ay >= az ? 1 : ax >= az ? 0 : 2;
+    [a, b, c].forEach((v, j) => { uv[(i + j) * 2] = (k === 0 ? v.z : v.x) / tile; uv[(i + j) * 2 + 1] = (k === 1 ? v.z : v.y) / tile; }); } g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); return g; }
+const matTile = id => MATBY.get(id)?.tex ? MATBY.get(id).tile : 0;
 function shadowPick(){ const c = []; for (const [id, r] of RT){ if (!r.light || r.t.cat !== 'lum' || !r.light.visible || String(id).startsWith('__th')) continue; const d = r.cdim ?? r.o.dim ?? 0; if (d > .02) c.push([d * (r.t.lumens || 8000) * (r.light.castShadow ? 1.25 : 1), r]); }
   c.sort((a, b) => b[0] - a[0]); const keep = new Set(c.slice(0, SHK).map(x => x[1])); for (const r of RT.values()) if (r.light && r.t.cat === 'lum' && r.light.castShadow !== keep.has(r)){ r.light.castShadow = keep.has(r); if (r.light.castShadow) r.light.shadow.needsUpdate = true; } }
 function update(dt){
-  UI.t += dt; BEAMT.value = UI.t; if (LEDW) LEDW.update(dt);
+  UI.t += dt; BEAMT.value = UI.t; envTick(); if (LEDW) LEDW.update(dt);
   if (UI.auto && S.cues.length && window.ENG){ const r0 = ENG.rt(0); if (!(r0.on && r0.k < 1)){ UI.autoT = (UI.autoT || 0) + dt; const c = S.cues[UI.cue]; if (!c || UI.autoT >= (c.hold ?? 6)){ UI.autoT = 0; goCue((UI.cue + 1) % S.cues.length, { keepProg: true }); render(); } } }
   const live = A.live, master = S.black ? 0 : S.master, t = UI.t; if (UI.t - shT > .3 || UI.t < shT){ shT = UI.t; shadowPick(); }
   let nvp = 0; const grpCount = {}, grpIdx = {};
@@ -1132,7 +1163,7 @@ function propHtml(){
     if (t.kind === 'screen') h += `<label>Largeur</label>${rng('size0', 1, 14, .05, (o.size || t.size)[0], ' m')}<label>Hauteur</label>${rng('size1', .5, 8, .025, (o.size || t.size)[1], ' m')}`;
     if (t.kind === 'truss') h += `<label>Longueur</label>${rng('len', .5, 14, .5, o.len || t.len, ' m')}`;
     if (t.kind === 'prim'){ const sz = o.size || t.size, ni = (k, v, mn = .01) => `<input type="number" class="inp" data-k="${k}" min="${mn}" step="0.05" value="${+(+v).toFixed(3)}">`, flat = t.shape === 'plane';
-      h += `<label>Largeur (m)</label>${ni('size0', sz[0])}<label>Profondeur (m)</label>${ni('size1', sz[1])}${flat ? '' : `<label>${t.shape === 'torus' ? 'Épaisseur (m)' : 'Hauteur (m)'}</label>${ni('size2', sz[2])}`}<label>Couleur</label><input type="color" data-k="pcol" value="${o.pcol || '#8a93a6'}"><label>Bascule avant-arrière</label>${rng('rx', -180, 180, 1, o.rx || 0, '°')}<label>Bascule de côté</label>${rng('rz', -180, 180, 1, o.rz || 0, '°')}`; }
+      h += `<label>Largeur (m)</label>${ni('size0', sz[0])}<label>Profondeur (m)</label>${ni('size1', sz[1])}${flat ? '' : `<label>${t.shape === 'torus' ? 'Épaisseur (m)' : 'Hauteur (m)'}</label>${ni('size2', sz[2])}`}<label>Matière</label><select class="inp" data-k="mat">${MATS.map(([k, l]) => `<option value="${k}"${(o.mat || 'peint') === k ? ' selected' : ''}>${l}</option>`).join('')}</select><label>Couleur</label><input type="color" data-k="pcol" value="${o.pcol || MATBY.get(o.mat || 'peint').col}"><label>Bascule avant-arrière</label>${rng('rx', -180, 180, 1, o.rx || 0, '°')}<label>Bascule de côté</label>${rng('rz', -180, 180, 1, o.rz || 0, '°')}`; }
     if (t.kind === 'sprop'){ const sz = o.size || t.size, mx = v => Math.max(4, Math.ceil(v * 3)); h += `<label>Largeur</label>${rng('size0', .05, mx(t.size[0]), .01, sz[0], ' m')}<label>Profondeur</label>${rng('size1', .01, mx(t.size[1]), .01, sz[1], ' m')}<label>Hauteur</label>${rng('size2', .01, mx(t.size[2]), .01, sz[2], ' m')}${window.DECOR && DECOR.ready && !DECOR.isPerson(t.key) ? `<label>Teinte</label><select class="inp" data-k="tint">${DECOR.tints().map(([k, l]) => `<option value="${k}"${(o.tint || '') === k ? ' selected' : ''}>${l}</option>`).join('')}</select>` : ''}<label>Poids (kg)</label><input type="number" class="inp" data-k="w" min="0" step="0.5" value="${o.w ?? ''}" placeholder="inconnu">`; }
     if (t.kind === 'riser') h += `<label>Hauteur</label>${rng('size2', .2, 1.6, .2, (o.size || t.size)[2], ' m')}`;
     if (t.kind === 'stairs') h += `<label>Largeur</label>${rng('size0', .6, 3, .1, (o.size || t.size)[0], ' m')}<label>Hauteur</label>${rng('size2', .2, 1.6, .2, (o.size || t.size)[2], ' m')}`;
@@ -1212,10 +1243,10 @@ function onInput(e){
     if (/^size\d$/.test(k)){ o.size = [...(o.size || typeOf(o).size)]; o.size[+k[4]] = +val; }
     else if (k === 'pi'){ o.pi = +val; o.pos[2] = A.PERCHES[o.pi].z; }
     else if (k === 'hang'){ const was = !!o.hang; o.hang = val || null; if (o.hang !== 'perche') delete o.pi; if (o.hang === 'pont'){ if (!window.PONTS?.attachNearest(o)) o.hang = 'fixe'; } else delete o.sid; }
-    else if (k === 'tint'){ if (val) o.tint = val; else delete o.tint; } else if (k === 'w'){ if (val === '' || !(+val >= 0)) delete o.w; else o.w = +val; } else if (['fx', 'fx2', 'fx3', 'color', 'content', 'grp', 'pcol'].includes(k)) o[k] = val; else if (k === 'on') o.on = val; else if (k === 'mode') o.mode = +val; else o[k] = +val;
-    if (/^size|^len$|^hang$|^tint$|^pcol$|^rx$|^rz$/.test(k)) rebuild(o);
+    else if (k === 'tint'){ if (val) o.tint = val; else delete o.tint; } else if (k === 'w'){ if (val === '' || !(+val >= 0)) delete o.w; else o.w = +val; } else if (['fx', 'fx2', 'fx3', 'color', 'content', 'grp', 'pcol'].includes(k)) o[k] = val; else if (k === 'mat'){ o.mat = val; o.pcol = MATBY.get(val)?.col || o.pcol; } else if (k === 'on') o.on = val; else if (k === 'mode') o.mode = +val; else o[k] = +val;
+    if (/^size|^len$|^hang$|^tint$|^pcol$|^rx$|^rz$|^mat$/.test(k)) rebuild(o);
   }
-  if (k === 'hang') select(UI.sel); else if (/^size|^len$|^tint$|^pcol$|^rx$|^rz$/.test(k)) reattach();
+  if (k === 'hang' || k === 'mat') select(UI.sel); else if (/^size|^len$|^tint$|^pcol$|^rx$|^rz$/.test(k)) reattach();
   if (k === 'content' && (val === 'image' || val === 'video')) pickMedia(p, val);
   touch(); photo();
 }
@@ -1485,5 +1516,5 @@ export function init(APP){
   import('./view.js').then(m => m.initView(A, window.STAGE)).catch(e => console.error(e));
   setTimeout(() => import('./wins.js').then(m => m.initWins(A, window.STAGE)).catch(e => console.error(e)), 600);
   setTimeout(() => import('./dock.js').then(m => m.initDock(A, window.STAGE)).catch(e => console.error(e)), 900);
-  window.STAGE = { parseD4, LKEYS, HIL, FLS, FXHOOK, sceneShow, dirOf, setDl: x => { dl = x; }, get gizmoR(){ return gizmoR; }, fmt, LED: LEDW, FXS, defaults, recCue, tick: update, weightOf, LIBALL: () => LIB, removeSel, duplicate, cloudSave, cloudLoad, runAct, undoTo, hist: () => ({ undo: undoStack, redo: redoStack }), byId, build, unbuild, nextNum, freeAddr, modeCh, modal, esc, gizmo, uid, posOf, setGizmo: m => { UI.gizmo = m; setGizmoMode(); }, hasCloud: () => !!db, histChanged, typeOf, pushUndo, touch, refreshProps, addrStr, saveFile, toast, selObjs, undo, redo, conflicts, S, UI, RT, select, setLive, goCue, place, placeSeries, seriePts, percheNear, hitAt, blkType, blkCells, blkSnap, placeBlock, blkTip, stageEdges, dressStage, importFiles, loadShow, demoShow, blankShow, serialize, exportMvr, parseGdtf, splMap, render, magnet, magState, magSay, supportNear };
+  window.STAGE = { MATS, matFor, boxUV, matTile, matCol: id => MATBY.get(id)?.col, parseD4, LKEYS, HIL, FLS, FXHOOK, sceneShow, dirOf, setDl: x => { dl = x; }, get gizmoR(){ return gizmoR; }, fmt, LED: LEDW, FXS, defaults, recCue, tick: update, weightOf, LIBALL: () => LIB, removeSel, duplicate, cloudSave, cloudLoad, runAct, undoTo, hist: () => ({ undo: undoStack, redo: redoStack }), byId, build, unbuild, nextNum, freeAddr, modeCh, modal, esc, gizmo, uid, posOf, setGizmo: m => { UI.gizmo = m; setGizmoMode(); }, hasCloud: () => !!db, histChanged, typeOf, pushUndo, touch, refreshProps, addrStr, saveFile, toast, selObjs, undo, redo, conflicts, S, UI, RT, select, setLive, goCue, place, placeSeries, seriePts, percheNear, hitAt, blkType, blkCells, blkSnap, placeBlock, blkTip, stageEdges, dressStage, importFiles, loadShow, demoShow, blankShow, serialize, exportMvr, parseGdtf, splMap, render, magnet, magState, magSay, supportNear };
 }
