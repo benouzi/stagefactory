@@ -47,6 +47,15 @@ const LIB = [
   { id: 'frise', cat: 'str', kind: 'drape', name: 'Frise (velours noir)', size: [12, 1.2], w: 8, p: 0 },
   { id: 'rideau-n', cat: 'str', kind: 'drape', name: 'Rideau ou pendrillon noir', size: [3, 6], w: 12, p: 0 },
   { id: 'boite', cat: 'str', kind: 'riser', name: 'Volume simple (boîte)', size: [.6, .5, .5], w: 10, p: 0 },
+  { id: 'prim-plan', cat: 'str', kind: 'prim', shape: 'plane', grp: 'Formes de base', name: 'Plan (surface)', size: [2, 2, 0], w: 0, noW: true, p: 0, noP: true },
+  { id: 'prim-cube', cat: 'str', kind: 'prim', shape: 'box', grp: 'Formes de base', name: 'Cube, boîte', size: [1, 1, 1], w: 0, noW: true, p: 0, noP: true },
+  { id: 'prim-sphere', cat: 'str', kind: 'prim', shape: 'sphere', grp: 'Formes de base', name: 'Sphère', size: [1, 1, 1], w: 0, noW: true, p: 0, noP: true, round: true },
+  { id: 'prim-cyl', cat: 'str', kind: 'prim', shape: 'cyl', grp: 'Formes de base', name: 'Cylindre', size: [1, 1, 1], w: 0, noW: true, p: 0, noP: true, round: true },
+  { id: 'prim-cone', cat: 'str', kind: 'prim', shape: 'cone', grp: 'Formes de base', name: 'Cône', size: [1, 1, 1], w: 0, noW: true, p: 0, noP: true, round: true },
+  { id: 'prim-pyr', cat: 'str', kind: 'prim', shape: 'pyr', grp: 'Formes de base', name: 'Pyramide', size: [1, 1, 1], w: 0, noW: true, p: 0, noP: true },
+  { id: 'prim-dome', cat: 'str', kind: 'prim', shape: 'dome', grp: 'Formes de base', name: 'Dôme (demi-sphère)', size: [2, 2, 1], w: 0, noW: true, p: 0, noP: true, round: true },
+  { id: 'prim-coin', cat: 'str', kind: 'prim', shape: 'wedge', grp: 'Formes de base', name: 'Coin, rampe', size: [1, 1, 0.5], w: 0, noW: true, p: 0, noP: true },
+  { id: 'prim-tore', cat: 'str', kind: 'prim', shape: 'torus', grp: 'Formes de base', name: 'Tore (anneau)', size: [1, 1, 0.2], w: 0, noW: true, p: 0, noP: true, round: true },
   { id: 'gear', cat: 'str', kind: 'gear', name: 'Appareil (boîtier générique)', box: [.4, .25, .3], fp: [.4, .3], w: 0, noW: true, p: 0, noP: true },
   { id: 'truss', cat: 'str', kind: 'truss', name: 'Pont carré 30', len: 3, w: 15, p: 0 },
   { id: 'prat', cat: 'str', kind: 'riser', name: 'Praticable 2 × 1 m', size: [2, 1, 0.4], w: 35, p: 0 },
@@ -397,7 +406,16 @@ function build(o){
     r.extra.push(r.cov);
   } else {
     const k = t.kind;
-    if (k === 'sprop'){ const [w, d, h] = o.size || t.size, g = window.DECOR && DECOR.ready ? DECOR.build(t.key, w, h, d, o.tint) : null; if (g){ g.traverse(m => { if (m.isMesh) m.userData.noBake = true; }); r.head.add(g); }          // jamais fusionné : un personnage est un maillage articulé, le fusionner le remet en pose neutre et perd des morceaux
+    if (k === 'prim'){ const [w, d, h0] = o.size || t.size, h = Math.max(h0, .001), sp = t.shape, mat = new THREE.MeshStandardMaterial({ color: o.pcol || '#8a93a6', roughness: .75, metalness: 0, side: sp === 'plane' ? THREE.DoubleSide : THREE.FrontSide }); let g;          // formes de base : géométrie unité mise aux cotes, posée sur sa base
+      if (sp === 'plane'){ g = new THREE.PlaneGeometry(1, 1); g.rotateX(-Math.PI / 2); g.scale(w, 1, d); g.translate(0, .002, 0); }
+      else if (sp === 'sphere'){ g = new THREE.SphereGeometry(.5, 40, 24); g.scale(w, h, d); g.translate(0, h / 2, 0); }
+      else if (sp === 'dome'){ g = new THREE.SphereGeometry(.5, 40, 14, 0, Math.PI * 2, 0, Math.PI / 2); g.scale(w, h * 2, d); }
+      else if (sp === 'cyl' || sp === 'cone' || sp === 'pyr'){ g = new THREE.CylinderGeometry(sp === 'cyl' ? .5 : 0, sp === 'pyr' ? Math.SQRT1_2 : .5, 1, sp === 'pyr' ? 4 : 40); if (sp === 'pyr') g.rotateY(Math.PI / 4); g.scale(w, h, d); g.translate(0, h / 2, 0); }
+      else if (sp === 'torus'){ const mn = Math.max(.02, Math.min(w, d)), tr = Math.min(h / 2, mn / 4); g = new THREE.TorusGeometry(mn / 2 - tr, tr, 18, 56); g.rotateX(Math.PI / 2); g.scale(w / mn, 1, d / mn); g.translate(0, tr, 0); }
+      else if (sp === 'wedge'){ const s2 = new THREE.Shape(); s2.moveTo(-.5, 0); s2.lineTo(.5, 0); s2.lineTo(.5, 1); s2.closePath(); g = new THREE.ExtrudeGeometry(s2, { depth: 1, bevelEnabled: false }); g.translate(0, 0, -.5); g.rotateY(Math.PI / 2); g.scale(w, h, d); }
+      else { g = new THREE.BoxGeometry(w, h, d); g.translate(0, h / 2, 0); }
+      const m = new THREE.Mesh(g, mat), piv = new THREE.Group(); m.castShadow = m.receiveShadow = true; m.userData.noBake = true; piv.rotation.set((o.rx || 0) * D2R, 0, (o.rz || 0) * D2R); piv.add(m); r.head.add(piv); }
+    else if (k === 'sprop'){ const [w, d, h] = o.size || t.size, g = window.DECOR && DECOR.ready ? DECOR.build(t.key, w, h, d, o.tint) : null; if (g){ g.traverse(m => { if (m.isMesh) m.userData.noBake = true; }); r.head.add(g); }          // jamais fusionné : un personnage est un maillage articulé, le fusionner le remet en pose neutre et perd des morceaux
     else { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: 0x6e7787, wireframe: true })); m.position.y = h / 2; r.head.add(m); window.DECOR?.load(); } }
     else if (k === 'screen'){ const [w, h] = o.size || t.size; const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, h), M.screen); pl.position.y = h / 2; r.head.add(pl);
       r.head.add(box(w + .12, .06, .05, M.frame, 0, h + .03, -.03), box(w + .12, .06, .05, M.frame, 0, -.03, -.03), box(.06, h + .12, .05, M.frame, -w / 2 - .03, h / 2, -.03), box(.06, h + .12, .05, M.frame, w / 2 + .03, h / 2, -.03)); }
@@ -876,7 +894,7 @@ function undoTo(n){ let k = 0; while (undoStack.length > n && k++ < 200){ const 
 function redo(){ if (!redoStack.length) return toast('Rien à rétablir.'); const u = redoStack.pop(); undoStack.push({ s: serialize(), label: u.label, at: u.at }); loadShow(JSON.parse(u.s), true); UI.dirty = true; histChanged(); toast('Rétabli : ' + u.label); }
 const blankShow = () => ({ name: 'Sans titre', objs: [], cues: [], follow: false, salle: { ...A.VOPEN } });
 function loadShow(d, keepSel){
-  for (const id of [...RT.keys()]) unbuild(id);
+  gizmo?.detach(); for (const id of [...RT.keys()]) unbuild(id);
   const raws = new Map(S.lib.filter(t => t.raw).map(t => [t.id, t.raw]));
   S.name = d.name || 'Sans titre'; S.objs = d.objs || []; { const known = new Set([...LIB, ...(d.lib || [])].map(t => t.id)), n0 = S.objs.length; S.objs = S.objs.filter(o => o && known.has(o.type) && Array.isArray(o.pos)); if (S.objs.length < n0) setTimeout(() => toast(`${n0 - S.objs.length} objet(s) d'un type inconnu ont été ignorés à l'ouverture.`, true), 50); } S.cues = d.cues || []; S.prog = d.prog && typeof d.prog === 'object' ? d.prog : {}; S.xseq = Array.isArray(d.xseq) ? d.xseq : []; S.seqMaster = d.seqMaster ?? 1; S.seqName = d.seqName || ''; S.lib = (d.lib || []).map(t => ({ ...t, raw: raws.get(t.id) })); S.master = d.master ?? 1; S.haze = d.haze ?? .5; S.pal = d.pal && d.pal.color ? d.pal : null; S.follow = d.follow !== false; { const fc = document.querySelector('#followCfg'); if (fc) fc.checked = S.follow; }
   S.shapes = Array.isArray(d.shapes) ? d.shapes : []; S.sups = Array.isArray(d.sups) ? d.sups : []; S.safety = d.safety && typeof d.safety === 'object' ? d.safety : null; S.cornerKg = d.cornerKg && typeof d.cornerKg === 'object' ? d.cornerKg : {}; S.dims = Array.isArray(d.dims) ? d.dims : []; S.layers = d.layers && typeof d.layers === 'object' ? d.layers : {}; S.arrays = Array.isArray(d.arrays) ? d.arrays : [];
@@ -1113,6 +1131,8 @@ function propHtml(){
     if (t.kind === 'drape') h += `<label>Largeur</label>${rng('size0', .5, 30, .05, (o.size || t.size)[0], ' m')}<label>Hauteur</label>${rng('size1', .3, 20, .05, (o.size || t.size)[1], ' m')}`;
     if (t.kind === 'screen') h += `<label>Largeur</label>${rng('size0', 1, 14, .05, (o.size || t.size)[0], ' m')}<label>Hauteur</label>${rng('size1', .5, 8, .025, (o.size || t.size)[1], ' m')}`;
     if (t.kind === 'truss') h += `<label>Longueur</label>${rng('len', .5, 14, .5, o.len || t.len, ' m')}`;
+    if (t.kind === 'prim'){ const sz = o.size || t.size, ni = (k, v, mn = .01) => `<input type="number" class="inp" data-k="${k}" min="${mn}" step="0.05" value="${+(+v).toFixed(3)}">`, flat = t.shape === 'plane';
+      h += `<label>Largeur (m)</label>${ni('size0', sz[0])}<label>Profondeur (m)</label>${ni('size1', sz[1])}${flat ? '' : `<label>${t.shape === 'torus' ? 'Épaisseur (m)' : 'Hauteur (m)'}</label>${ni('size2', sz[2])}`}<label>Couleur</label><input type="color" data-k="pcol" value="${o.pcol || '#8a93a6'}"><label>Bascule avant-arrière</label>${rng('rx', -180, 180, 1, o.rx || 0, '°')}<label>Bascule de côté</label>${rng('rz', -180, 180, 1, o.rz || 0, '°')}`; }
     if (t.kind === 'sprop'){ const sz = o.size || t.size, mx = v => Math.max(4, Math.ceil(v * 3)); h += `<label>Largeur</label>${rng('size0', .05, mx(t.size[0]), .01, sz[0], ' m')}<label>Profondeur</label>${rng('size1', .01, mx(t.size[1]), .01, sz[1], ' m')}<label>Hauteur</label>${rng('size2', .01, mx(t.size[2]), .01, sz[2], ' m')}${window.DECOR && DECOR.ready && !DECOR.isPerson(t.key) ? `<label>Teinte</label><select class="inp" data-k="tint">${DECOR.tints().map(([k, l]) => `<option value="${k}"${(o.tint || '') === k ? ' selected' : ''}>${l}</option>`).join('')}</select>` : ''}<label>Poids (kg)</label><input type="number" class="inp" data-k="w" min="0" step="0.5" value="${o.w ?? ''}" placeholder="inconnu">`; }
     if (t.kind === 'riser') h += `<label>Hauteur</label>${rng('size2', .2, 1.6, .2, (o.size || t.size)[2], ' m')}`;
     if (t.kind === 'stairs') h += `<label>Largeur</label>${rng('size0', .6, 3, .1, (o.size || t.size)[0], ' m')}<label>Hauteur</label>${rng('size2', .2, 1.6, .2, (o.size || t.size)[2], ' m')}`;
@@ -1192,10 +1212,10 @@ function onInput(e){
     if (/^size\d$/.test(k)){ o.size = [...(o.size || typeOf(o).size)]; o.size[+k[4]] = +val; }
     else if (k === 'pi'){ o.pi = +val; o.pos[2] = A.PERCHES[o.pi].z; }
     else if (k === 'hang'){ const was = !!o.hang; o.hang = val || null; if (o.hang !== 'perche') delete o.pi; if (o.hang === 'pont'){ if (!window.PONTS?.attachNearest(o)) o.hang = 'fixe'; } else delete o.sid; }
-    else if (k === 'tint'){ if (val) o.tint = val; else delete o.tint; } else if (k === 'w'){ if (val === '' || !(+val >= 0)) delete o.w; else o.w = +val; } else if (['fx', 'fx2', 'fx3', 'color', 'content', 'grp'].includes(k)) o[k] = val; else if (k === 'on') o.on = val; else if (k === 'mode') o.mode = +val; else o[k] = +val;
-    if (/^size|^len$|^hang$|^tint$/.test(k)) rebuild(o);
+    else if (k === 'tint'){ if (val) o.tint = val; else delete o.tint; } else if (k === 'w'){ if (val === '' || !(+val >= 0)) delete o.w; else o.w = +val; } else if (['fx', 'fx2', 'fx3', 'color', 'content', 'grp', 'pcol'].includes(k)) o[k] = val; else if (k === 'on') o.on = val; else if (k === 'mode') o.mode = +val; else o[k] = +val;
+    if (/^size|^len$|^hang$|^tint$|^pcol$|^rx$|^rz$/.test(k)) rebuild(o);
   }
-  if (k === 'hang') select(UI.sel); else if (/^size|^len$|^tint$/.test(k)) reattach();
+  if (k === 'hang') select(UI.sel); else if (/^size|^len$|^tint$|^pcol$|^rx$|^rz$/.test(k)) reattach();
   if (k === 'content' && (val === 'image' || val === 'video')) pickMedia(p, val);
   touch(); photo();
 }
