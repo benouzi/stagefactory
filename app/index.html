@@ -458,6 +458,8 @@ let k = 0;
 for (const z of [-6, 1.5, 9, 16]) for (const x of [-4.6, 4.6]) spot(HOUSE, '#ffe4c8', [x, 6.75, z], [x * 0.5, 0, z + 0.8], 1.0, (k++ % 2) === 0);
 // face plateau (ambiance « plateau »)
 for (const x of [-4, 0, 4]) spot(STAGE, '#ffd9a8', [x, 6.7, 3.2], [x * 0.7, 0, -3.5], 0.5, x === 0);
+// projet sans salle (plein air) : pas de taches de service au sol, une lumière de travail uniforme avec ombres
+const OPENL = new THREE.DirectionalLight('#fff3e4', 0); OPENL.position.set(7, 16, 11); OPENL.castShadow = true; OPENL.shadow.mapSize.set(2048, 2048); OPENL.shadow.bias = -0.0005; OPENL.shadow.normalBias = 0.04; OPENL.shadow.radius = 4; { const c = OPENL.shadow.camera; c.left = c.bottom = -24; c.right = c.top = 24; c.near = 1; c.far = 60; } OPENL.visible = false; scene.add(OPENL, OPENL.target);
 const AMB = {
   service: { label: 'Service', house: 260, stage: 0,   hemi: 0.35, env: 0.25 },
   salle:   { label: 'Public tamisé', house: 60, stage: 0, hemi: 0.10, env: 0.08 },
@@ -466,11 +468,12 @@ const AMB = {
 };
 let ambId = 'service';
 function applyAmb(){
-  const a = AMB[ambId], live = APP.live;
-  HOUSE.forEach(l => { l.intensity = a.house; l.visible = !live && a.house > 0; });
+  const a = AMB[ambId], live = APP.live; let open = false; try { open = !!(VEN.cur && VEN.cur.open); } catch (e){ }
+  HOUSE.forEach(l => { l.intensity = a.house; l.visible = !live && a.house > 0 && !open; });
+  OPENL.intensity = a.house / 260 * 1.5; OPENL.visible = open && !live && a.house > 0;
   STAGE.forEach(l => { l.intensity = a.stage; l.visible = !live && a.stage > 0; });
   const hl = Math.max(APP.houseLevel, APP.liveGuard ? .1 : 0);          // veilleuse : en mode spectacle sans aucun projecteur allumé, on garde de quoi voir la salle
-  hemi.intensity = live ? hl : a.hemi; scene.environmentIntensity = live ? hl * .6 : a.env;
+  hemi.intensity = live ? hl : a.hemi * (open ? 2.2 : 1); scene.environmentIntensity = live ? hl * .6 : a.env;
   document.querySelectorAll('#amb button').forEach(b => b.classList.toggle('on', !live && b.dataset.id === ambId));
 }
 function setAmb(id, user){
@@ -564,7 +567,7 @@ orthoCtl.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGH
 const plc = new PointerLockControls(persp, document.body);
 
 const clipY = new THREE.Plane(new THREE.Vector3(0, -1, 0), CUTY_MAX);
-const clipX = new THREE.Plane(new THREE.Vector3(-1, 0, 0), CUTX_MAX);
+const clipX = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 1e6);
 const clips = [clipY, clipX];
 
 // ---------- groups ----------
@@ -991,7 +994,7 @@ $('#edges').onchange = e => { for (const g of Object.values(groups)){ if (g.edge
 // ---------- clipping ----------
 function syncClip(){
   const y = +$('#cutY').value, x = +$('#cutX').value;
-  clipY.constant = y; clipX.constant = x;
+  clipY.constant = y >= CUTY_MAX ? 1e6 : y; clipX.constant = x >= CUTX_MAX ? 1e6 : x;          // curseur en butée : aucune coupe (une salle sur mesure ou un plein air peut dépasser 10 m de demi-largeur)
   $('#cutYv').textContent = y >= CUTY_MAX ? '—' : fmt(y,1)+' m';
   $('#cutXv').textContent = x >= CUTX_MAX ? '—' : fmt(x,1)+' m';
 }
@@ -1196,7 +1199,7 @@ const pickOn = m => m.userData.gid !== 'perches' || !PERCHES[m.userData.pi].off;
 function setPlanData(id, D){ PLANS.set(id, D); if (D.kind === 'img' && !D.img && D.url){ const im = new Image(); im.onload = () => { D.img = im; if (VEN.cur.plan && VEN.cur.plan.id === id){ setVenue(VEN.cur, true); if (window.PLAN) window.PLAN.P.dirty = true; } }; im.src = D.url; } }
 function setVenue(v, keepCam){
   const wasParam = VEN.cur.type === 'param'; v = v && v.type === 'param' ? venueNorm({ ...VDEF, ...v }) : { type: 'onex' };
-  VEN.cur = v; const P = v.type === 'param'; document.body.classList.toggle('ven-param', P); VEN.onexRoot.visible = !P;
+  VEN.cur = v; const P = v.type === 'param'; document.body.classList.toggle('ven-param', P); VEN.onexRoot.visible = !P; applyAmb();
   if (VEN.root){ scene.remove(VEN.root); VEN.root.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); VEN.root = null; VEN.meshes = []; } if (VEN.tex){ VEN.tex.dispose(); VEN.tex = null; }
   VEN.k = P ? v.percheLen / 16 : 1;
   if (P){
@@ -1209,7 +1212,7 @@ function setVenue(v, keepCam){
     const pd = v.pitD ? Math.min(v.pitD, z1 - .5) : 0, py = pd ? v.pitY : fy, pw = Math.min(hw, (v.pitW || v.prosW || v.stageW) / 2);
     if (pd && py < fy - .01){ box(-hw, hw, fy - .25, fy, z0, 0, mF, true); box(-hw, -pw, fy - .25, fy, 0, pd, mF, true); box(pw, hw, fy - .25, fy, 0, pd, mF, true); box(-hw, hw, fy - .25, fy, pd, z1, mF, true);
       box(-pw, pw, py - .25, py, 0, pd, mF, true); box(-pw - .1, -pw, py - .25, fy - .25, 0, pd, mB); box(pw, pw + .1, py - .25, fy - .25, 0, pd, mB); box(-pw - .1, pw + .1, py - .25, fy - .25, pd, pd + .1, mB); box(-pw - .1, pw + .1, py - .25, fy, -.1, 0, mS); }
-    else { box(-hw, hw, fy - .25, fy, z0, z1, mF, true); if (pd && py > fy + .01) box(-pw, pw, fy, py, 0, pd, mS, true); }
+    else { const E = v.open ? 150 : 0; box(-hw - E, hw + E, fy - .25, fy, z0 - E, z1 + E, mF, true); if (pd && py > fy + .01) box(-pw, pw, fy, py, 0, pd, mS, true); }
     if (!v.open) box(-v.stageW / 2, v.stageW / 2, fy, 0, -v.stageD, 0, mS, true);                     // plateau
     if (v.shell !== false){                                                                           // murs : la cage de scène peut être plus haute que la salle
       for (const sx of [-1, 1]){ const xa = sx < 0 ? -hw - T : hw, xb = sx < 0 ? -hw : hw + T; if (CH === HH) box(xa, xb, fy - .25, HH, z0 - T, z1 + T, mW); else { box(xa, xb, fy - .25, CH, z0 - T, pz, mW); box(xa, xb, fy - .25, HH, pz, z1 + T, mW); } }
