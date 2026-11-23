@@ -5,10 +5,11 @@ export function initView(A, ST){
   const V = { ...DEF, ...A.store.get('view3d', {}) }, FOG0 = FOG ? '#' + FOG.color.getHexString() : null;
   // grille : un seul grand plan, les traits sont calculés au pixel près (nets à toute distance) et s'effacent au loin
   const mat = new T.ShaderMaterial({ transparent: true, depthWrite: false, side: T.DoubleSide, extensions: { derivatives: true },
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -6,          // la grille passe toujours devant le sol qu'elle frôle : plus de clignotement au loin
     uniforms: { uCol: { value: new T.Color(V.col) }, uOp: { value: V.op }, uStep: { value: V.step }, uAxes: { value: 1 }, uFar: { value: 160 } },
     vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
     fragmentShader: `varying vec3 vW; uniform vec3 uCol; uniform float uOp, uStep, uAxes, uFar;
-      float grid(vec2 p, float s){ vec2 c = p / s, g = abs(fract(c - .5) - .5) / fwidth(c); return 1. - min(min(g.x, g.y), 1.); }
+      float grid(vec2 p, float s){ vec2 c = p / s, w = fwidth(c), g = abs(fract(c - .5) - .5) / w; return (1. - min(min(g.x, g.y), 1.)) * (1. - smoothstep(.22, .6, max(w.x, w.y))); }          // au loin, quand une maille approche le pixel, la ligne s'efface au lieu de scintiller
       void main(){ vec2 p = vW.xz; float d = distance(cameraPosition, vW), fade = 1. - smoothstep(uFar * .35, uFar, d);
         float a = grid(p, uStep) * .45 * (1. - smoothstep(uFar * .12, uFar * .45, d)) + grid(p, uStep * 5.) * .85; vec3 col = uCol;
         vec2 ax = abs(p) / fwidth(p); if (uAxes > .5){ float ax1 = 1. - min(ax.y / 1.6, 1.), ax2 = 1. - min(ax.x / 1.6, 1.); if (ax1 > 0.){ col = mix(col, vec3(1., .32, .3), ax1); a = max(a, ax1); } if (ax2 > 0.){ col = mix(col, vec3(.25, .9, .75), ax2); a = max(a, ax2); } }

@@ -459,7 +459,7 @@ for (const z of [-6, 1.5, 9, 16]) for (const x of [-4.6, 4.6]) spot(HOUSE, '#ffe
 // face plateau (ambiance « plateau »)
 for (const x of [-4, 0, 4]) spot(STAGE, '#ffd9a8', [x, 6.7, 3.2], [x * 0.7, 0, -3.5], 0.5, x === 0);
 // projet sans salle (plein air) : pas de taches de service au sol, une lumière de travail uniforme avec ombres
-const OPENL = new THREE.DirectionalLight('#fff3e4', 0); OPENL.position.set(7, 16, 11); OPENL.castShadow = true; OPENL.shadow.mapSize.set(2048, 2048); OPENL.shadow.bias = -0.0005; OPENL.shadow.normalBias = 0.04; OPENL.shadow.radius = 4; { const c = OPENL.shadow.camera; c.left = c.bottom = -24; c.right = c.top = 24; c.near = 1; c.far = 60; } OPENL.visible = false; scene.add(OPENL, OPENL.target);
+const OPENL = new THREE.DirectionalLight('#fff3e4', 0); OPENL.position.set(7, 16, 11); OPENL.castShadow = true; OPENL.shadow.mapSize.set(2048, 2048); OPENL.shadow.bias = -0.0009; OPENL.shadow.normalBias = 0.07; OPENL.shadow.radius = 4; { const c = OPENL.shadow.camera; c.left = c.bottom = -24; c.right = c.top = 24; c.near = 1; c.far = 60; } OPENL.visible = false; scene.add(OPENL, OPENL.target);
 const AMB = {
   service: { label: 'Service', house: 260, stage: 0,   hemi: 0.35, env: 0.25 },
   salle:   { label: 'Public tamisé', house: 60, stage: 0, hemi: 0.10, env: 0.08 },
@@ -1206,7 +1206,7 @@ function setVenue(v, keepCam){
     const root = VEN.root = new THREE.Group(), hw = v.w / 2, z0 = -(v.stageD + 1.5), z1 = v.d, fy = -v.stageH, T = .25, floor = [], CH = v.cageH || v.h, HH = v.h, HM = Math.max(CH, HH), pz = -(v.prosZ || 0), hmax = Math.max(HM, v.gridH || 0) - .3;
     VEN.ych = v.gridH || HM - .05;
     const box = (x0, x1, y0, y1, za, zb, m, isFloor, gid) => { if (x1 - x0 < .005 || y1 - y0 < .005 || zb - za < .005) return null; const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, zb - za); g.translate((x0 + x1) / 2, (y0 + y1) / 2, (za + zb) / 2); const me = new THREE.Mesh(g, m); me.userData.gid = gid || 'salle'; me.castShadow = me.receiveShadow = true; root.add(me); VEN.meshes.push(me); if (isFloor) floor.push(me); return me; };
-    if (!VEN.mats){ const M = VEN.mats = { F: mat('#3b3d44', 'salle-sol'), S: mat('#141416', 'salle-scene'), W: mat('#6a6258', 'salle-mur'), B: mat('#1c1c20', 'salle-fond'), T: mat('#4a4c55', 'salle-gradin'), G: mat('#2a2b30', 'salle-passerelle'), C: mat('#8a8378', 'salle-cloison') }; M.F.roughness = .7; M.S.roughness = .55; M.T.roughness = .75; }
+    if (!VEN.mats){ const M = VEN.mats = { F: mat('#3b3d44', 'salle-sol'), S: mat('#141416', 'salle-scene'), W: mat('#6a6258', 'salle-mur'), B: mat('#1c1c20', 'salle-fond'), T: mat('#4a4c55', 'salle-gradin'), G: mat('#2a2b30', 'salle-passerelle'), C: mat('#8a8378', 'salle-cloison') }; M.F.roughness = .7; M.S.roughness = .55; M.T.roughness = .75; M.F.shadowSide = M.S.shadowSide = THREE.BackSide; }          // sol et plateau : c'est leur dessous qui porte l'ombre, sinon la surface se fait de l'ombre à elle-même (moiré, clignotement)
     const { F: mF, S: mS, W: mW, B: mB, T: mT, G: mG, C: mC } = VEN.mats;
     // sol de la salle, fosse devant le nez de scène (plus basse ou plus haute que la salle)
     const pd = v.pitD ? Math.min(v.pitD, z1 - .5) : 0, py = pd ? v.pitY : fy, pw = Math.min(hw, (v.pitW || v.prosW || v.stageW) / 2);
