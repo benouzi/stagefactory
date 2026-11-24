@@ -289,7 +289,13 @@ export function initPlan(A, ST){
       // faisceau projeté dans le plan de coupe ; pour la sélection, jusqu'au sol avec l'ouverture
       if (n > .15){ lw(sel ? .9 : .7, sel ? ACC : MID, sel ? null : [3, 2]); let e = L; if (sel && dy < -.02) e = Math.min(40, (y + 3) / -(dy / n)); if (sel && t.zoom){ const a = Math.atan2(dy, dz), h = (o.zoom ?? t.zoom[0]) * D2R / 2; for (const q of [a - h, a + h]) lineC(z, y - .15, z + Math.cos(q) * e, y - .15 + Math.sin(q) * e); } else lineC(z, y - .15, z + dz / n * e, y - .15 + dy / n * e); }
       lw(sel ? 1.8 : 1.1, col); c.beginPath(); c.arc(X(z), V(y - .18), k * .42 * P.s, 0, 7); c.fill(); c.stroke(); lineC(z, y, z, y - .05); return; }
-    const hgt = t.kind === 'prim' ? Math.max(.02, (o.size || t.size)[2]) : t.kind === 'ledwall' || t.kind === 'screen' ? (o.size ? o.size[1] : 2) : t.cat === 'son' ? .7 : /pers|human|chant|music|public/.test(t.id + (t.kind || '')) ? 1.75 : Math.min(2.2, Math.max(.3, (t.h || t.fp && Math.min(t.fp[0], t.fp[1])) || .5)), dep = t.kind === 'prim' ? (o.size || t.size)[1] : t.kind === 'ledwall' || t.kind === 'screen' ? .12 : Math.max(.25, Math.min(1.6, t.fp ? t.fp[1] : .45));
+    // cotes réelles de l'objet quand on les connaît ; en coupe, sa largeur est celle qu'on voit depuis le côté, donc elle dépend de son orientation
+    let bw = 0, bd = 0, hgt; const sz = o.size || t.size, kd = t.kind;
+    if (kd === 'ledwall' && ST.LED && ST.LED.info){ const I = ST.LED.info(o); bw = I.w; bd = .1; hgt = I.h; }
+    else if ((kd === 'screen' || kd === 'drape') && sz){ bw = sz[0]; bd = .05; hgt = sz[1]; }
+    else if ((kd === 'prim' || kd === 'sprop' || kd === 'riser' || kd === 'desk' || kd === 'stairs') && sz && sz.length >= 3){ bw = sz[0]; bd = sz[1]; hgt = Math.max(.02, sz[2]); }
+    else { hgt = t.cat === 'son' ? .7 : /pers|human|chant|music|public/.test(t.id + (kd || '')) ? 1.75 : Math.min(2.2, Math.max(.3, (t.h || t.fp && Math.min(t.fp[0], t.fp[1])) || .5)); bw = t.fp ? t.fp[0] : .45; bd = t.fp ? t.fp[1] : .45; if (!t.fp){ bw = bd = Math.max(.25, Math.min(1.6, .45)); } }
+    const ya = (o.yaw || 0) * D2R, dep = Math.max(.04, Math.abs(bw * Math.sin(ya)) + Math.abs(bd * Math.cos(ya)));
     const down = o.hang ? 1 : 0; c.fillRect(X(z - dep / 2), V(y + (down ? 0 : hgt)), dep * P.s, hgt * P.s); c.strokeRect(X(z - dep / 2), V(y + (down ? 0 : hgt)), dep * P.s, hgt * P.s);
   }
   function objectsC(){
