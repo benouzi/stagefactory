@@ -41,14 +41,22 @@ export function initView(A, ST){
   }
   // ---- le petit menu, sur la vue
   const css = document.createElement('style'); css.textContent = `
-  #vwBtn{position:fixed;left:276px;bottom:36px;z-index:6;padding:5px 10px;font-size:11.5px} body.desk #vwBtn{bottom:calc(var(--dh,310px) + 36px)}
   #vwPop{position:fixed;left:276px;bottom:70px;z-index:12;width:250px;display:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px;box-shadow:0 12px 34px rgba(0,0,0,.55)} body.desk #vwPop{bottom:calc(var(--dh,310px) + 70px)}
   #vwPop h3{margin:2px 0 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#b9a8ff} #vwPop .r{display:flex;align-items:center;gap:8px;margin:5px 0} #vwPop .r label{flex:1;color:var(--mute)}
   #vwPop .vsw{display:flex;gap:5px;flex-wrap:wrap;margin:4px 0 8px} #vwPop .vsw i{flex:0 0 24px;width:24px;height:24px;display:block;border-radius:6px;border:1px solid rgba(255,255,255,.25);cursor:pointer} #vwPop .vsw i.on{outline:2px solid #f2a93b;outline-offset:1px}
   #vwPop input[type=color]{width:34px;height:24px;padding:0;border:1px solid var(--line);border-radius:6px;background:none} #vwPop select{background:#1c1636;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 5px;font:12px Inter,sans-serif}
   #vwPop input[type=range]{width:110px;accent-color:var(--accent2)} #vwPop .vv{display:flex;flex-wrap:wrap;gap:4px} #vwPop .vv .b{padding:4px 8px;font-size:11.5px}
   #vwPop{width:270px;max-height:calc(100vh - 130px);overflow:auto}`; document.head.appendChild(css);
-  const btn = document.createElement('button'); btn.id = 'vwBtn'; btn.className = 'b'; btn.textContent = '▦ Vue'; btn.title = 'Points de vue, couleur du fond et grille de repère de la vue 3D'; document.body.appendChild(btn);
+  // barre en haut de la vue 3D, sur le modèle de celle du plan technique : points de vue, grille, fond
+  const bar = document.createElement('div'); bar.id = 'v3Bar'; document.body.appendChild(bar);
+  { const c2 = document.createElement('style'); c2.textContent = `
+  #v3Bar{position:fixed;top:50px;left:var(--vx,0px);width:var(--vw,100vw);z-index:5;box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--line);color:var(--ink);font-size:12px;white-space:nowrap;overflow-x:auto;scrollbar-width:none}
+  #v3Bar b{font-weight:600;margin-right:4px} #v3Bar .pv{flex:none;display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden} #v3Bar .pv a{padding:3px 9px;cursor:pointer;color:var(--mute)} #v3Bar .pv a:hover{color:var(--ink)} #v3Bar .pv a.on{background:var(--accent);color:var(--onacc,#0b0916);font-weight:600}
+  #v3Bar .b{padding:3px 9px;font-size:11.5px;flex:none} #v3Bar .sp{flex:1}
+  body.planfull #v3Bar,body.cine #v3Bar{display:none!important} #vwPop{top:92px!important;bottom:auto!important;left:auto!important;right:calc(var(--vr,0px) + 12px)!important} #help{top:98px!important}`; document.head.appendChild(c2); }
+  function barRender(){ bar.innerHTML = `<b>Vue 3D</b><span class="pv">${VIEWS.map(([id, l, t]) => `<a class="${CAM.id === id ? 'on' : ''}" data-cam="${id}" title="${t}">${l}</a>`).join('')}</span><span class="sp"></span><button class="b${V.grid ? ' on' : ''}" data-vg="1" title="Afficher ou masquer la grille de repère">▦ Grille</button><button class="b" id="vwBtn" title="Couleur du fond, pas et couleur de la grille, axes, angle de champ">Fond et grille…</button>`; }
+  bar.addEventListener('click', e => { const cb = e.target.closest('[data-cam]'); if (cb){ goView(cb.dataset.cam); return barRender(); } if (e.target.closest('[data-vg]')){ V.grid = !V.grid; apply(); barRender(); if (pop.style.display === 'block') render(); return; } if (e.target.closest('#vwBtn')){ e.stopPropagation(); open(); } });
+  const btn = bar;
   const pop = document.createElement('div'); pop.id = 'vwPop'; document.body.appendChild(pop);
   const SW = [['#0d0a1c', 'Nuit (d\'origine)'], ['#000000', 'Noir'], ['#23252b', 'Gris foncé'], ['#5d6068', 'Gris moyen'], ['#c9ccd3', 'Gris clair'], ['#ffffff', 'Blanc'], ['#16324a', 'Bleu']];
   function render(){ pop.innerHTML = `<h3>Point de vue</h3><div class="vv">${VIEWS.map(([id, l, t]) => `<button class="b${CAM.id === id ? ' on' : ''}" data-cam="${id}" title="${t}">${l}</button>`).join('')}</div>
@@ -63,11 +71,10 @@ export function initView(A, ST){
     <label class="chk"><input type="checkbox" data-k="hideLive" ${V.hideLive ? 'checked' : ''}> Masquer en mode spectacle</label>
     <div class="btns"><button class="b" data-vr="1">Revenir aux réglages d'origine</button></div>`; }
   const open = f => { const on = f ?? pop.style.display !== 'block'; pop.style.display = on ? 'block' : 'none'; if (on) render(); };
-  btn.onclick = e => { e.stopPropagation(); open(); };
   pop.addEventListener('input', e => { if (e.target.dataset.fov){ setFov(e.target.value); $('#vwFov').textContent = Math.round(CAM.fov) + '°'; return; } const k = e.target.dataset.k; if (!k) return; V[k] = e.target.type === 'checkbox' ? e.target.checked : (k === 'step' || k === 'op') ? +e.target.value : e.target.value; apply(); if (k === 'bg') pop.querySelectorAll(".vsw i").forEach(i => i.classList.toggle('on', i.dataset.bg === V.bg.toLowerCase())); });
   pop.addEventListener('click', e => { const cb = e.target.closest('[data-cam]'); if (cb){ goView(cb.dataset.cam); return render(); } const s = e.target.closest('[data-bg]'); if (s){ V.bg = s.dataset.bg; apply(); return render(); } if (e.target.closest('[data-vr]')){ Object.assign(V, DEF); apply(); render(); } });
   pop.addEventListener('keydown', e => e.stopPropagation());
-  addEventListener('pointerdown', e => { if (pop.style.display === 'block' && !pop.contains(e.target) && e.target !== btn) open(false); }, true);
-  apply();
+  addEventListener('pointerdown', e => { if (pop.style.display === 'block' && !pop.contains(e.target) && !bar.contains(e.target)) open(false); }, true);
+  apply(); barRender(); setInterval(() => { const on = bar.querySelector('.pv a.on'); if ((on ? on.dataset.cam : '') !== CAM.id || !!bar.querySelector('[data-vg].on') !== !!V.grid) barRender(); }, 400);
   window.VIEW3D = { V, apply, open, plane, goView, setFov, CAM, VIEWS, set: o => { Object.assign(V, o); apply(); } };
 }
