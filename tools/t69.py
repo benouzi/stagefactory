@@ -18,7 +18,7 @@ with sync_playwright() as p:
     ok(ev("Math.abs(document.querySelector('#plan2d').getBoundingClientRect().width-PLAN.P.w)<3"),'le dessin suit la nouvelle largeur')
     ev("PONTS.addTruss({x:-4000,y:3000},{x:4000,y:3000},null,true);PLAN.fit();PLAN.draw()"); pg.wait_for_timeout(600); pg.screenshot(path=OUT+'/t69.png')
     pg.click('#view3d'); pg.wait_for_timeout(400); ok(ev("!PLAN.P.on") and ev("getComputedStyle(document.querySelector('#c')).visibility")=='visible' and on()==[True,False,False],'3D : plan fermé, vue 3D seule',on())
-    pg.click('#planBtn'); pg.wait_for_timeout(400); w=R('#planWin'); ok(abs(w[1]-w0[1])<4 and on()==[False,True,False],'Plan + 3D : retour côte à côte',[w0,w])
+    pg.click('#planBtn'); pg.wait_for_timeout(400); w=R('#planWin'); ok(abs(w[1]-w0[1])<4 and on()==[False,True,False],'3D + Plan : retour côte à côte',[w0,w])
     pg.keyboard.press('Shift+P'); pg.wait_for_timeout(400); ok(ev("document.body.classList.contains('planfull')"),'Maj + P : plan seul'); pg.keyboard.press('Shift+P'); pg.wait_for_timeout(300); ok(not ev("document.body.classList.contains('planfull')"),'Maj + P : retour')
     pg.click('#planOnly'); pg.reload(); pg.wait_for_function("window.DOCK && window.PLAN && !!DOCK.view",timeout=60000); pg.wait_for_timeout(2500); ok(ev("document.body.classList.contains('planfull')"),'le choix est retenu à la réouverture')
     ok(not errs,'aucune erreur',errs[:3]); b.close()
