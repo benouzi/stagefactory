@@ -9,6 +9,7 @@ with sync_playwright() as p:
     pg.add_style_tag(content='#modal{display:none!important}'); ev("APP.renderer.setAnimationLoop(null)")
     r=ev("""(async(arg)=>{const mk=(n,b)=>new File([Uint8Array.from(atob(b),c=>c.charCodeAt(0))],n);
       const f=await VENUE.readFile(mk('salle.dxf',arg));VENUE.K.files=[f];const c=f.cad,W=c.w*c.mm/1000,H=c.h*c.mm/1000;
+      await VENUE.tool('creer_salle',{nom:'Essai DXF',largeurM:20,profondeurM:25,hauteurM:8,confirme:true});
       await VENUE.tool('caler_plan_cao',{fichier:'salle.dxf',nezDeScene:{x:W/2,y:H*.565},directionLointainDeg:90,calquesMurs:['MURS'],hauteurMursM:8});
       await VENUE.tool('regler_salle',{plateauLargeurM:12,plateauProfondeurM:8,hauteurSceneM:1,hauteurSalleM:8,gradinDebutM:3,gradinRangs:10,gradinProfondeurRangM:.9,gradinHauteurRangM:.16});
       await VENUE.tool('poser_perches',{nombre:8,yPremiereM:.8,pasM:.9,longueurM:11,hauteurM:6.5});

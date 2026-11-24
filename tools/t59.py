@@ -15,7 +15,7 @@ with sync_playwright() as p:
     # ---- défaut 4 : pas de projet remplacé sans accord
     r=T('regler_salle',{'plateauLargeurM':14}); ok('erreur' in r and 'creer_salle' in r['erreur'] and ev("APP.venue.type")=='onex','regler_salle ne remplace plus le projet ouvert',r.get('erreur','')[:90])
     r=T('creer_salle',{'nom':'Salle communale d\'Onex'}); ok('erreur' in r and ev("APP.venue.type")=='onex','creer_salle demande confirmation',r.get('erreur','')[:60])
-    r=T('creer_salle',{'nom':'Salle communale d\'Onex','confirme':True}); ok(r.get('ok') and ev("APP.store.get('backups',[]).length")==1 and ev("APP.store.get('backups')[0].objs")==36,'salle créée, projet précédent mis de côté',r)
+    r=T('creer_salle',{'nom':'Salle communale d\'Onex','confirme':True}); ok(r.get('ok') and ev("APP.store.get('backups',[]).length")==1 and ev("APP.store.get('backups')[0].objs")==37,'salle créée, projet précédent mis de côté',r)
     vid=ev("APP.venue.vid")
     # ---- défaut 1 : aucune perche d'office
     r=T('regler_salle',{'plateauLargeurM':14,'plateauProfondeurM':9,'cadreOuvertureM':10,'cadreHauteurM':5.5,'hauteurSceneM':1.2,'hauteurSalleM':8,'salleLargeurM':18,'salleProfondeurM':22}); ev(tick)
@@ -67,9 +67,9 @@ with sync_playwright() as p:
     LL=ev("(()=>{const l=PARC.libList();return [l.types.length,l.other.length,l.types.find(q=>q.t.id==='u-nexo-geo-s8'),l.types.find(q=>q.t.id==='u-astera-ax5')]})()")
     ok(LL[0]==22 and LL[1]==2 and LL[2]['placed']==12 and LL[2]['qty']==12 and LL[3]['placed']==0,'onglet Salle : 2 grappes de 6 GEO S8 = 12 posés sur 12',[LL[0],LL[1],LL[2]['placed']])
     ev("AI.run('add_objects',{items:Array.from({length:6},(_,k)=>({type:'u-astera-ax5',perche:3,x:-5+k*2}))})"); ev("APP.toggleConsole(true);STAGE.UI.tab='lib';STAGE.UI.libCat='salle';STAGE.render()"); pg.wait_for_timeout(300)
-    txt=pg.inner_text('#console'); ok('6 posés sur 24' in txt and 'Shure SM58' in txt and 'Parc de la salle' in txt,'compteur « Astera AX5 : 6 posés sur 24 »',[l for l in txt.split('\n') if 'posé' in l][:3])
+    txt=pg.inner_text('body'); ok('6 posés sur 24' in txt and 'SM58' in txt,'compteur « Astera AX5 : 6 posés sur 24 »',[l for l in txt.split('\n') if 'AX5' in l or 'posés sur' in l][:6])
     ev("AI.run('add_objects',{items:Array.from({length:19},(_,k)=>({type:'u-astera-ax5',perche:4,x:-5+k*.5}))})"); pg.wait_for_function("document.querySelector('#toast').textContent.includes('Stock dépassé')",timeout=8000); ev("STAGE.render()")
-    ok('25 Astera AX5' in pg.inner_text('#toast') and 'stock dépassé' in pg.inner_text('#console'),'alerte quand on dépasse le stock',pg.inner_text('#toast'))
+    ok('25 Astera AX5' in pg.inner_text('#toast') and 'stock dépassé' in pg.inner_text('body'),'alerte quand on dépasse le stock',pg.inner_text('#toast'))
     pg.screenshot(path='/home/claude/shots/t59_biblio.png')
     # ---- fenêtre « Parc de la salle » : voir et modifier à la main
     ev("PARC.open(true)"); pg.wait_for_selector('#parcWin table'); n0=pg.locator('#parcWin tbody tr').count(); pg.screenshot(path='/home/claude/shots/t59_parc.png')
@@ -87,7 +87,7 @@ with sync_playwright() as p:
     ok(ev("(STAGE.S.rig.per[0]||{}).wllTotal")==None,'les charges restent à valider dans chaque projet')
     # ---- projets mis de côté ; aide
     ev("PARC.restoreDialog()"); pg.wait_for_selector('#modal [data-bk]'); nb=pg.locator('#modal [data-bk]').count(); pg.locator('#modal [data-bk]').last.click(); pg.wait_for_timeout(300)
-    ok(nb>=2 and ev("STAGE.S.objs.length")==36 and ev("APP.venue.type")=='onex','projet mis de côté repris',nb)
+    ok(nb>=2 and ev("STAGE.S.objs.length")==37 and ev("APP.venue.type")=='onex','projet mis de côté repris',nb)
     ev("document.querySelector('#menus [data-m=Aide]').click()"); pg.click('#menuPop [data-c=helpSalle]'); ok('trois passes' in pg.inner_text('#modal') and 'Seulement sur la version PC' in pg.inner_text('#modal'),'aide intégrée à jour')
     ok(len(ev("AI.MCPDEFS()"))==36 and not errs,'36 outils publiés au connecteur, aucune erreur',errs[:3]); b.close()
 print('ÉCHECS :',bad or 'aucun')

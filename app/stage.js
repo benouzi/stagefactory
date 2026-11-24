@@ -1404,6 +1404,12 @@ function addDeco(show, kind){
     for (const o of made) c.s[o.id] = { ...Object.fromEntries(LKEYS.map(q => [q, o[q]])), dim: (o.grp === 'Déco murs' ? .85 : .7) * k, color: o.grp === 'Déco murs' ? c1 : c2, fx, speed: fx === 'pulse' ? 1 : .3 };
   }
   if (show.cues[0]) for (const o of made) Object.assign(o, show.cues[0].s[o.id]);
+  // matériel réel du catalogue et éléments dessinés : retours de scène, console de retours, boîte de direct, mur de décor en matière
+  { const T = id => LIB.find(q => q.id === id), x15 = T('c-l-acoustics-x15-hiq'), cl5 = T('c-yamaha-cl5'), di = T('c-radial-j48'), sm58 = T('c-shure-sm58'), extra = (t, name, pos, p, num) => { if (t) objs.push({ ...defaults(t), ...p, type: t.id, name, pos, hang: null, n: num }); };
+    if (x15) for (const o of objs) if (o.type === 'wedge'){ o.type = x15.id; o.name = (o.name || 'Retour') + ' (X15 HiQ)'; }
+    if (kind === 'assisdb' || kind === 'debout'){ extra(cl5, 'Console retours (CL5)', [-6.4, 0, -1.6], { yaw: 90 }, 950); const ab = objs.find(o => o.type === 'ampli-b'); if (ab) extra(di, 'Boîte de direct basse (J48)', [ab.pos[0] + .55, 0, ab.pos[2] + .35], {}, 951); }
+    if (kind === 'oneman'){ extra(sm58, 'Micro main (SM58)', [1.2, .78, -2.2], {}, 952); show.shapes = [{ id: 'demo-mur', k: 'poly', p: [[-2.4, -3.05], [2.4, -3.05]], closed: false, h: 2.6, y: 0, col: '#ffffff', mat: 'brique', name: 'Mur de briques (décor)' }, { id: 'demo-estrade', k: 'poly', p: [[-1.6, -2.9], [1.6, -2.9], [1.6, -.6], [-1.6, -.6]], closed: true, rect: true, h: .02, y: 0, col: '#ffffff', mat: 'chene', name: 'Parquet (décor)' }]; }
+    const used = new Set(objs.map(o => o.type)); show.lib = [...(show.lib || []), ...[x15, cl5, di, sm58].filter(t => t && used.has(t.id) && !LIB.some(q => q.id === t.id) && !(show.lib || []).some(q => q.id === t.id))]; }
   return show;
 }
 // ---- une scène et un plan de feu cohérents pour chaque configuration de la salle
@@ -1538,7 +1544,7 @@ export function init(APP){
   A.onUserConfig = followConfig; { const fc = document.querySelector('#followCfg'); if (fc){ fc.checked = S.follow !== false; fc.onchange = () => { S.follow = fc.checked; touch(); }; } }
   import('./prog.js').then(m => m.initProg(A, window.STAGE)).catch(e => console.error(e)).then(() => import('./desk.js')).then(m => m.initDesk(A, window.STAGE)).catch(e => console.error(e));
   import('./ai.js').then(m => m.initAI(A, window.STAGE)).catch(e => console.error(e));
-  import('./cine.js').then(m => m.initCine(A, window.STAGE)).catch(e => console.error(e));
+          // le show démo en mode cinéma (cine.js) a été retiré à la demande de Benjamin le 24.11.2026 ; le fichier reste dans le dépôt, il n'est plus chargé
   import('./lib.js').then(m => m.initLib(A, window.STAGE)).catch(e => console.error(e));
   import('./audio.js').then(m => m.initAudio(A, window.STAGE, AUD)).catch(e => console.error(e));
   import('./dmx.js').then(m => m.initDmx(A, window.STAGE, DMXIN)).catch(e => console.error(e));

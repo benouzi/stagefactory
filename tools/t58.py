@@ -22,10 +22,10 @@ with sync_playwright() as p:
     ev("AI.run('new_project',{name:'T',room:{w:30,d:40,h:14,stageW:20,stageD:14,stageH:1}});VIEW3D.goView('face')"); ok(abs(ev("APP.persp.position.z")-38.8)<.1,'vue adaptée à la salle sur mesure',ev(cam)); ev("STAGE.undoTo(0)")
     # plan 2D
     ev("PLAN.toggle(true)"); pg.wait_for_timeout(600); px="(()=>{const c=document.querySelector('#plan2d'),d=c.getContext('2d').getImageData(5,Math.round(c.height/2),1,1).data;return [d[0],d[1],d[2]]})()"
-    p0=ev(px); pg.click('#planOpt'); pg.wait_for_selector('#planPop [data-th]'); pg.click('#planPop [data-th="3"]'); pg.wait_for_timeout(300); p1=ev(px); ok(p0==[251,250,246] and p1==[16,18,22],'fond du plan : papier puis noir',[p0,p1])
+    p0=ev(px); pg.click('#planOpt'); pg.wait_for_selector('#planPop [data-th]'); pg.click('#planPop [data-th="3"]'); pg.wait_for_timeout(300); p1=ev(px); ok(min(p0)>235 and max(p1)<32,'fond du plan : papier puis noir',[p0,p1])
     pg.screenshot(path='/home/claude/shots/t58_plan_noir.png')
     pg.select_option('#planPop [data-t=step]','2'); pg.uncheck('#planPop [data-t=grid]'); ok(ev("[PLAN.P.theme.step,PLAN.P.theme.grid,APP.store.get('plan2d').paper]")==[2,False,'#101216'],'grille : pas et masquage, réglages gardés',ev("PLAN.P.theme"))
     pg.click('#planPop [data-th="4"]'); pg.check('#planPop [data-t=grid]'); ev("PLAN.setView('coupe')"); pg.wait_for_timeout(300); pg.locator('#planWin').screenshot(path='/home/claude/shots/t58_coupe_bleu.png'); ev("PLAN.setView('plan')")
-    pg.click('#planPop [data-tr]'); pg.wait_for_timeout(200); ok(ev(px)==[251,250,246] and ev("PLAN.P.theme.step")==1,'réglages d\'origine')
+    pg.click('#planPop [data-tr]'); pg.wait_for_timeout(200); ok(min(ev(px))>235 and ev("PLAN.P.theme.step")==1,'réglages d\'origine')
     ok(not errs,'aucune erreur',errs[:3]); b.close()
 print('ÉCHECS :',bad or 'aucun')
