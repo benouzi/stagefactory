@@ -284,7 +284,7 @@ const BEAMT = { value: 0 }, BEAMK = .26;       // BEAMK : réglage d'affichage d
 // Le cône est un volume fermé : la face avant porte la première moitié du trajet, la face arrière la seconde ; un objet dans le faisceau cache donc ce qui est derrière lui.
 const beamVS = `varying vec3 vP; varying vec3 vO; varying vec3 vW;
 void main(){ vP = position; vO = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
-const beamFS = `uniform vec3 color; uniform float amount; uniform float time; uniform float soft; uniform float fade; uniform vec2 scl; uniform sampler2D shMap; uniform mat4 shMat; uniform float shOn;
+const beamFS = `uniform vec3 color; uniform float amount; uniform float time; uniform float soft; uniform float fade; uniform vec2 scl; uniform sampler2D shMap; uniform mat4 shMat; uniform float shOn; uniform vec4 shR;
 #include <packing>
  varying vec3 vP; varying vec3 vO; varying vec3 vW;
 float h3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
@@ -304,7 +304,7 @@ void main(){ const float A0 = 0.03, B0 = 0.97; vec3 o = vO, d = vP - vO;        
   float tm = 0.5 * (t0 + t1), ta = inside ? t0 : gl_FrontFacing ? t0 : tm, tb = inside ? t1 : gl_FrontFacing ? tm : t1; if (inside && gl_FrontFacing) discard;
   float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))), sum = 0.0; const int N = 14;
   for (int i = 0; i < N; i++){ float t = mix(ta, tb, (float(i) + jit) / float(N)); vec3 p = o + d * t; float s = clamp(-p.y, 0.0, 1.0), rl = A0 + B0 * s, rho = length(p.xz) / rl, rw = max(rl * scl.x, 0.1);
-    float lit = 1.0; if (shOn > 0.5){ vec4 sc = shMat * vec4(mix(cameraPosition, vW, t), 1.0); vec3 q = sc.xyz / sc.w; if (q.x > 0.0 && q.x < 1.0 && q.y > 0.0 && q.y < 1.0 && q.z > 0.0 && q.z < 1.0) lit = step(q.z - 0.0015, unpackRGBAToDepth(texture2D(shMap, q.xy))); }      // ombre réelle : ce point de fumée voit-il la source ?
+    float lit = 1.0; if (shOn > 0.5){ vec4 sc = shMat * vec4(mix(cameraPosition, vW, t), 1.0); vec3 q = sc.xyz / sc.w; if (sc.w > 0.0 && q.x > shR.x && q.x < shR.z && q.y > shR.y && q.y < shR.w && q.z > 0.0 && q.z < 1.0) lit = step(q.z - 0.0015, unpackRGBAToDepth(texture2D(shMap, q.xy))); }      // ombre réelle : ce point de fumée voit-il la source ?
     sum += lit * (1.0 - smoothstep(1.0 - soft, 1.0, rho)) * (1.0 - fade * smoothstep(0.82, 1.0, s)) / (rw * rw); }
   float wl = length(d * vec3(scl.x, scl.y, scl.x)) * (tb - ta) / float(N);                     // longueur réelle d'un pas, en mètres
   vec3 pm = o + d * (0.5 * (ta + tb)); vec3 lw = normalize(vec3(pm.x * scl.x, pm.y * scl.y - 0.03 * scl.y, pm.z * scl.x)), vw = -normalize(d * vec3(scl.x, scl.y, scl.x));
@@ -372,7 +372,7 @@ function build(o){
     lens.rotation.x = Math.PI / 2; lens.position.y = -.03; r.head.add(lens);
     r.light = new THREE.SpotLight('#fff', 0, 0, .3, k === 'beam' ? .15 : k === 'prof' || k === 'spot' ? .25 : .5, 2);
     { const sh = r.light.shadow; sh.autoUpdate = false; sh.mapSize.set(512, 512); sh.camera.near = .15; sh.camera.far = 40; sh.bias = -.0008; sh.normalBias = .02; sh.radius = 2; }
-    r.bm = new THREE.ShaderMaterial({ uniforms: { color: { value: new THREE.Color() }, amount: { value: 0 }, time: BEAMT, soft: { value: k === 'prof' ? .08 : k === 'beam' || k === 'spot' ? .16 : .5 }, fade: { value: 1 }, shMap: { value: null }, shMat: { value: new THREE.Matrix4() }, shOn: { value: 0 }, scl: { value: new THREE.Vector2(1, 1) } }, vertexShader: beamVS, fragmentShader: beamFS,
+    r.bm = new THREE.ShaderMaterial({ uniforms: { color: { value: new THREE.Color() }, amount: { value: 0 }, time: BEAMT, soft: { value: k === 'prof' ? .08 : k === 'beam' || k === 'spot' ? .16 : .5 }, fade: { value: 1 }, shMap: { value: null }, shMat: { value: new THREE.Matrix4() }, shOn: { value: 0 }, shR: { value: new THREE.Vector4(0, 0, 1, 1) }, scl: { value: new THREE.Vector2(1, 1) } }, vertexShader: beamVS, fragmentShader: beamFS,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
     r.beam = new THREE.Mesh(beamGeo, r.bm); r.beam.userData.noAO = true; r.beam.frustumCulled = false;
     r.flare = new THREE.Sprite(new THREE.SpriteMaterial({ map: flareTex(), color: 0x000000, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); r.flare.userData.noAO = true; r.flare.visible = false; r.flare.renderOrder = 5;
@@ -453,7 +453,7 @@ function build(o){
   return r;
 }
 function unbuild(id){
-  const r = RT.get(id); if (!r) return; if (r.led) LEDW.dispose(id); if (r.occRT){ r.occRT.dispose(); r.occRT = null; }
+  const r = RT.get(id); if (!r) return; if (r.led) LEDW.dispose(id); occFree(r);
   scene.remove(r.root, r.boxh, ...r.extra);
   r.root.traverse(m => { if (m.isMesh) m.geometry.dispose(); });
   r.tex?.dispose(); r.light?.dispose?.(); r.bm?.dispose(); r.boxh.geometry.dispose();
@@ -609,16 +609,41 @@ function boxUV(g, tile = 1){ if (g.index) g = g.toNonIndexed(); const p = g.attr
   for (let i = 0; i < p.count; i += 3){ a.fromBufferAttribute(p, i); b.fromBufferAttribute(p, i + 1); c.fromBufferAttribute(p, i + 2); n.subVectors(b, a).cross(c.clone().sub(a)); const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z), k = ay >= ax && ay >= az ? 1 : ax >= az ? 0 : 2;
     [a, b, c].forEach((v, j) => { uv[(i + j) * 2] = (k === 0 ? v.z : v.x) / tile; uv[(i + j) * 2 + 1] = (k === 1 ? v.z : v.y) / tile; }); } g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); return g; }
 const matTile = id => MATBY.get(id)?.tex ? MATBY.get(id).tile : 0;
-// ---------------------------------------------------------------- obstacles dans les faisceaux : chaque projecteur allumé a sa petite carte de profondeur vue depuis sa lentille
-// Les projecteurs qui portent une vraie ombre (voir shadowPick) utilisent la carte du moteur ; tous les autres reçoivent la leur ici, quelques-unes par image, pour qu'aucun faisceau ne traverse un objet.
-const OCCQ = [], OCCCAM = new THREE.PerspectiveCamera(40, 1, .35, 20), OCCMAT = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide }), OCCBIAS = new THREE.Matrix4().set(.5, 0, 0, .5, 0, .5, 0, .5, 0, 0, .5, .5, 0, 0, 0, 1); OCCCAM.layers.set(1); let occLT = -1e9; const _occC = new THREE.Color();
-function occFlush(){ if (!OCCQ.length) return; OCCQ.sort((a, b) => a[0] - b[0]); const R = A.renderer, sc = A.scene;
+// ---------------------------------------------------------------- ombres de tous les projecteurs : un atlas de cartes de profondeur, une case par projecteur
+// Le moteur ne sait donner une vraie carte d'ombre qu'à quelques spots (une unité de texture chacun, voir shadowPick). Tous les autres projecteurs allumés reçoivent ici une case 256 px dans UN atlas (une seule unité de texture),
+// vue depuis leur lentille. Cet atlas sert deux fois : au faisceau dans la fumée (beamFS) et à l'éclairage des surfaces (morceau de shader ajouté à l'éclairage des spots, ci-dessous). Le numéro de case voyage dans
+// l'exposant d'atténuation du spot (decay = 2 + numéro × 1e-5, sans effet visible sur la lumière) : pas besoin de connaître l'ordre dans lequel le moteur range ses spots.
+const OCCN = 8, OCCT = 256, OCCQ = [], OCCCAM = new THREE.PerspectiveCamera(40, 1, .35, 20), OCCMAT = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide }), OCCBIAS = new THREE.Matrix4(), OCCFREE = Array.from({ length: OCCN * OCCN }, (_, i) => i).reverse(); OCCCAM.layers.set(1); let occLT = -1e9, OCCA = null; const _occC = new THREE.Color();
+const OCCDATA = new Float32Array(6 * OCCN * OCCN * 4), OCCD = new THREE.DataTexture(OCCDATA, 6, OCCN * OCCN, THREE.RGBAFormat, THREE.FloatType); OCCD.minFilter = OCCD.magFilter = THREE.NearestFilter; OCCD.needsUpdate = true;
+const OCCU = { a: { value: null }, d: { value: OCCD } };
+function occInit(){ if (OCCA) return; OCCA = new THREE.WebGLRenderTarget(OCCN * OCCT, OCCN * OCCT, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter }); OCCA.scissorTest = true; OCCU.a.value = OCCA.texture;
+  // tous les matériaux éclairés reçoivent l'atlas et sa table ; le morceau de shader est ajouté une fois pour toutes à l'éclairage des spots
+  THREE.Material.prototype.onBeforeCompile = function (sh){ sh.uniforms.sfOccA = OCCU.a; sh.uniforms.sfOccD = OCCU.d; };
+  const C = THREE.ShaderChunk; if (!C.lights_pars_begin.includes('sfOccA')){ C.lights_pars_begin += '\nuniform sampler2D sfOccA;\nuniform highp sampler2D sfOccD;\n';
+    const key = 'spotLight = spotLights[ i ];', i0 = C.lights_fragment_begin.indexOf(key), i1 = C.lights_fragment_begin.indexOf('RE_Direct(', i0);
+    if (i0 > 0 && i1 > i0) C.lights_fragment_begin = C.lights_fragment_begin.slice(0, i1) + `{ int sfI = int( floor( ( spotLight.decay - 2.0 ) * 100000.0 + 0.5 ) );
+			if ( sfI > 0 && sfI <= ${OCCN * OCCN} && directLight.visible ) { sfI -= 1;
+				mat4 sfM = mat4( texelFetch( sfOccD, ivec2( 0, sfI ), 0 ), texelFetch( sfOccD, ivec2( 1, sfI ), 0 ), texelFetch( sfOccD, ivec2( 2, sfI ), 0 ), texelFetch( sfOccD, ivec2( 3, sfI ), 0 ) );
+				vec4 sfR = texelFetch( sfOccD, ivec2( 4, sfI ), 0 ), sfNF = texelFetch( sfOccD, ivec2( 5, sfI ), 0 ); mat3 sfV = transpose( mat3( viewMatrix ) );
+				vec4 sfC = sfM * vec4( sfV * ( geometryPosition - viewMatrix[ 3 ].xyz ) + sfV * geometryNormal * 0.035, 1.0 ); vec3 sfQ = sfC.xyz / sfC.w;
+				if ( sfC.w > 0.0 && sfQ.x > sfR.x && sfQ.x < sfR.z && sfQ.y > sfR.y && sfQ.y < sfR.w && sfQ.z < 1.0 && sfQ.z > 0.0 ) {
+					float sfZ = sfNF.x * sfNF.y / ( sfNF.y - sfQ.z * ( sfNF.y - sfNF.x ) ) - 0.05, sfL = 0.0;
+					for ( int sfK = 0; sfK < 4; sfK ++ ) { vec2 sfO = vec2( sfK == 0 || sfK == 3 ? -0.35 : 0.35, sfK < 2 ? -0.35 : 0.35 ) / ${OCCN * OCCT}.0; float sfD = unpackRGBAToDepth( texture2D( sfOccA, clamp( sfQ.xy + sfO, sfR.xy, sfR.zw ) ) ); sfL += step( sfZ, sfNF.x * sfNF.y / ( sfNF.y - sfD * ( sfNF.y - sfNF.x ) ) ); }
+					directLight.color *= sfL * 0.25; } } }
+		` + C.lights_fragment_begin.slice(i1); }
+  A.scene.traverse(m => { const mm = m.material; if (mm) for (const q of Array.isArray(mm) ? mm : [mm]) q.needsUpdate = true; }); }
+function occFree(r){ if (r.occI != null){ OCCFREE.push(r.occI); r.occI = null; } r.occOK = false; }
+let occPT = 0, occMs = 16;
+function occFlush(){ { const n = performance.now(); occMs = occMs * .8 + Math.min(200, n - occPT) * .2; occPT = n; } if (!OCCQ.length) return; occInit(); OCCQ.sort((a, b) => a[0] - b[0]); const R = A.renderer, sc = A.scene;
   if (performance.now() - occLT > 700){ occLT = performance.now(); sc.traverse(m => { if (m.isMesh){ if (m.castShadow && !m.material?.transparent) m.layers.enable(1); else m.layers.disable(1); } }); }
-  const rt0 = R.getRenderTarget(), ov = sc.overrideMaterial, bg = sc.background, ca = R.getClearAlpha(), au = R.shadowMap.autoUpdate, xr = R.xr.enabled; R.getClearColor(_occC); sc.overrideMaterial = OCCMAT; sc.background = null; R.setClearColor(0xffffff, 1); R.shadowMap.autoUpdate = false; R.xr.enabled = false;
-  try { for (const [, r, v, d, ang, L0] of OCCQ.splice(0, A.quality === 'basse' ? 2 : 4)){ if (RT.get(r.o.id) !== r) continue; if (!r.occRT){ r.occRT = new THREE.WebGLRenderTarget(256, 256, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter }); r.occM = new THREE.Matrix4(); }
+  const rt0 = R.getRenderTarget(), ov = sc.overrideMaterial, bg = sc.background, ca = R.getClearAlpha(), au = R.shadowMap.autoUpdate, xr = R.xr.enabled; R.getClearColor(_occC); sc.overrideMaterial = OCCMAT; sc.background = null; R.setClearColor(0xffffff, 1); R.shadowMap.autoUpdate = false; R.xr.enabled = false; let ch = false;
+  try { for (const [, r, v, d, ang, L0] of OCCQ.splice(0, occMs > 70 ? 1 : occMs > 40 || A.quality === 'basse' ? 2 : 4)){ if (RT.get(r.o.id) !== r) continue; if (r.occI == null){ if (!OCCFREE.length) continue; r.occI = OCCFREE.pop(); r.occM = new THREE.Matrix4(); r.occR = new THREE.Vector4(); }
+      const tx = r.occI % OCCN, ty = r.occI / OCCN | 0, k = 1 / OCCN, e = .75 / (OCCN * OCCT);
       OCCCAM.position.copy(v); OCCCAM.up.set(0, Math.abs(d.y) > .98 ? 0 : 1, Math.abs(d.y) > .98 ? 1 : 0); OCCCAM.lookAt(v.x + d.x, v.y + d.y, v.z + d.z); OCCCAM.fov = Math.min(160, ang * 2 * R2D * 1.12 + 2); OCCCAM.far = Math.max(2, L0 + 1); OCCCAM.updateProjectionMatrix(); OCCCAM.updateMatrixWorld(true);
-      r.occM.copy(OCCBIAS).multiply(OCCCAM.projectionMatrix).multiply(OCCCAM.matrixWorldInverse); R.setRenderTarget(r.occRT); R.clear(); R.render(sc, OCCCAM); r.occOK = true; r.occT2 = UI.t; } } catch (e){ }
-  OCCQ.length = 0; sc.overrideMaterial = ov; sc.background = bg; R.setClearColor(_occC, ca); R.shadowMap.autoUpdate = au; R.xr.enabled = xr; R.setRenderTarget(rt0); }
+      OCCBIAS.set(.5 * k, 0, 0, (.5 + tx) * k, 0, .5 * k, 0, (.5 + ty) * k, 0, 0, .5, .5, 0, 0, 0, 1); r.occM.copy(OCCBIAS).multiply(OCCCAM.projectionMatrix).multiply(OCCCAM.matrixWorldInverse); r.occR.set(tx * k + e, ty * k + e, (tx + 1) * k - e, (ty + 1) * k - e);
+      OCCA.viewport.set(tx * OCCT, ty * OCCT, OCCT, OCCT); OCCA.scissor.set(tx * OCCT, ty * OCCT, OCCT, OCCT); R.setRenderTarget(OCCA); R.clear(); R.render(sc, OCCCAM);
+      const o = r.occI * 24; OCCDATA.set(r.occM.elements, o); OCCDATA[o + 16] = r.occR.x; OCCDATA[o + 17] = r.occR.y; OCCDATA[o + 18] = r.occR.z; OCCDATA[o + 19] = r.occR.w; OCCDATA[o + 20] = OCCCAM.near; OCCDATA[o + 21] = OCCCAM.far; ch = true; r.occOK = true; r.occT2 = UI.t; } } catch (e){ }
+  if (ch) OCCD.needsUpdate = true; OCCQ.length = 0; sc.overrideMaterial = ov; sc.background = bg; R.setClearColor(_occC, ca); R.shadowMap.autoUpdate = au; R.xr.enabled = xr; R.setRenderTarget(rt0); }
 function shadowPick(){ const c = []; for (const [id, r] of RT){ if (!r.light || r.t.cat !== 'lum' || !r.light.visible || String(id).startsWith('__th')) continue; const d = r.cdim ?? r.o.dim ?? 0; if (d > .02) c.push([d * (r.t.lumens || 8000) * (r.light.castShadow ? 1.25 : 1), r]); }
   { let nv = 0; for (const r of RT.values()) if (r.t.cat === 'vid' && r.light && r.light.castShadow) nv++; SHK = Math.max(3, clamp((A.renderer.capabilities.maxTextures || 16) - 8, 4, 12) - nv); }          // chaque ombre prend une unité de texture ; on en garde 8 pour les matières
   c.sort((a, b) => b[0] - a[0]); const keep = new Set(c.slice(0, SHK).map(x => x[1])); for (const r of RT.values()) if (r.light && r.t.cat === 'lum' && r.light.castShadow !== keep.has(r)){ r.light.castShadow = keep.has(r); if (r.light.castShadow) r.light.shadow.needsUpdate = true; } }
@@ -662,10 +687,10 @@ function update(dt){
         const L0 = _d.y < -.05 ? Math.min(18, (_v.y + 1.5) / -_d.y) : 16, ok_ = (_v.x * 50 | 0) + ',' + (_v.y * 50 | 0) + ',' + (_v.z * 50 | 0) + ',' + (_d.x * 400 | 0) + ',' + (_d.y * 400 | 0) + ',' + (_d.z * 400 | 0);
         if (r.occN === undefined) r.occN = Math.random() * 20 | 0; const due = s => { if (!(UI.t - (r.occT || 0) < s + r.occN * .004)){ r.occT = UI.t; return true; } return false; }, moved = r.occK !== ok_ + '|' + (ang * 500 | 0), shd = r.light.castShadow; r.occK = ok_ + '|' + (ang * 500 | 0);
         // ombre réelle (surfaces et fumée) pour les projecteurs qui en portent une : la carte n'est recalculée que si l'appareil bouge, et de temps en temps pour suivre le décor
-        if (shd){ if (moved || !r.light.shadow.map || due(.13)) r.light.shadow.needsUpdate = true; r.occD = null; r.occOK = false; } else { if (moved) r.occOK = false; if (moved || due(.33)){ const h = hitAlong(_v, _d, L0); r.occD = h ? h.distance : null; } if (r.beam.visible && (!r.occOK || UI.t - (r.occT2 || 0) > .5 + r.occN * .01 || UI.t < (r.occT2 || 0))) OCCQ.push([r.occOK ? r.occT2 : -1, r, _v.clone(), _d.clone(), ang, L0]); }
-        const own = !shd && r.occOK && r.occRT;
-        { const u = r.bm.uniforms, mp = shd && r.light.shadow.map; u.shOn.value = mp || own ? 1 : 0; if (mp){ u.shMap.value = mp.texture; u.shMat.value.copy(r.light.shadow.matrix); } else if (own){ u.shMap.value = r.occRT.texture; u.shMat.value.copy(r.occM); } }
-        const cut = !shd && r.occD != null && r.occD < L0 - .05, L = cut && !own ? r.occD + .03 : L0, R = Math.tan(ang) * L; r.bm.uniforms.fade.value = cut && !own ? 0 : 1; r.light.distance = cut ? r.occD * 1.6 + .5 : 0;
+        if (shd){ if (moved || !r.light.shadow.map || due(.13)) r.light.shadow.needsUpdate = true; r.occD = null; if (r.occI != null) occFree(r); } else { if (moved || due(.33)){ const h = hitAlong(_v, _d, L0); r.occD = h ? h.distance : null; } if (dim > .002 && (moved || !r.occOK || UI.t - (r.occT2 || 0) > .5 + r.occN * .01 || UI.t < (r.occT2 || 0))) OCCQ.push([!r.occOK ? -2 : moved ? -1 : r.occT2, r, _v.clone(), _d.clone(), ang, L0]); }
+        const own = !UI.noOcc && !shd && r.occOK && r.occI != null; r.light.decay = own ? 2 + (r.occI + 1) * 1e-5 : 2;
+        { const u = r.bm.uniforms, mp = shd && r.light.shadow.map; u.shOn.value = mp || own ? 1 : 0; if (mp){ u.shMap.value = mp.texture; u.shMat.value.copy(r.light.shadow.matrix); u.shR.value.set(0, 0, 1, 1); } else if (own){ u.shMap.value = OCCA.texture; u.shMat.value.copy(r.occM); u.shR.value.copy(r.occR); } }
+        const cut = !shd && r.occD != null && r.occD < L0 - .05, L = cut && !own ? r.occD + .03 : L0, R = Math.tan(ang) * L; r.bm.uniforms.fade.value = cut && !own ? 0 : 1; r.light.distance = cut && !own ? r.occD * 1.6 + .5 : 0;
         r.beam.position.copy(_v); r.beam.quaternion.copy(r.head.quaternion); r.beam.scale.set(R, L, R);
         r.bm.uniforms.amount.value = dim * S.haze * BEAMK * clamp(Math.sqrt((ty.lumens || 8000) / 8000), .5, 2.3); r.bm.uniforms.scl.value.set(R, L); r.bm.uniforms.color.value.copy(_c);
         r.lensMat.color.copy(_c).multiplyScalar(dim * 6);
