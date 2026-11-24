@@ -36,6 +36,28 @@ function aiRoute(p, req, res){
     r.on('timeout', () => r.destroy(new Error('délai dépassé'))); r.on('error', e => jsonOut(res, 200, { error: 'Service injoignable : ' + e.message, code: 'network' })); r.write(data); r.end(); });
   jsonOut(res, 404, { error: 'inconnu' });
 }
+// ---------------------------------------------------------------- rendu IA de la vue 3D : modèles d'image de Google (« Nano Banana »), clé Google gardée ici comme celle de l'assistant
+const IMG_BASE = process.env.IMG_BASE || 'https://generativelanguage.googleapis.com/v1beta/models/', IMG_MODELS = ['gemini-3.1-flash-image', 'gemini-3-pro-image', 'gemini-3.1-flash-lite-image'];
+function imgRoute(p, req, res){
+  const o = req.headers.origin; if (o && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o)) return jsonOut(res, 403, { error: 'origine refusée' });
+  const c = cfgRead();
+  if (p === '/api/img/status') return jsonOut(res, 200, { hasKey: !!c.imgKey, model: c.imgModel || IMG_MODELS[0], models: IMG_MODELS, tail: c.imgKey ? c.imgKey.slice(-4) : '' });
+  if (p === '/api/img/key' && req.method === 'POST') return void bodyOf(req).then(b => { const k = String(b.key || '').trim(); if (b.clear){ delete c.imgKey; } else { if (!/^[\w\-.]{20,300}$/.test(k)) return jsonOut(res, 200, { ok: false, error: 'Cette clé n\'a pas la forme attendue.' }); c.imgKey = k; }
+    try { cfgWrite(c); } catch (e){ return jsonOut(res, 200, { ok: false, error: 'Écriture impossible : ' + e.message }); } jsonOut(res, 200, { ok: true, hasKey: !!c.imgKey }); });
+  if (p === '/api/img/gen' && req.method === 'POST') return void bodyOf(req).then(b => { if (!c.imgKey) return jsonOut(res, 200, { error: 'Aucune clé Google enregistrée.', code: 'no_key' });
+    const model = String(b.model || c.imgModel || IMG_MODELS[0]).trim(); if (!/^[\w.\-]{3,80}$/.test(model)) return jsonOut(res, 200, { error: 'Nom de modèle invalide.', code: 'bad_model' });
+    if (typeof b.image !== 'string' || !/^image\/(png|jpeg|webp)$/.test(b.mime || '') || !b.prompt) return jsonOut(res, 200, { error: 'Demande incomplète.', code: 'bad_request' });
+    const data = Buffer.from(JSON.stringify({ contents: [{ parts: [{ text: String(b.prompt).slice(0, 6000) }, { inline_data: { mime_type: b.mime, data: b.image } }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } })), u = new URL(IMG_BASE + encodeURIComponent(model) + ':generateContent'), lib = u.protocol === 'http:' ? http : https;
+    const r = lib.request(u, { method: 'POST', timeout: 240000, headers: { 'content-type': 'application/json', 'content-length': data.length, 'x-goog-api-key': c.imgKey } }, q => { const ch = []; q.on('data', d => ch.push(d)); q.on('end', () => { let j = null; try { j = JSON.parse(Buffer.concat(ch).toString()); } catch (_){ }
+      if (q.statusCode !== 200 || !j){ const m = (j && j.error && j.error.message) || ('réponse ' + q.statusCode), sc = q.statusCode;
+        return jsonOut(res, 200, { code: sc === 404 ? 'bad_model' : sc === 429 ? 'rate_limited' : sc === 400 || sc === 401 || sc === 403 ? 'bad_key' : 'api', error: sc === 404 ? 'Google ne connaît pas (ou plus) le modèle « ' + model + ' » : tape le nom affiché dans Google AI Studio.' : sc === 429 ? 'Quota Google dépassé ou trop de demandes : réessaie plus tard. (' + m + ')' : 'Google a refusé la demande : ' + m }); }
+      const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [], im = parts.find(x => x.inlineData || x.inline_data), d = im && (im.inlineData || im.inline_data);
+      if (!d) return jsonOut(res, 200, { code: 'no_image', error: 'Le modèle n\'a pas renvoyé d\'image' + ((parts.find(x => x.text) || {}).text ? ' : ' + String(parts.find(x => x.text).text).slice(0, 300) : (j.promptFeedback && j.promptFeedback.blockReason ? ' (demande bloquée : ' + j.promptFeedback.blockReason + ')' : '.')) });
+      if (model !== c.imgModel){ c.imgModel = model; try { cfgWrite(c); } catch (_){ } }          // on ne retient un nom de modèle que s'il a marché
+      jsonOut(res, 200, { image: d.data, mime: d.mimeType || d.mime_type || 'image/png' }); }); });
+    r.on('timeout', () => r.destroy(new Error('délai dépassé'))); r.on('error', e => jsonOut(res, 200, { error: 'Google injoignable : ' + e.message, code: 'network' })); r.write(data); r.end(); });
+  jsonOut(res, 404, { error: 'inconnu' });
+}
 // ---------------------------------------------------------------- connecteur Claude (MCP) : mcp.js dépose des appels d'outils, la fenêtre les exécute
 const MCP = { q: [], wait: null, pend: new Map(), n: 0, lastPoll: 0, tools: null }, MCP_CACHE = path.join(path.dirname(CFG_FILE), 'mcp-tools.json');
 function mcpRoute(p, req, res){
@@ -78,6 +100,7 @@ const server = http.createServer((req, res) => {
   if (p.startsWith('/api/lib/')) return libRoute(p, req, res);
   if (p === '/api/venues') return venueRoute(p, req, res);
   if (p.startsWith('/api/ai/')) return aiRoute(p, req, res);
+  if (p.startsWith('/api/img/')) return imgRoute(p, req, res);
   if (p.startsWith('/api/mcp/')) return mcpRoute(p, req, res);
   const f = path.normalize(path.join(ROOT, p)); if (!f.startsWith(ROOT)){ res.writeHead(403); return res.end(); }
   fs.readFile(f, (e, data) => { if (e){ res.writeHead(404); return res.end('Introuvable'); } res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-cache' }); res.end(data); });
