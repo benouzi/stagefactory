@@ -2,7 +2,8 @@
 // Chaque panneau (outils, Atelier, Environnement) et le plan technique peuvent passer d'un côté à l'autre ; le choix est retenu sur ce poste.
 export function initDock(A, ST){
   const $ = s => document.querySelector(s), root = document.documentElement, UI = ST.UI;
-  const D = { rail: 'left', atelier: 'right', env: 'left', plan: 'left', dom: 'lum', ...A.store.get('dock', {}) }, save = () => A.store.set('dock', D);
+  const D = { rail: 'left', atelier: 'right', env: 'left', plan: 'right', dom: 'lum', ...A.store.get('dock', {}) }, save = () => A.store.set('dock', D);
+  if (!D.v2){ D.v2 = 1; D.plan = 'right'; save(); }          // 4.11.2 : par défaut la vue 3D est à gauche et le plan à droite (une fois, puis le choix de l'utilisateur est gardé)
   const css = document.createElement('style'); css.textContent = `
   #c,#labels{left:var(--vx,0px)!important}
   #hud,#help,#aiPanel,#ledPanel{right:calc(var(--vr,0px) + 12px)!important} #curtSel{left:calc(var(--vx,0px) + var(--vw,100vw) / 2)!important}
