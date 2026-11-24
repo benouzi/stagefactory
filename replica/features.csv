@@ -39,7 +39,7 @@ Déformer par les sommets,Modifier,must,Vectorworks Reshape,yes,Rectangle reste 
 Décalage d'un contour (offset),Modifier,must,SketchUp Offset (F) ; Vectorworks Offset,yes,"Copie à distance tapée, + dehors, − dedans ; coins d’onglet"
 "Couper, prolonger, joindre des lignes",Modifier,should,"Vectorworks Trim, Split, Connect/Combine",no,
 Congé / chanfrein d'un angle,Modifier,should,"Vectorworks Fillet, Chamfer",no,
-"Unir, soustraire, intersecter des surfaces 2D",Modifier,must,Vectorworks Add / Clip / Intersect Surface,no,
+"Unir, soustraire, intersecter des surfaces 2D",Modifier,must,Vectorworks Add / Clip / Intersect Surface,yes,Barre de sélection multiple ; trous gérés (`holes`)
 Aligner et répartir,Modifier,should,Vectorworks Align/Distribute,no,
 Ordre d'empilement (devant / derrière),Modifier,could,Vectorworks Send,no,
 "Grouper, dégrouper, entrer dans un groupe",Modifier,must,SketchUp Group ; Vectorworks Group,partial,"Grouper, dégrouper (Ctrl+G) ; pas d’édition dans le groupe"
@@ -48,14 +48,14 @@ Symboles / composants réutilisables,Modifier,should,SketchUp Make Component ; V
 Gomme,Modifier,could,SketchUp Eraser (E),yes,Suppr
 Pipette / reporter les attributs,Modifier,could,SketchUp Paint Bucket (Alt) ; Vectorworks Eyedropper,no,
 Extrusion d'un contour (hauteur),Modélisation 3D,must,SketchUp Push/Pull (P) ; Vectorworks Extrude,yes,"Dans la barre, pas à la souris"
-"Pousser-tirer une face à la souris, distance tapée",Modélisation 3D,must,SketchUp Push/Pull ; Vectorworks Push/Pull,no,
-Pousser-tirer en creusant (percer un volume),Modélisation 3D,must,SketchUp Push/Pull ; Vectorworks Push/Pull (sub-face),no,
+"Pousser-tirer une face à la souris, distance tapée",Modélisation 3D,must,SketchUp Push/Pull ; Vectorworks Push/Pull,partial,"Outil E dans la vue 3D : dessus, dessous, côté, rayon ; distance tapée via le champ Hauteur seulement"
+Pousser-tirer en creusant (percer un volume),Modélisation 3D,must,SketchUp Push/Pull ; Vectorworks Push/Pull (sub-face),partial,"Par Soustraire (forme à plat = perçage traversant, volume = cuvette) ; pas en poussant une face dessinée sur le volume"
 "Primitives : boîte, cylindre, prisme",Modélisation 3D,must,Vectorworks Extrude ; SketchUp Rectangle + Push/Pull,yes,
 "Sphère, hémisphère, cône, pyramide",Modélisation 3D,should,"Vectorworks Sphere, Hemisphere, Cone",no,
 Extrusion effilée (dépouille) et multiple,Modélisation 3D,could,"Vectorworks Tapered Extrude, Multiple Extrude",no,
 Extrusion le long d'un chemin,Modélisation 3D,should,SketchUp Follow Me ; Vectorworks Extrude Along Path,no,
 Révolution autour d'un axe,Modélisation 3D,should,Vectorworks Sweep ; SketchUp Follow Me sur un cercle,no,
-"Unir, soustraire, intersecter des volumes",Modélisation 3D,must,SketchUp Solid Tools ; Vectorworks Add / Subtract / Intersect Solids,no,
+"Unir, soustraire, intersecter des volumes",Modélisation 3D,must,SketchUp Solid Tools ; Vectorworks Add / Subtract / Intersect Solids,partial,"Exact pour les extrusions verticales du dessin (par tranches) ; pas pour les formes de base (sphère, cône…)"
 "Coque (évider), congé et chanfrein d'arêtes",Modélisation 3D,could,"Vectorworks Shell Solid, Fillet Edge, Chamfer Edge",no,
 Cloison / mur depuis un tracé,Modélisation 3D,should,Vectorworks Wall,partial,Sans épaisseur
 "Plancher, rampe, escalier paramétriques",Modélisation 3D,could,"Vectorworks Slab, Stair",partial,Praticables et escalier de scène de la bibliothèque
