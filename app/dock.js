@@ -73,7 +73,7 @@ export function initDock(A, ST){
     fit: { ic: 'fit', l: 'Ajuster le plan à la fenêtre', h: '', run: () => { window.PLAN?.fit(); window.PLAN?.draw(); } },
   };
   const placing = cat => { const t = UI.placing && ST.LIBALL().concat(ST.S.lib).find(x => x.id === UI.placing); return !!t && t.cat === cat; };
-  const DOMS = [['lum', 'Lumière', ['sel', 'box', '-', 'lamp', 'pipe', 'aim']], ['rig', 'Rigging', ['sel', 'box', '-', 'hpt', 'truss', 'struct', 'pipe', '-', 'rigp']], ['vid', 'Vidéo', ['sel', 'box', '-', 'screen', 'led', 'vp']], ['son', 'Son', ['sel', 'box', '-', 'spk', 'larr']], ['sce', 'Scène', ['sel', 'box', '-', 'deck', 'stage', 'stair', 'curt', 'prop']], ['des', 'Dessin', ['sel', 'box', '-', 'dpoly', 'drect', 'dcirc', 'darc', 'dngon', 'dtext', '-', 'pplane', 'pcube', 'psph', 'pcyl', 'pcone']]];
+  const DOMS = [['des', 'Dessin', ['sel', 'box', '-', 'dpoly', 'drect', 'dcirc', 'darc', 'dngon', 'dtext', '-', 'pplane', 'pcube', 'psph', 'pcyl', 'pcone']], ['sce', 'Scène', ['sel', 'box', '-', 'deck', 'stage', 'stair', 'curt', 'prop']], ['rig', 'Rigging', ['sel', 'box', '-', 'hpt', 'truss', 'struct', 'pipe', '-', 'rigp']], ['lum', 'Lumière', ['sel', 'box', '-', 'lamp', 'pipe', 'aim']], ['son', 'Son', ['sel', 'box', '-', 'spk', 'larr']], ['vid', 'Vidéo', ['sel', 'box', '-', 'screen', 'led', 'vp']]];
   const LIBCAT = { lum: 'lum', rig: 'str', vid: 'vid', son: 'son', sce: 'str', des: 'str' };
   const rail = document.createElement('div'); rail.id = 'rail'; document.body.appendChild(rail);
   const hint = document.createElement('div'); hint.id = 'toolHint'; document.body.appendChild(hint);

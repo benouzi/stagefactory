@@ -310,3 +310,5 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
    - Essais : fenêtre, capture double, clé, génération, retouche, modèle inconnu, oubli de la clé, contre la vraie passerelle et un FAUX service Google. Jamais essayé contre le vrai service de Google (pas de clé ici). **Installeur à refaire** pour que le rendu IA arrive sur le PC (serveur.js a changé) ; l'artifact est publié.
 
 25. 4.10.5 (24.11.2026, même conversation « Onex Previz ») — le bouton du milieu de la barre du haut s'appelle « 3D + Plan » au lieu de « Plan + 3D » (demande de Benjamin : suite logique 3D, 3D + Plan, Plan ; et la 3D est bien à gauche). Seul le libellé change (`#planBtn` dans index.html) ; artifact publié.
+
+26. 4.10.6 (24.11.2026, même conversation « Onex Previz ») — ordre des métiers dans la barre du haut : Dessin, Scène, Rigging, Lumière, Son, Vidéo (demande de Benjamin ; ordre du travail : on dessine le lieu, on pose la scène, on accroche, puis lumière, son, vidéo). Tableau `DOMS` de dock.js réordonné, textes d'aide d'app.js alignés ; le métier ouvert par défaut reste Lumière. Artifact publié.
