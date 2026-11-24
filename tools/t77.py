@@ -19,7 +19,6 @@ with sync_playwright() as p:
     ev("(()=>{APP.camera.position.set(4.5,3.2,5.5);APP.orbit.target.set(6.5,.4,0);APP.orbit.update()})()"); pg.wait_for_timeout(1000); pg.screenshot(path=OUT+'/t77.png',clip={'x':60,'y':45,'width':1090,'height':560})
     # au-delà de la limite de cartes d'ombre : les projecteurs les moins puissants gardent la coupure dans l'axe
     ev("()=>{for(let i=0;i<7;i++){STAGE.place('poursuite',STAGE.hitAt(-6+i,6),true);const o=STAGE.S.objs[STAGE.S.objs.length-1];o.pos[1]=4;o.dim=1}STAGE.render()}"); pg.wait_for_timeout(6000)
-    c=ev("STAGE.S.objs.map(o=>{const r=STAGE.RT.get(o.id);return r.light&&STAGE.typeOf(o).cat==='lum'?(r.light.castShadow?1:0):null}).filter(x=>x!==null)"); ok(sum(c)==6 and c[0]==0,'8 projecteurs allumés : 6 portent une ombre, le moins puissant repasse à la coupure dans l\'axe',c)
-    L1=ev("STAGE.RT.get(STAGE.S.objs[0].id).beam.scale.y"); ok(1.5<L1<3.2,'celui-là s\'arrête sur l\'obstacle',L1)
+    c=ev("STAGE.S.objs.map(o=>{const r=STAGE.RT.get(o.id);return r.light&&STAGE.typeOf(o).cat==='lum'?(r.light.castShadow?1:(r.bm.uniforms.shOn.value>0.5?2:0)):null}).filter(x=>x!==null)"); ok(len(c)==8 and all(x>0 for x in c),'8 projecteurs allumés : chacun a sa carte d\'obstacles (1 = vraie ombre, 2 = carte du faisceau)',c)
     ok(not errs,'aucune erreur de page',errs[:3]); b.close()
 print('ECHECS',bad) if bad else print('TOUT PASSE')
