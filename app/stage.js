@@ -512,32 +512,70 @@ function splMap(){
 }
 
 // ============================================================ contenu vidéo
+// L'image est d'abord tracée telle quelle dans r.src (au format de la matrice), puis posée dans la carte du faisceau (r.canvas) :
+// décalée si l'optique est décalée, déformée si les 4 coins ont été réglés. Hors de l'image, le projecteur n'éclaire pas.
+function quadMap(p){ const [x0, y0] = p[0], [x1, y1] = p[1], [x2, y2] = p[2], [x3, y3] = p[3], dx1 = x1 - x2, dx2 = x3 - x2, sx = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, sy = y0 - y1 + y2 - y3, den = dx1 * dy2 - dx2 * dy1 || 1e-9, g = (sx * dy2 - dx2 * sy) / den, h = (dx1 * sy - sx * dy1) / den, a = x1 - x0 + g * x1, b = x3 - x0 + h * x3, d = y1 - y0 + g * y1, e = y3 - y0 + h * y3; return (u, v) => { const w = g * u + h * v + 1; return [(a * u + b * v + x0) / w, (d * u + e * v + y0) / w]; }; }
+function triDraw(g, img, s0, s1, s2, d0, d1, d2){ const u1x = s1[0] - s0[0], u1y = s1[1] - s0[1], u2x = s2[0] - s0[0], u2y = s2[1] - s0[1], det = u1x * u2y - u2x * u1y; if (Math.abs(det) < 1e-9) return;
+  const v1x = d1[0] - d0[0], v1y = d1[1] - d0[1], v2x = d2[0] - d0[0], v2y = d2[1] - d0[1], a = (v1x * u2y - v2x * u1y) / det, c = (v2x * u1x - v1x * u2x) / det, b = (v1y * u2y - v2y * u1y) / det, d = (v2y * u1x - v1y * u2x) / det;
+  const cx = (d0[0] + d1[0] + d2[0]) / 3, cy = (d0[1] + d1[1] + d2[1]) / 3, ex = q => { const x = q[0] - cx, y = q[1] - cy, l = Math.hypot(x, y) || 1; return [q[0] + x / l * .8, q[1] + y / l * .8]; }, e0 = ex(d0), e1 = ex(d1), e2 = ex(d2);
+  g.save(); g.beginPath(); g.moveTo(e0[0], e0[1]); g.lineTo(e1[0], e1[1]); g.lineTo(e2[0], e2[1]); g.closePath(); g.clip(); g.setTransform(a, b, c, d, d0[0] - a * s0[0] - c * s0[1], d0[1] - b * s0[0] - d * s0[1]); g.drawImage(img, 0, 0); g.restore(); }
 function drawContent(r){
-  const o = r.o, t = r.t, c = r.canvas, g = c.getContext('2d'), Sz = c.width, ar = t.res[0] / t.res[1], phi = Math.atan(1 / ar);
-  const w = Sz * Math.cos(phi), h = Sz * Math.sin(phi), x = (Sz - w) / 2, y = (Sz - h) / 2;
-  g.fillStyle = '#000'; g.fillRect(0, 0, Sz, Sz);
+  const o = r.o, t = r.t, ar = t.res[0] / t.res[1], op = r.geom?.op || vpOptics(o, t);
+  if (!r.src){ r.src = document.createElement('canvas'); r.src.width = 1024; } const sh = Math.round(1024 / ar); if (r.src.height !== sh) r.src.height = sh;
   const md = MEDIA.get(o.id), kind = o.content || 'mire';
-  if ((kind === 'image' || kind === 'video') && md?.el){ try { g.drawImage(md.el, x, y, w, h); } catch (_){} }
-  else if (kind === 'blanc'){ g.fillStyle = '#fff'; g.fillRect(x, y, w, h); }
-  else if (kind === 'degrade'){ const gr = g.createLinearGradient(x, y, x + w, y + h); gr.addColorStop(0, '#ff2bd6'); gr.addColorStop(.5, '#2a4dff'); gr.addColorStop(1, '#00ffc8'); g.fillStyle = gr; g.fillRect(x, y, w, h); }
-  else {
-    g.fillStyle = '#1b1b1b'; g.fillRect(x, y, w, h); g.strokeStyle = '#fff'; g.lineWidth = 2;
-    const n = 16; for (let i = 0; i <= n; i++){ g.beginPath(); g.moveTo(x + i * w / n, y); g.lineTo(x + i * w / n, y + h); g.stroke(); }
-    const m = Math.round(n / ar); for (let i = 0; i <= m; i++){ g.beginPath(); g.moveTo(x, y + i * h / m); g.lineTo(x + w, y + i * h / m); g.stroke(); }
-    const bars = ['#fff', '#ff0', '#0ff', '#0f0', '#f0f', '#f00', '#00f', '#000']; bars.forEach((b, i) => { g.fillStyle = b; g.fillRect(x + w * .2 + i * w * .6 / 8, y + h * .62, w * .6 / 8 + 1, h * .16); });
-    g.beginPath(); g.arc(Sz / 2, Sz / 2, h * .42, 0, 6.3); g.lineWidth = 4; g.stroke(); g.strokeRect(x + 3, y + 3, w - 6, h - 6);
-    g.fillStyle = '#fff'; g.font = `600 ${Math.round(h * .1)}px Inter, sans-serif`; g.textAlign = 'center'; g.fillText(`${t.res[0]} × ${t.res[1]}`, Sz / 2, y + h * .36);
-    g.font = `${Math.round(h * .06)}px Inter, sans-serif`; g.fillText(o.name || t.name, Sz / 2, y + h * .48);
-  }
+  { const g = r.src.getContext('2d'), w = 1024, h = sh; g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
+    if ((kind === 'image' || kind === 'video') && md?.el){ try { g.drawImage(md.el, 0, 0, w, h); } catch (_){} }
+    else if (kind === 'blanc'){ g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); }
+    else if (kind === 'degrade'){ const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#ff2bd6'); gr.addColorStop(.5, '#2a4dff'); gr.addColorStop(1, '#00ffc8'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
+    else {
+      g.fillStyle = '#1b1b1b'; g.fillRect(0, 0, w, h); g.strokeStyle = '#fff'; g.lineWidth = 2;
+      const n = 16; for (let i = 0; i <= n; i++){ g.beginPath(); g.moveTo(i * w / n, 0); g.lineTo(i * w / n, h); g.stroke(); }
+      const m = Math.round(n / ar); for (let i = 0; i <= m; i++){ g.beginPath(); g.moveTo(0, i * h / m); g.lineTo(w, i * h / m); g.stroke(); }
+      const bars = ['#fff', '#ff0', '#0ff', '#0f0', '#f0f', '#f00', '#00f', '#000']; bars.forEach((b, i) => { g.fillStyle = b; g.fillRect(w * .2 + i * w * .6 / 8, h * .62, w * .6 / 8 + 1, h * .16); });
+      g.beginPath(); g.arc(w / 2, h / 2, h * .42, 0, 6.3); g.lineWidth = 4; g.stroke(); g.strokeRect(3, 3, w - 6, h - 6);
+      g.fillStyle = '#fff'; g.font = `600 ${Math.round(h * .1)}px Inter, sans-serif`; g.textAlign = 'center'; g.fillText(`${t.res[0]} × ${t.res[1]}`, w / 2, h * .36);
+      g.font = `${Math.round(h * .06)}px Inter, sans-serif`; g.fillText(o.name || t.name, w / 2, h * .48);
+    }
+    // fondu de bord (raccord entre deux projecteurs) : dégradé noir sur les côtés demandés, en % de la largeur ou de la hauteur
+    const bl = o.blend; if (bl){ const band = (x0, y0, x1, y1, rx, ry, rw, rh) => { const gr = g.createLinearGradient(x0, y0, x1, y1); for (let i = 0; i <= 8; i++){ const k = i / 8; gr.addColorStop(k, `rgba(0,0,0,${Math.pow(1 - k, 2.2).toFixed(3)})`); } g.fillStyle = gr; g.fillRect(rx, ry, rw, rh); };
+      if (bl.l > 0) band(0, 0, w * bl.l / 100, 0, 0, 0, w * bl.l / 100, h); if (bl.r > 0) band(w, 0, w - w * bl.r / 100, 0, w - w * bl.r / 100, 0, w * bl.r / 100, h); if (bl.t > 0) band(0, 0, 0, h * bl.t / 100, 0, 0, w, h * bl.t / 100); if (bl.b > 0) band(0, h, 0, h - h * bl.b / 100, 0, h - h * bl.b / 100, w, h * bl.b / 100); } }
+  // la carte du faisceau : plus fine quand l'optique est très décalée (l'image n'occupe alors qu'un coin du cône)
+  const want = op.T / Math.hypot(op.a, op.b) > 1.25 && kind !== 'video' ? 2048 : 1024;
+  if (r.canvas.width !== want){ r.canvas = document.createElement('canvas'); r.canvas.width = r.canvas.height = want; r.tex.dispose(); r.tex = new THREE.CanvasTexture(r.canvas); r.tex.colorSpace = THREE.SRGBColorSpace; }
+  const c = r.canvas, g = c.getContext('2d'), Sz = c.width, px = ([tx, ty]) => [Sz / 2 * (1 + tx / op.T), Sz / 2 * (1 - ty / op.T)];
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#000'; g.fillRect(0, 0, Sz, Sz);
+  const q = op.quad.map(px), TL = q[3], TR = q[2], BR = q[1], BL = q[0];
+  if (!op.warp) g.drawImage(r.src, TL[0], TL[1], BR[0] - TL[0], BR[1] - TL[1]);
+  else { const f = quadMap([TL, TR, BR, BL]), N = 16, w = 1024, h = sh; for (let j = 0; j < N; j++) for (let i = 0; i < N; i++){ const u0 = i / N, u1 = (i + 1) / N, v0 = j / N, v1 = (j + 1) / N, a = f(u0, v0), b = f(u1, v0), cc = f(u1, v1), d = f(u0, v1), sa = [u0 * w, v0 * h], sb = [u1 * w, v0 * h], sc = [u1 * w, v1 * h], sd = [u0 * w, v1 * h]; triDraw(g, r.src, sa, sb, sc, a, b, cc); triDraw(g, r.src, sa, sc, sd, a, cc, d); } }
   r.tex.needsUpdate = true;
 }
 
 // ============================================================ mise à jour par image
+// Optique d'un vidéoprojecteur, dans le plan à 1 m de l'objectif (x vers la droite du projecteur, y vers le haut) :
+// rapport de projection, décalage d'optique (lsh / lsv, en % de la largeur / hauteur d'image), 4 coins (warp, en fractions de la matrice).
+const VPC = [[0, 0], [1, 0], [1, 1], [0, 1]];          // bas-gauche, bas-droite, haut-droite, haut-gauche
+function vpOptics(o, t){
+  const th = clamp(o.throw ?? t.throw[0], t.throw[0], t.throw[1]), a = .5 / th, b = a * t.res[1] / t.res[0], cx = (o.lsh || 0) / 100 * 2 * a, cy = (o.lsv || 0) / 100 * 2 * b;
+  const at = ([u, v]) => [cx + (u - .5) * 2 * a, cy + (v - .5) * 2 * b], warp = Array.isArray(o.warp) && o.warp.length === 4 && o.warp.some((c, i) => Math.abs(c[0] - VPC[i][0]) > 1e-4 || Math.abs(c[1] - VPC[i][1]) > 1e-4);
+  const pan = VPC.map(at), quad = warp ? o.warp.map(c => at([clamp(c[0], 0, 1), clamp(c[1], 0, 1)])) : pan;
+  let used = 1; if (warp){ const w = o.warp; used = 0; for (let i = 0; i < 4; i++){ const p = w[i], q = w[(i + 1) % 4]; used += p[0] * q[1] - q[0] * p[1]; } used = Math.abs(used) / 2; }
+  return { th, a, b, cx, cy, pan, quad, warp, used, T: Math.max(...pan.map(p => Math.hypot(p[0], p[1]))) };
+}
 function vpGeom(o, t, r){
-  const src = r.head.getWorldPosition(new THREE.Vector3()), d = dirOf(o.pan, o.tilt, new THREE.Vector3());
-  const hit = hitAlong(src, d), D = hit ? hit.distance : 10, th = clamp(o.throw ?? t.throw[0], t.throw[0], t.throw[1]);
-  const W = D / th, H = W * t.res[1] / t.res[0];
-  return { src, d, D, W, H, th, lux: t.lumens * (o.bright ?? 1) / (W * H), px: W / t.res[0] * 1000 };
+  const src = r.head.getWorldPosition(new THREE.Vector3()), d = dirOf(o.pan, o.tilt, new THREE.Vector3()), op = vpOptics(o, t);
+  const rt = new THREE.Vector3().crossVectors(d, UP); if (rt.lengthSq() < 1e-6) rt.set(1, 0, 0); rt.normalize(); const up = new THREE.Vector3().crossVectors(rt, d);
+  const dir = ([tx, ty]) => d.clone().addScaledVector(rt, tx).addScaledVector(up, ty), ch = hitAlong(src, dir([op.cx, op.cy]).normalize());
+  const D = ch ? ch.point.clone().sub(src).dot(d) : 10;          // distance mesurée dans l'axe de l'objectif, jusqu'à la surface au centre de l'image
+  const cast = p => { const v = dir(p), h = hitAlong(src, v.clone().normalize()); return h ? h.point.clone() : src.clone().addScaledVector(v, D); };
+  const cn = op.quad.map(cast), ctr = ch ? ch.point.clone() : src.clone().addScaledVector(dir([op.cx, op.cy]), D);
+  // la surface visée : le plan de ce que touche le centre de l'image. L'image y est mesurée (taille, trapèze, lux) ; cn garde les points
+  // réellement éclairés, qui s'en écartent quand l'image déborde de la surface (un coin part sur le mur du fond, par exemple).
+  const n = ch && ch.face ? ch.face.normal.clone().transformDirection(ch.object.matrixWorld) : d.clone().negate(); if (n.dot(d) > 0) n.negate();
+  const k0 = ctr.clone().sub(src).dot(n), onPl = p => { const v = dir(p), den = v.dot(n), tt = Math.abs(den) > 1e-5 ? k0 / den : -1; return src.clone().addScaledVector(v, tt > 0 ? tt : D); }, pl = op.quad.map(onPl);
+  const wB = pl[0].distanceTo(pl[1]), wT = pl[3].distanceTo(pl[2]), hL = pl[0].distanceTo(pl[3]), hR = pl[1].distanceTo(pl[2]), W = (wB + wT) / 2, H = (hL + hR) / 2;
+  const tri = (p, q, s) => new THREE.Vector3().crossVectors(q.clone().sub(p), s.clone().sub(p)).length() / 2, area = Math.max(1e-6, tri(pl[0], pl[1], pl[2]) + tri(pl[0], pl[2], pl[3]));
+  return { src, d, rt, up, op, D, W, H, th: op.th, cn, pl, n, ctr, wB, wT, hL, hR, area, hit: ch, spill: Math.max(...cn.map((p, i) => p.distanceTo(pl[i]))) > .05, kx: Math.max(wB, wT) / Math.max(1e-6, Math.min(wB, wT)) - 1, ky: Math.max(hL, hR) / Math.max(1e-6, Math.min(hL, hR)) - 1,
+    lux: t.lumens * (o.bright ?? 1) * op.used / area, px: W / t.res[0] * 1000 };
 }
 const FA = {}, FB = {}, FC = {};
 function fxOut(fx, p, sp, ph, o){ o.dp = 0; o.dt = 0; o.dm = 1; o.h = -1;
@@ -704,13 +742,12 @@ function update(dt){
       if (r.dirty || (on && o.content === 'video' && md?.el && !md.el.paused)){
         dirOf(o.pan, o.tilt, _d); r.head.getWorldPosition(_v); r.head.lookAt(_v2.copy(_v).add(_d));
         if (r.dirty){
-          const G = r.geom = vpGeom(o, ty, r), hd = Math.hypot(.5 / G.th, .5 / G.th * ty.res[1] / ty.res[0]);
+          const G = r.geom = vpGeom(o, ty, r), hd = G.op.T;
           r.light.position.copy(G.src).addScaledVector(G.d, .3); r.light.target.position.copy(G.src).addScaledVector(G.d, 10); r.light.target.updateMatrixWorld();
           r.light.angle = Math.atan(hd); const sr = (1 / G.th) * (ty.res[1] / ty.res[0] / G.th);
           r.light.intensity = dispI(ty.lumens / sr) * 1.6 * (o.bright ?? 1);
           // gabarit de projection
-          const rt = new THREE.Vector3().crossVectors(G.d, UP); if (rt.lengthSq() < 1e-6) rt.set(1, 0, 0); rt.normalize(); const up = new THREE.Vector3().crossVectors(rt, G.d);
-          const cn = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => G.src.clone().addScaledVector(G.d, G.D).addScaledVector(rt, a * G.W / 2).addScaledVector(up, b * G.H / 2));
+          const cn = G.cn;
           const p = r.frust.geometry.attributes.position; let q = 0; const put = (a, b) => { p.setXYZ(q++, a.x, a.y, a.z); p.setXYZ(q++, b.x, b.y, b.z); };
           for (let i = 0; i < 4; i++){ put(G.src, cn[i]); put(cn[i], cn[(i + 1) % 4]); } p.needsUpdate = true;
         }
@@ -1216,7 +1253,9 @@ function propHtml(){
     <label>Contenu</label><select class="inp" data-k="content">${[['mire', 'Mire de réglage'], ['blanc', 'Blanc'], ['degrade', 'Dégradé'], ['image', 'Image…'], ['video', 'Vidéo…']].map(([k, v]) => `<option value="${k}" ${o.content === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
     <label>Rapport</label>${rng('throw', t.throw[0], t.throw[1], .01, clamp(o.throw, t.throw[0], t.throw[1]), ':1')}
     <label>Luminosité</label>${rng('bright', .1, 1, .01, o.bright ?? 1)}
-    <label>Pan</label>${rng('pan', -180, 180, .5, o.pan, '°')}<label>Tilt</label>${rng('tilt', 0, 180, .5, o.tilt, '°')}`;
+    <label>Pan</label>${rng('pan', -180, 180, .5, o.pan, '°')}<label>Tilt</label>${rng('tilt', 0, 180, .5, o.tilt, '°')}
+    <label title="Décalage d'optique (lens shift) : l'image se déplace sans incliner le projecteur, donc sans trapèze. En % de la largeur d'image.">Décalage H</label>${rng('lsh', -100, 100, 1, o.lsh || 0, ' %')}
+    <label title="Décalage d'optique vertical, en % de la hauteur d'image. La plage réelle dépend de l'optique : à vérifier sur sa fiche.">Décalage V</label>${rng('lsv', -150, 150, 1, o.lsv || 0, ' %')}${window.VIDEO ? VIDEO.fiche(o, t) : ''}`;
   } else if (t.cat === 'son'){
     h += `<label>Actif</label><div><input type="checkbox" data-k="on" ${o.on !== false ? 'checked' : ''}></div>
     <label>Niveau</label>${rng('gain', -30, 0, .5, o.gain || 0, ' dB')}
@@ -1241,7 +1280,7 @@ function photo(){
   const el = $('#photo'); if (!el) return; const o = selObjs().pop(); if (!o) return; const t = typeOf(o), r = RT.get(o.id); let s = '';
   if (t.cat === 'lum'){ r.head.getWorldPosition(_v); const d = dirOf(o.pan, o.tilt, new THREE.Vector3()), h = hitAlong(_v.clone(), d), D = h ? h.distance : 0, z = clamp(o.zoom, t.zoom[0], t.zoom[1]);
     if (D) s = `<br>Distance <b>${fmt(D, 1)} m</b> · tache <b>⌀ ${fmt(2 * D * Math.tan(z * D2R / 2), 2)} m</b> · <b>${Math.round(candela(t.lumens, z) * (o.dim ?? 1) / (D * D)).toLocaleString('fr')} lux</b> au centre`; }
-  else if (t.cat === 'vid' && r.geom){ const G = r.geom; s = `<br>Distance <b>${fmt(G.D, 1)} m</b> · image <b>${fmt(G.W, 2)} × ${fmt(G.H, 2)} m</b><br><b>${Math.round(G.lux).toLocaleString('fr')} lux</b> sur écran blanc · pixel <b>${fmt(G.px, 1)} mm</b>`; }
+  else if (t.cat === 'vid' && r.geom){ const G = r.geom; s = `<br>Distance <b>${fmt(G.D, 1)} m</b> · image <b>${fmt(G.W, 2)} × ${fmt(G.H, 2)} m</b><br><b>${Math.round(G.lux).toLocaleString('fr')} lux</b> sur écran blanc · pixel <b>${fmt(G.px, 1)} mm</b>${G.kx > .01 || G.ky > .01 ? `<br><span style="color:var(--warn,#f2a93b)">Trapèze : ${G.kx > .01 ? `largeur ${fmt(G.wT, 2)} m en haut, ${fmt(G.wB, 2)} m en bas` : ''}${G.kx > .01 && G.ky > .01 ? ' · ' : ''}${G.ky > .01 ? `hauteur ${fmt(G.hL, 2)} m à gauche, ${fmt(G.hR, 2)} m à droite` : ''}</span>` : ''}${G.spill ? `<br><span style="color:var(--warn,#f2a93b)">L'image déborde de la surface visée.</span>` : ''}${G.op.warp ? `<br>4 coins réglés : ${Math.round(G.op.used * 100)} % de la matrice utilisée` : ''}${window.VIDEO ? VIDEO.info(o, G) : ''}`; }
   else if (t.cat === 'son'){ r.head.getWorldPosition(_v); const d = dirOf(o.pan, o.tilt, new THREE.Vector3()); const L = [{ o, t, src: _v.clone(), d }]; s = `<br>Dans l'axe : <b>${fmt(splAt(_v.clone().addScaledVector(d, 10), L), 0)} dB</b> à 10 m · <b>${fmt(splAt(_v.clone().addScaledVector(d, 20), L), 0)} dB</b> à 20 m (max, champ direct)`; }
   el.innerHTML = s;
 }
@@ -1576,6 +1615,7 @@ export function init(APP){
   import('./rig.js').then(m => m.initRig(A, window.STAGE)).catch(e => console.error(e));
   import('./ponts.js').then(m => m.initPonts(A, window.STAGE)).catch(e => console.error(e));
   import('./scenes.js').then(m => m.initScenes(A, window.STAGE)).catch(e => console.error(e));
+  import('./video.js').then(m => m.initVideo(A, window.STAGE)).catch(e => console.error(e));
   import('./decor.js').then(m => m.initDecor(A, window.STAGE)).catch(e => console.error(e));
   import('./linearray.js').then(m => m.initLineArray(A, window.STAGE)).catch(e => console.error(e));
   import('./publish.js').then(m => m.initPublish(A, window.STAGE)).catch(e => console.error(e));
@@ -1589,5 +1629,5 @@ export function init(APP){
   import('./render.js').then(m => m.initRender(A, window.STAGE)).catch(e => console.error(e));
   setTimeout(() => import('./wins.js').then(m => m.initWins(A, window.STAGE)).catch(e => console.error(e)), 600);
   setTimeout(() => import('./dock.js').then(m => m.initDock(A, window.STAGE)).catch(e => console.error(e)), 900);
-  window.STAGE = { MATS, matFor, boxUV, matTile, matCol: id => MATBY.get(id)?.col, parseD4, LKEYS, HIL, FLS, FXHOOK, sceneShow, dirOf, setDl: x => { dl = x; }, get gizmoR(){ return gizmoR; }, fmt, LED: LEDW, FXS, defaults, recCue, tick: update, weightOf, LIBALL: () => LIB, removeSel, duplicate, cloudSave, cloudLoad, runAct, undoTo, hist: () => ({ undo: undoStack, redo: redoStack }), byId, build, unbuild, nextNum, freeAddr, modeCh, modal, esc, gizmo, uid, posOf, setGizmo: m => { UI.gizmo = m; setGizmoMode(); }, hasCloud: () => !!db, histChanged, typeOf, pushUndo, touch, refreshProps, addrStr, saveFile, toast, selObjs, undo, redo, conflicts, S, UI, RT, select, setLive, goCue, place, placeSeries, seriePts, percheNear, hitAt, blkType, blkCells, blkSnap, placeBlock, blkTip, stageEdges, dressStage, importFiles, loadShow, demoShow, blankShow, serialize, exportMvr, parseGdtf, splMap, render, magnet, magState, magSay, supportNear };
+  window.STAGE = { hitAlong, vpOptics, MEDIA, MATS, matFor, boxUV, matTile, matCol: id => MATBY.get(id)?.col, parseD4, LKEYS, HIL, FLS, FXHOOK, sceneShow, dirOf, setDl: x => { dl = x; }, get gizmoR(){ return gizmoR; }, fmt, LED: LEDW, FXS, defaults, recCue, tick: update, weightOf, LIBALL: () => LIB, removeSel, duplicate, cloudSave, cloudLoad, runAct, undoTo, hist: () => ({ undo: undoStack, redo: redoStack }), byId, build, unbuild, nextNum, freeAddr, modeCh, modal, esc, gizmo, uid, posOf, setGizmo: m => { UI.gizmo = m; setGizmoMode(); }, hasCloud: () => !!db, histChanged, typeOf, pushUndo, touch, refreshProps, addrStr, saveFile, toast, selObjs, undo, redo, conflicts, S, UI, RT, select, setLive, goCue, place, placeSeries, seriePts, percheNear, hitAt, blkType, blkCells, blkSnap, placeBlock, blkTip, stageEdges, dressStage, importFiles, loadShow, demoShow, blankShow, serialize, exportMvr, parseGdtf, splMap, render, magnet, magState, magSay, supportNear };
 }

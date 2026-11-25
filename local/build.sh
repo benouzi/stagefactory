@@ -2,7 +2,7 @@
 # Assemble la version locale (PC / Mac) à partir des fichiers de l'application.
 set -e
 D=/home/claude/local/dist/StageFactory; NM=/home/claude/npmx/node_modules; rm -rf /home/claude/local/dist; mkdir -p $D/app/lib/three/build $D/app/lib/three/examples/jsm $D/app/lib/three-mesh-bvh $D/app/lib/fflate $D/app/lib/pdfjs $D/app/lib/libredwg/dist $D/app/lib/libredwg/wasm $D/app/vendor
-cp /home/claude/app/{index.html,stage.js,app.js,plan.js,rig.js,dmx.js,audio.js,ai.js,desk.js,prog.js,cine.js,lib.js,led.js,venue.js,cad.js,wins.js,view.js,parc.js,dock.js,ponts.js,scenes.js,drawer.js,decor.js,catalog.js,draw.js,render.js,truss-data.js,thumbs.js,gdtf3d.js,catalog-data.js,decor-list.js,publish.js,linearray.js,la-data.js,sceno-core.js,sceno-props.js,scene-data.json} $D/app/
+cp /home/claude/app/{index.html,stage.js,app.js,plan.js,rig.js,dmx.js,audio.js,ai.js,desk.js,prog.js,cine.js,lib.js,led.js,venue.js,cad.js,wins.js,view.js,parc.js,dock.js,ponts.js,scenes.js,video.js,drawer.js,decor.js,catalog.js,draw.js,render.js,truss-data.js,thumbs.js,gdtf3d.js,catalog-data.js,decor-list.js,publish.js,linearray.js,la-data.js,sceno-core.js,sceno-props.js,scene-data.json} $D/app/
 cp /home/claude/app/vendor/dxf-parser.js /home/claude/app/vendor/pdf-lib.js /home/claude/app/vendor/polygon-clipping.js $D/app/vendor/
 # lecteurs de plans : PDF (pdf.js) et DWG (LibreDWG en WebAssembly), servis en local pour travailler hors ligne
 cp $NM/pdfjs-dist/build/pdf.min.mjs $NM/pdfjs-dist/build/pdf.worker.min.mjs $D/app/lib/pdfjs/

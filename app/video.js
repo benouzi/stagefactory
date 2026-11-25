@@ -1,0 +1,98 @@
+// Vidéo : régler un vidéoprojecteur comme en vrai. On vise un écran (en inclinant le projecteur, ou en le laissant droit et en
+// décalant l'optique), on cale les 4 coins de l'image sur l'écran, et on tire l'image à la souris dans la vue 3D.
+// Rien n'est inventé : la taille d'image vient du rapport de projection de l'appareil, l'image posée sur le décor est calculée
+// rayon par rayon. La plage de décalage d'une optique n'est PAS connue ici : la valeur nécessaire est affichée, à comparer à sa fiche.
+export function initVideo(A, ST){
+  const THREE = A.THREE, S = ST.S, UI = ST.UI, UP = new THREE.Vector3(0, 1, 0), f = (v, d = 2) => (+v).toFixed(d).replace('.', ','), cl = (v, a, b) => Math.max(a, Math.min(b, v)), R2D = 180 / Math.PI;
+  const VPC = [[0, 0], [1, 0], [1, 1], [0, 1]], NAMEC = ['bas gauche', 'bas droite', 'haut droite', 'haut gauche'];
+  const isVp = o => o && ST.typeOf(o).cat === 'vid', isScr = o => ST.typeOf(o).kind === 'screen', screens = () => S.objs.filter(isScr);
+  const srcOf = o => { const r = ST.RT.get(o.id); r.root.updateWorldMatrix(true, true); return r.head.getWorldPosition(new THREE.Vector3()); };
+  // repère du projecteur : d dans l'axe de l'objectif, rt vers sa droite, up vers son haut
+  function basis(o, d){ d = d || ST.dirOf(o.pan, o.tilt, new THREE.Vector3()); const rt = new THREE.Vector3().crossVectors(d, UP); if (rt.lengthSq() < 1e-6) rt.set(1, 0, 0); rt.normalize(); return { d, rt, up: new THREE.Vector3().crossVectors(rt, d) }; }
+  const invDir = v => { const n = v.clone().normalize(); return [Math.round(Math.atan2(n.x, n.z) * R2D * 100) / 100, Math.round(Math.acos(cl(-n.y, -1, 1)) * R2D * 100) / 100]; };
+  // où tombe un point du monde dans le plan à 1 m de l'objectif
+  const tanOf = (B, src, P) => { const v = P.clone().sub(src), z = v.dot(B.d); return z > 1e-4 ? [v.dot(B.rt) / z, v.dot(B.up) / z] : null; };
+  function scrGeo(sc){ const r = ST.RT.get(sc.id), t = ST.typeOf(sc), [w, h] = sc.size || t.size; r.root.updateWorldMatrix(true, true); const P = (x, y) => r.head.localToWorld(new THREE.Vector3(x, y, 0)), c = P(0, h / 2), n = P(0, h / 2).sub(r.head.localToWorld(new THREE.Vector3(0, h / 2, -1))).normalize(); return { w, h, c, n, cn: [P(-w / 2, 0), P(w / 2, 0), P(w / 2, h), P(-w / 2, h)] }; }
+  const scrName = sc => sc.name || ST.typeOf(sc).name;
+  // l'écran d'un projecteur : celui qu'on lui a donné, sinon le plus proche devant lui
+  function scrOf(o){ const L = screens(); if (!L.length) return null; const own = L.find(s => s.id === o.scr); if (own) return own; const src = srcOf(o); return L.map(s => [s, scrGeo(s).c.distanceTo(src)]).sort((a, b) => a[1] - b[1])[0][0]; }
+  // les 4 coins de l'écran vus par le projecteur, rangés bas-gauche, bas-droite, haut-droite, haut-gauche (du point de vue du projecteur)
+  function scrTan(o, sc, B, src){ const T = scrGeo(sc).cn.map(p => tanOf(B, src, p)); if (T.some(t => !t)) return null; const by = fn => T.reduce((b, t) => fn(t) < fn(b) ? t : b, T[0]); return [by(t => t[0] + t[1]), by(t => -(t[0] - t[1])), by(t => -(t[0] + t[1])), by(t => t[0] - t[1])]; }
+  const dirty = o => { const r = ST.RT.get(o.id); if (r) r.dirty = true; }, after = o => { dirty(o); ST.touch(); ST.tick?.(0); ST.refreshProps(); ST.render(); };
+  const round = (v, s) => Math.round(Math.round(v / s) * s * 1e4) / 1e4;
+
+  // ---------------------------------------------------------------- viser un écran
+  // mode 'tilt' : le projecteur s'incline vers le centre de l'écran (il y aura du trapèze s'il n'est pas en face)
+  // mode 'shift' : le projecteur reste d'équerre avec l'écran et c'est l'optique qui se décale (pas de trapèze)
+  function aim(o, sc, mode){ ST.tick?.(0); const t = ST.typeOf(o), G = scrGeo(sc), src = srcOf(o), n = G.n.clone(); if (src.clone().sub(G.c).dot(n) < 0) n.negate(); const ar = t.res[1] / t.res[0];
+    ST.pushUndo(0, 'Viser ' + scrName(sc)); o.scr = sc.id; delete o.warp; let msg;
+    if (mode === 'shift'){ const dperp = src.clone().sub(G.c).dot(n); if (dperp < .3){ ST.hist().undo.pop(); return ST.toast('Le projecteur est dans le plan de l\'écran : recule-le.', true); }
+      const d = n.clone().negate(); [o.pan, o.tilt] = invDir(d); const B = basis(o), c = tanOf(B, src, G.c), th = cl(dperp / G.w, t.throw[0], t.throw[1]), a = .5 / th, b = a * ar; o.throw = round(th, .01); o.lsh = Math.round(c[0] / (2 * a) * 1000) / 10; o.lsv = Math.round(c[1] / (2 * b) * 1000) / 10;
+      msg = `d'équerre avec l'écran, optique décalée de H ${f(o.lsh, 1)} % et V ${f(o.lsv, 1)} % — à comparer à la plage de ton optique`; }
+    else { const v = G.c.clone().sub(src); [o.pan, o.tilt] = invDir(v); o.lsh = 0; o.lsv = 0; o.throw = round(cl(v.length() / G.w, t.throw[0], t.throw[1]), .01); msg = 'incliné vers le centre de l\'écran'; }
+    after(o); const g = ST.RT.get(o.id).geom, need = (mode === 'shift' ? src.clone().sub(G.c).dot(n) : G.c.distanceTo(src)) / G.w, out = need < t.throw[0] - .005 ? ` Rapport le plus court de l'appareil (${f(t.throw[0])}:1) : l'image reste plus petite que l'écran.` : need > t.throw[1] + .005 ? ` Rapport le plus long de l'appareil (${f(t.throw[1])}:1) : l'image déborde de l'écran.` : '';
+    ST.toast(`${o.name || t.name} → ${scrName(sc)} : ${msg}. Image ${g ? f(g.W) + ' × ' + f(g.H) + ' m' : '?'} pour un écran de ${f(G.w)} × ${f(G.h)} m.${out}`, !!out); }
+  // caler les 4 coins de l'image sur les 4 coins de l'écran. Les coins ne peuvent que rentrer dans la matrice : si l'écran
+  // dépasse l'image, on élargit d'abord l'image (rapport plus court) autant que l'appareil le permet.
+  function pin(o, sc){ ST.tick?.(0); const t = ST.typeOf(o), src = srcOf(o), B = basis(o), T = scrTan(o, sc, B, src); if (!T) return ST.toast('L\'écran est derrière le projecteur.', true);
+    const uv = th => { const a = .5 / th, b = a * t.res[1] / t.res[0], cx = (o.lsh || 0) / 100 * 2 * a, cy = (o.lsv || 0) / 100 * 2 * b; return T.map(p => [(p[0] - cx) / (2 * a) + .5, (p[1] - cy) / (2 * b) + .5]); }, over = U => Math.max(...U.map(p => Math.max(-p[0], p[0] - 1, -p[1], p[1] - 1)));
+    let th = cl(o.throw ?? t.throw[0], t.throw[0], t.throw[1]), U = uv(th), zoomed = false;
+    if (over(U) > .002){ for (let i = 0; i < 60 && th > t.throw[0] + 1e-6 && over(U) > .002; i++){ th = Math.max(t.throw[0], th * .98); U = uv(th); zoomed = true; } }
+    if (over(U) > .002) return ST.toast(`L'écran dépasse l'image du projecteur de ${Math.round(over(U) * 100)} % même au rapport le plus court (${f(t.throw[0])}:1) : vise-le mieux ou rapproche le projecteur, puis recommence.`, true);
+    ST.pushUndo(0, 'Caler les 4 coins'); o.scr = sc.id; if (zoomed) o.throw = Math.floor(th * 100) / 100; o.warp = uv(cl(o.throw ?? th, t.throw[0], t.throw[1])).map(p => [cl(Math.round(p[0] * 1e4) / 1e4, 0, 1), cl(Math.round(p[1] * 1e4) / 1e4, 0, 1)]); after(o);
+    const g = ST.RT.get(o.id).geom; ST.toast(`4 coins calés sur ${scrName(sc)}${zoomed ? ` (image élargie au rapport ${f(o.throw)}:1 pour couvrir l'écran)` : ''} : ${Math.round(g.op.used * 100)} % de la matrice utilisée, ${Math.round(g.lux).toLocaleString('fr')} lux.`); }
+  function unpin(o){ if (!o.warp) return; ST.pushUndo(0, 'Remettre les 4 coins'); delete o.warp; after(o); }
+  // l'écran est-il entièrement couvert par l'image ?
+  function cover(o, sc){ const r = ST.RT.get(o.id), G = r?.geom; if (!G) return null; const T = scrTan(o, sc, { d: G.d, rt: G.rt, up: G.up }, G.src); if (!T) return null; const q = G.op.quad, inside = p => { for (let i = 0; i < 4; i++){ const a = q[i], b = q[(i + 1) % 4], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; if (((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])) / l < -.002) return false; } return true; }; return T.every(inside); }
+
+  // ---------------------------------------------------------------- la fiche
+  function fiche(o, t){ const L = screens(); if (!L.length) return `<label>Écran</label><div style="color:var(--text-muted,#a3abb8);font-size:12px">Pose un écran (domaine Vidéo) pour pouvoir le viser.</div>`; const sc = scrOf(o);
+    return `<label>Écran</label><select class="inp" data-vps>${L.map(s => `<option value="${s.id}"${s.id === sc.id ? ' selected' : ''}>${ST.esc(scrName(s))} · ${f((s.size || ST.typeOf(s).size)[0])} × ${f((s.size || ST.typeOf(s).size)[1])} m</option>`).join('')}</select>
+    <label>Viser</label><div class="vpb"><button class="btn" data-vp="tilt" title="Le projecteur s'incline vers le centre de l'écran. S'il n'est pas en face, l'image sera en trapèze.">Incliner</button><button class="btn" data-vp="shift" title="Le projecteur reste d'équerre avec l'écran, c'est l'optique qui se décale : pas de trapèze. Le décalage nécessaire est affiché, à comparer à la plage de ton optique.">Décaler l'optique</button></div>
+    <label>4 coins</label><div class="vpb"><button class="btn" data-vp="pin" title="Cale les 4 coins de l'image sur les 4 coins de l'écran (correction de trapèze, comme le réglage 4 coins du projecteur).">Caler sur l'écran</button><button class="btn" data-vp="unpin"${o.warp ? '' : ' disabled'}>Remettre droit</button></div>`; }
+  function info(o, G){ const sc = screens().find(s => s.id === o.scr); if (!sc) return ''; const c = cover(o, sc), g = scrGeo(sc); return `<br>${ST.esc(scrName(sc))} ${f(g.w)} × ${f(g.h)} m : ${c === null ? 'hors champ' : c ? 'entièrement couvert par l\'image' : '<span style="color:var(--warn,#f2a93b)">pas entièrement couvert</span>'}`; }
+  const css = document.createElement('style'); css.textContent = '.vpb{display:flex;gap:6px;flex-wrap:wrap}.vpb .btn{flex:1;min-width:0;padding:4px 6px;font-size:12px}'; document.head.appendChild(css);
+  const cur = () => { const sel = ST.selObjs(); return sel.length === 1 && isVp(sel[0]) ? sel[0] : null; };
+  document.addEventListener('click', e => { const b = e.target.closest?.('[data-vp]'); if (!b) return; const o = cur(); if (!o) return; const k = b.dataset.vp; if (k === 'unpin') return unpin(o); const sc = scrOf(o); if (!sc) return; k === 'pin' ? pin(o, sc) : aim(o, sc, k); });
+  document.addEventListener('change', e => { if (!e.target.matches?.('[data-vps]')) return; const o = cur(); if (!o) return; ST.pushUndo(0, 'Écran du projecteur'); o.scr = e.target.value; ST.touch(); ST.refreshProps(); });
+
+  // ---------------------------------------------------------------- tirer l'image dans la vue 3D
+  // 4 poignées aux coins (réglage 4 coins), une au centre (déplacer l'image = viser), une sur le bord droit (taille = zoom)
+  const G3 = new THREE.Group(); G3.name = 'vpHandles'; G3.userData.noAO = true; G3.visible = false; A.scene.add(G3);
+  const mk = (col, geo) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, depthTest: false, transparent: true, opacity: .95 })); m.renderOrder = 999; G3.add(m); return m; };
+  const BALL = new THREE.SphereGeometry(.09, 14, 10), HC = VPC.map((_, i) => { const m = mk(0xb48cff, BALL); m.userData.h = 'c' + i; return m; }), HM = mk(0xffffff, new THREE.OctahedronGeometry(.12)), HZ = mk(0xf2a93b, new THREE.BoxGeometry(.16, .16, .16)); HM.userData.h = 'm'; HZ.userData.h = 'z';
+  const picks = [...HC, HM, HZ], VD = { o: null, drag: null };
+  const tip = document.createElement('div'); tip.id = 'vpTip'; tip.style.cssText = 'position:fixed;top:92px;left:calc(var(--vx,60px) + 8px);max-width:calc(var(--vw,100vw) - 16px);z-index:8;display:none;gap:4px 10px;align-items:center;flex-wrap:wrap;box-sizing:border-box;background:var(--surface,#1d2027);border:1px solid var(--line,#2c313b);border-radius:8px;padding:5px 10px;font-size:12px'; document.body.appendChild(tip);
+  const say = h => { if (!h){ tip.style.display = 'none'; return; } tip.innerHTML = h; tip.style.display = 'flex'; };
+  const head = o => `<b style="color:#b48cff">${ST.esc(o.name || ST.typeOf(o).name)}</b>`;
+  function line(o, extra){ const g = ST.RT.get(o.id)?.geom; if (!g) return ''; return `${head(o)}<span>image <b>${f(g.W)} × ${f(g.H)} m</b> à ${f(g.D, 1)} m · rapport <b>${f(g.th)}:1</b> · <b>${Math.round(g.lux).toLocaleString('fr')} lux</b></span>${extra || `<small style="color:var(--text-muted,#a3abb8)">tire le losange blanc : l'image se déplace · le cube orange : sa taille · une boule violette : un coin</small>`}`; }
+  const live = () => { if (UI.placing || A.mode === 'walk' || (window.PONTS && PONTS.tl)) return null; const o = cur(); return o && o.on !== false && ST.RT.get(o.id)?.geom ? o : null; };
+  function place(){ const o = VD.o, g = o && ST.RT.get(o.id)?.geom; if (!g){ G3.visible = false; if (!VD.drag) say(''); return; } const back = p => p.clone().addScaledVector(g.src.clone().sub(p).normalize(), .03);
+    g.pl.forEach((p, i) => HC[i].position.copy(back(p))); HM.position.copy(back(g.ctr)); HZ.position.copy(back(g.pl[1].clone().add(g.pl[2]).multiplyScalar(.5))); G3.visible = true;
+    for (const m of picks) m.scale.setScalar(cl(A.camera.position.distanceTo(m.position) / 9, .7, 3.5)); G3.updateMatrixWorld(true); if (!VD.drag) say(line(o)); }
+  A.hooks.update.push(() => { if (!VD.drag) VD.o = live(); place(); });
+  const rc = new THREE.Raycaster(), ray = e => { const r = A.canvas.getBoundingClientRect(); rc.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), (window.STAGE && STAGE.gizmoR && STAGE.gizmoR.camera) || A.camera); return rc; };
+  const onPlane = (e, pl) => ray(e).ray.intersectPlane(pl, new THREE.Vector3());
+  const convex = q => { let s = 0; for (let i = 0; i < 4; i++){ const a = q[i], b = q[(i + 1) % 4], c = q[(i + 2) % 4], z = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]); if (Math.abs(z) < 1e-4) return false; if (s && Math.sign(z) !== s) return false; s = Math.sign(z); } return true; };
+  A.canvas.addEventListener('pointerdown', e => { if (e.button !== 0 || !G3.visible || !VD.o) return; G3.updateMatrixWorld(true); const h = ray(e).intersectObjects(picks, false)[0]; if (!h) return; e.stopImmediatePropagation(); e.preventDefault();
+    const o = VD.o, g = ST.RT.get(o.id).geom;
+    const pl = new THREE.Plane().setFromNormalAndCoplanarPoint(g.n, g.ctr), P0 = onPlane(e, pl); if (!P0) return;
+    VD.drag = { k: h.object.userData.h, o, pl, P0, id: e.pointerId, src: g.src.clone(), ax0: g.src.clone().addScaledVector(g.d, g.D), key: JSON.stringify([o.pan, o.tilt, o.throw, o.warp || null]), moved: false };
+    ST.pushUndo(0, VD.drag.k === 'm' ? 'Déplacer l\'image' : VD.drag.k === 'z' ? 'Taille de l\'image' : 'Coin de l\'image'); A.orbit.enabled = false; if (A.orthoCtl) A.orthoCtl.enabled = false; try { A.canvas.setPointerCapture(e.pointerId); } catch (_){ } }, true);
+  addEventListener('pointermove', e => { const D = VD.drag; if (!D) return; const P = onPlane(e, D.pl); if (!P) return; const o = D.o, t = ST.typeOf(o); let extra = '';
+    if (D.k === 'm'){ [o.pan, o.tilt] = invDir(D.ax0.clone().add(P).sub(D.P0).sub(D.src)); o.pan = round(o.pan, .1); o.tilt = round(o.tilt, .1); extra = `<span>pan <b>${f(o.pan, 1)}°</b> · tilt <b>${f(o.tilt, 1)}°</b></span>`; }
+    else { const B = basis(o), tp = tanOf(B, D.src, P); if (!tp) return;
+      if (D.k === 'z'){ const k = 1 + 2 * (o.lsh || 0) / 100; if (Math.abs(k) < .1 || tp[0] / k <= 1e-4) return; o.throw = round(cl(.5 / (tp[0] / k), t.throw[0], t.throw[1]), .01); extra = `<span>${o.throw <= t.throw[0] + .001 ? 'rapport le plus court de l\'appareil' : o.throw >= t.throw[1] - .001 ? 'rapport le plus long de l\'appareil' : 'zoom'}</span>`; }
+      else { const i = +D.k[1], op = ST.vpOptics(o, t), u = cl((tp[0] - op.cx) / (2 * op.a) + .5, 0, 1), v = cl((tp[1] - op.cy) / (2 * op.b) + .5, 0, 1), W = (o.warp && o.warp.length === 4 ? o.warp : VPC).map(c => [...c]); W[i] = [Math.round(u * 1e4) / 1e4, Math.round(v * 1e4) / 1e4]; if (!convex(W)) return; o.warp = W;
+        extra = `<span>coin ${NAMEC[i]} : <b>${Math.round(Math.abs(u - VPC[i][0]) * 100)} %</b> en largeur, <b>${Math.round(Math.abs(v - VPC[i][1]) * 100)} %</b> en hauteur${(u === 0 || u === 1 || v === 0 || v === 1) && (Math.abs(u - VPC[i][0]) > .001 || Math.abs(v - VPC[i][1]) > .001) ? '' : ''}</span><small style="color:var(--text-muted,#a3abb8)">un coin ne peut que rentrer dans l'image : la matrice ne s'agrandit pas</small>`; } }
+    D.moved = true; dirty(o); ST.tick?.(0); ST.render(); place(); say(line(o, extra)); }, true);
+  addEventListener('pointerup', () => { const D = VD.drag; if (!D) return; VD.drag = null; try { A.canvas.releasePointerCapture(D.id); } catch (_){ } setTimeout(() => { A.orbit.enabled = A.mode === 'orbit'; if (A.orthoCtl) A.orthoCtl.enabled = A.mode === 'top' || A.mode === 'side'; }, 0);
+    const o = D.o; if (o.warp && !ST.vpOptics(o, ST.typeOf(o)).warp) delete o.warp; if (!D.moved || JSON.stringify([o.pan, o.tilt, o.throw, o.warp || null]) === D.key){ ST.hist().undo.pop(); ST.histChanged?.(); dirty(o); return; } after(o); }, true);
+
+  // ---------------------------------------------------------------- plan, coupe et face : le vrai faisceau (de l'objectif aux 4 coins de l'image)
+  (window.PLANX || (window.PLANX = [])).push(({ c, X, Z, V, K, cp, P: PP }) => { for (const o of S.objs){ if (!isVp(o) || o.on === false) continue; const g = ST.RT.get(o.id)?.geom; if (!g) continue;
+    const q = p => cp ? [X(PP.face ? p.x : p.z), V(p.y)] : [X(p.x), Z(p.z)], s = q(g.src), Q = g.pl.map(q); c.save(); c.strokeStyle = '#7b4fd6'; c.lineWidth = .7 * K; c.setLineDash([5 * K, 3 * K]); c.beginPath(); for (const p of Q){ c.moveTo(s[0], s[1]); c.lineTo(p[0], p[1]); } c.stroke();
+    c.setLineDash([]); c.lineWidth = 1.6 * K; c.beginPath(); Q.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.closePath(); c.stroke(); c.restore(); } });
+
+  window.VIDEO = { fiche, info, aim, pin, unpin, cover, scrOf, scrGeo, screens, get on(){ return G3.visible; }, get cur(){ return VD.o; }, handles: () => picks.map(m => [m.userData.h, ...m.position.toArray()]) };
+}

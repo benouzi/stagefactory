@@ -224,7 +224,7 @@ export function initPlan(A, ST){
       L(0, .36 * k, 0, .72 * k); L(-.1 * k, .58 * k, 0, .72 * k, .1 * k, .58 * k);                           // sens de tir
     } else if (t.cat === 'vid'){
       R(-.32 * k, -.3 * k, .64 * k, .6 * k); R(-.1 * k, .3 * k, .2 * k, .12 * k);
-      const d = Math.min(14, (o.throw || 1.5) * 4) * P.s, hw = d / (o.throw || 1.5) / 2; c.setLineDash([5 * K, 3 * K]); c.lineWidth = .7 * K; L(0, .42 * k, -hw, d); L(0, .42 * k, hw, d); L(-hw, d, hw, d);
+      if (!(window.VIDEO && ST.RT.get(o.id)?.geom && o.on !== false)){ const d = Math.min(14, (o.throw || 1.5) * 4) * P.s, hw = d / (o.throw || 1.5) / 2; c.setLineDash([5 * K, 3 * K]); c.lineWidth = .7 * K; L(0, .42 * k, -hw, d); L(0, .42 * k, hw, d); L(-hw, d, hw, d); }
     } else if (t.cat === 'son'){
       const kd = t.kind;
       if (kd === 'sub'){ R(-.4 * k, -.4 * k, .8 * k, .8 * k); L(-.4 * k, -.4 * k, .4 * k, .4 * k); L(.4 * k, -.4 * k, -.4 * k, .4 * k); }
