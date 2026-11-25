@@ -94,6 +94,16 @@ function libRoute(p, req, res){
   if (p === '/api/lib/gdtf/get') return void (async () => { try { const rid = parseInt(q.get('rid')); if (!(rid > 0)) return jsonOut(res, 400, { error: 'rid manquant' }); const r = await gdtfReq('GET', 'downloadFile.php?rid=' + rid); if (r.code !== 200 || /json/.test(r.type) || r.buf.length < 100) return jsonOut(res, 502, { error: 'téléchargement refusé (' + r.code + ')' }); res.writeHead(200, { 'Content-Type': 'application/octet-stream' }); res.end(r.buf); } catch (e){ jsonOut(res, 502, { error: e.message }); } })();
   jsonOut(res, 404, { error: 'inconnu' });
 }
+// ------------------------------------------------------------------ NDI (récepteur natif, voir ndi.js)
+// /api/ndi/status · /api/ndi/sources?wait=ms · /api/ndi/frame?src=NOM&after=N&w=LARGEUR&bw=low|high → image RGBA brute (en-têtes X-W, X-H, X-Seq), 204 si rien de neuf
+let NDI = null; const ndiMod = () => { if (NDI === null){ try { NDI = require('./ndi.js'); } catch (e){ NDI = { status: () => ({ ok: false, err: 'récepteur NDI absent de cette installation : ' + e.message }), sources: async () => ({ ok: false, err: e.message, sources: [] }), frame: async () => ({ err: e.message }) }; } } return NDI; };
+function ndiRoute(p, req, res){ const q = new URL(req.url, 'http://x').searchParams, N = ndiMod();
+  if (p === '/api/ndi/status') return jsonOut(res, 200, N.status());
+  if (p === '/api/ndi/sources') return void N.sources(Math.max(0, Math.min(5000, +q.get('wait') || 0))).then(r => jsonOut(res, 200, r)).catch(e => jsonOut(res, 200, { ok: false, err: e.message, sources: [] }));
+  if (p === '/api/ndi/frame'){ const src = q.get('src') || ''; if (!src) return jsonOut(res, 400, { err: 'source manquante' }); const w = Math.max(0, Math.min(3840, +q.get('w') || 0));
+    return void N.frame(src, +q.get('after') || 0, q.get('bw') === 'low' ? 'low' : 'high', w).then(r => { if (r.err) return jsonOut(res, 502, { err: r.err }); if (r.none){ res.writeHead(204, { 'X-Age': String(r.age), 'Cache-Control': 'no-store' }); return res.end(); }
+      const f = r.r; res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': f.buf.length, 'X-W': f.w, 'X-H': f.h, 'X-Seq': f.seq, 'X-Src-W': f.sw, 'X-Src-H': f.sh, 'X-Fps': f.fps, 'Cache-Control': 'no-store' }); res.end(f.buf); }).catch(e => jsonOut(res, 502, { err: e.message })); }
+  jsonOut(res, 404, { err: 'inconnu' }); }
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]); if (p === '/') p = '/index.html';
   if (p === '/__onex'){ res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end('onex'); }
@@ -102,6 +112,7 @@ const server = http.createServer((req, res) => {
   if (p.startsWith('/api/ai/')) return aiRoute(p, req, res);
   if (p.startsWith('/api/img/')) return imgRoute(p, req, res);
   if (p.startsWith('/api/mcp/')) return mcpRoute(p, req, res);
+  if (p.startsWith('/api/ndi/')) return ndiRoute(p, req, res);
   const f = path.normalize(path.join(ROOT, p)); if (!f.startsWith(ROOT)){ res.writeHead(403); return res.end(); }
   fs.readFile(f, (e, data) => { if (e){ res.writeHead(404); return res.end('Introuvable'); } res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'no-cache' }); res.end(data); });
 });

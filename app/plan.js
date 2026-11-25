@@ -389,7 +389,14 @@ export function initPlan(A, ST){
       if (d <= r && d < bd){ bd = d; best = o; } }
     return best;
   }
-  const ptr = new Map(); let drag = null; P.tool = 'pan';
+  // Outil du plan : 'sel' (flèche, par défaut) — glisser dans le vide trace un cadre de sélection ; 'pan' (main) — glisser déplace la vue.
+  // La vue se déplace aussi au bouton du milieu, ou en tenant Espace. Au doigt, glisser déplace toujours la vue.
+  const ptr = new Map(); let drag = null; P.tool = 'sel'; P.space = false;
+  const typing = () => /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || ''), panning = () => P.tool === 'pan' || P.space;
+  const idle = (x, z) => P.picker || ST.UI.placing || (window.DRAW && DRAW.tl && DRAW.tl.k !== 'push') || (window.PONTS && PONTS.tl) || (window.PUB && PUB.tl) ? 'crosshair' : x !== undefined && hit(x, z) ? 'move' : panning() ? 'grab' : 'default';
+  addEventListener('keydown', e => { if (e.code === 'Space' && !typing() && !e.ctrlKey && !e.metaKey){ if (P.on && cv.matches(':hover')) e.preventDefault(); if (!P.space){ P.space = true; if (!drag) cv.style.cursor = idle(); } } });
+  addEventListener('keyup', e => { if (e.code === 'Space' && P.space){ P.space = false; if (!drag) cv.style.cursor = idle(); } });
+  addEventListener('blur', () => { P.space = false; });
   const serAB = q => ST.UI.serieSym ? [[-q.b[0], q.b[1]], q.b] : [q.a, q.b];
   cv.addEventListener('pointerdown', e => {
     if (P.picker && e.button === 0 && !CP()){ const [x, z] = world(e), pk = P.picker; e.preventDefault(); pk.cb(x, z); draw(); return; }
@@ -399,7 +406,7 @@ export function initPlan(A, ST){
     const [x, z] = world(e), o = hit(x, z);
     if (e.button === 2){ if (o && !ST.UI.sel.includes(o.id)) ST.select([o.id]); drag = null; ptr.delete(e.pointerId); draw(); window.WS?.ctx(e.clientX, e.clientY); return; }
     if (e.button === 1){ drag = { pan: [e.clientX, e.clientY, P.ox, P.oy], moved: true }; return; }
-    if (!o && e.pointerType === 'mouse' && (e.shiftKey || P.tool === 'box')){ drag = { box: [x, z, x, z], add: e.shiftKey && P.tool === 'box' }; return; }
+    if (!o && e.pointerType === 'mouse' && !panning()){ drag = { box: [x, z, x, z], add: e.shiftKey, sx: e.clientX, sy: e.clientY }; cv.style.cursor = 'crosshair'; return; }          // flèche : cadre de sélection
     if (o){ if (!ST.UI.sel.includes(o.id) || e.shiftKey) ST.select([o.id], e.shiftKey); drag = { x, z, moved: false, start: ST.selObjs().filter(q => !q.locked).map(q => [q, q.pos[0], q.pos[2], q.pos[1]]), h0: new Map(ST.selObjs().map(q => [q.id, ST.magState(q)])) }; cv.style.cursor = 'move'; }
     else { drag = { pan: [e.clientX, e.clientY, P.ox, P.oy], moved: false }; cv.style.cursor = 'grabbing'; }
     draw();
@@ -407,7 +414,7 @@ export function initPlan(A, ST){
   cv.addEventListener('pointermove', e => {
     if (ptr.has(e.pointerId)) ptr.set(e.pointerId, [e.clientX, e.clientY]);
     const [x, z] = world(e); $('#planXY').textContent = CP() ? `${P.face ? 'X' : 'Z'} ${f1(x)}  H ${f1(z)} m` : `X ${f1(x)}  Z ${f1(z)} m`;
-    if (!drag){ cv.style.cursor = P.picker || ST.UI.placing ? 'crosshair' : hit(x, z) ? 'pointer' : 'grab'; return; }
+    if (!drag){ cv.style.cursor = idle(x, z); return; }
     if (drag.pinch){ if (ptr.size < 2) return; const [a, b] = [...ptr.values()], r = cv.getBoundingClientRect(), mx = (a[0] + b[0]) / 2 - r.left, my = (a[1] + b[1]) / 2 - r.top; zoomAt(mx, my, drag.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / drag.pinch / P.s); return; }
     if (drag.box){ drag.box[2] = x; drag.box[3] = z; draw(); return; }
     if (drag.ser){ const q = drag.ser; if (Math.hypot(e.clientX - q.sx, e.clientY - q.sy) > 4) q.moved = true; if (q.pi >= 0){ const hl = A.percheLen(q.pi) / 2, cx = A.percheX(q.pi); q.b = [Math.max(cx - hl, Math.min(cx + hl, x)), A.PERCHES[q.pi].z]; } else q.b = [x, z]; draw(); return; }
@@ -422,17 +429,21 @@ export function initPlan(A, ST){
   });
   const end = e => {
     ptr.delete(e.pointerId); if (!drag) return;
-    if (drag.ser){ const q = drag.ser, [a, b] = serAB(q), id = ST.UI.placing; drag = null; cv.style.cursor = 'grab'; if (id && q.blk){ ST.placeBlock(id, q.moved ? ST.blkCells(q.blk, q.a, q.b) : ST.blkCells(q.blk, q.c)); if (!e.shiftKey) ST.UI.placing = null; ST.render(); } else if (id){ ST.placeSeries(id, q.moved ? ST.seriePts(a, b) : [q.a], q.pi); if (!e.shiftKey) ST.UI.placing = null; ST.render(); } draw(); return; }
-    if (drag.box){ const [a, b, c2, d] = drag.box, x0 = Math.min(a, c2), x1 = Math.max(a, c2), z0 = Math.min(b, d), z1 = Math.max(b, d); ST.select(ST.S.objs.filter(o => { if ((o.hidden || A.layHid(o)) || o.locked) return false; const u = CP() ? U(o) : o.pos[0], v = CP() ? objY(o) : o.pos[2]; return u >= x0 && u <= x1 && v >= z0 && v <= z1; }).map(o => o.id), true); }
+    if (drag.ser){ const q = drag.ser, [a, b] = serAB(q), id = ST.UI.placing; drag = null; cv.style.cursor = idle(); if (id && q.blk){ ST.placeBlock(id, q.moved ? ST.blkCells(q.blk, q.a, q.b) : ST.blkCells(q.blk, q.c)); if (!e.shiftKey) ST.UI.placing = null; ST.render(); } else if (id){ ST.placeSeries(id, q.moved ? ST.seriePts(a, b) : [q.a], q.pi); if (!e.shiftKey) ST.UI.placing = null; ST.render(); } draw(); return; }
+    if (drag.box){ const [a, b, c2, d] = drag.box, x0 = Math.min(a, c2), x1 = Math.max(a, c2), z0 = Math.min(b, d), z1 = Math.max(b, d), small = Math.hypot(e.clientX - (drag.sx ?? e.clientX), e.clientY - (drag.sy ?? e.clientY)) < 5;
+      if (small){ if (!drag.add && ST.UI.sel.length) ST.select([]); }          // simple clic dans le vide : tout désélectionner
+      else { const ids = ST.S.objs.filter(o => { if ((o.hidden || A.layHid(o)) || o.locked) return false; const u = CP() ? U(o) : o.pos[0], v = CP() ? objY(o) : o.pos[2]; return u >= x0 && u <= x1 && v >= z0 && v <= z1; }).map(o => o.id); ST.select(drag.add ? [...new Set([...ST.UI.sel, ...ids])] : ids);
+        // les formes dessinées entièrement dans le cadre sont choisies aussi (vue de dessus seulement)
+        if (!CP() && window.DRAW && DRAW.selectMany){ try { const inb = s => { const P2 = s.k === 'circle' ? [[s.c[0] - s.r, s.c[1] - s.r], [s.c[0] + s.r, s.c[1] + s.r]] : s.k === 'text' ? [s.c] : s.p; return P2 && P2.length && P2.every(p => p[0] >= x0 && p[0] <= x1 && p[1] >= z0 && p[1] <= z1); }, sh = (DRAW.shapes() || []).filter(inb).map(s => s.id); if (sh.length || !drag.add) DRAW.selectMany(drag.add ? [...new Set([...(DRAW.sels || []), ...sh])] : sh); } catch (_){ } } } }
     else if (drag.start && drag.moved){ if (drag.mag) ST.magSay(drag.mag); ST.touch(); ST.refreshProps(); const g = ST.selObjs().pop(); if (g) ST.select(ST.UI.sel); }
     else if (drag.pan && !drag.moved && ST.UI.sel.length) ST.select([]);
-    drag = null; cv.style.cursor = 'grab'; draw();
+    drag = null; cv.style.cursor = idle(); draw();
   };
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
   function zoomAt(mx, my, f){ const s = Math.max(4, Math.min(260, P.s * f)); f = s / P.s; P.ox = mx - (mx - P.ox) * f; P.oy = my - (my - P.oy) * f; P.s = s; draw(); }
   cv.addEventListener('wheel', e => { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0015))); }, { passive: false });
   cv.addEventListener('contextmenu', e => e.preventDefault());
-  $('#planTool').onclick = () => { P.tool = P.tool === 'box' ? 'pan' : 'box'; $('#planTool').classList.toggle('on', P.tool === 'box'); };
+  $('#planTool').onclick = () => { P.tool = P.tool === 'pan' ? 'sel' : 'pan'; $('#planTool').classList.toggle('on', P.tool === 'pan'); cv.style.cursor = idle(); window.DOCK?.sync?.(); };
   cv.addEventListener('dblclick', () => { fit(); draw(); });
 
   const pick = (hint, cb) => { P.picker = cb ? { hint, cb } : null; if (cb && !P.on) toggle(true); if (cb && P.view !== 'plan') setView('plan'); draw(); };

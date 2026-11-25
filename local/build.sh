@@ -19,7 +19,7 @@ s2=s2.replace('<script type="importmap">','<script>window.ONEX_LIBS = { fflate: 
 s2=re.sub(r'<link[^>]+fonts\.googleapis[^>]*>','',s2); s2=re.sub(r'<link[^>]+fonts\.gstatic[^>]*>','',s2)
 open(p,'w').write(s2)
 PY
-cp /home/claude/local/serveur.js /home/claude/local/mcp.js $D/; [ -f /home/claude/local/mcp-tools.json ] && cp /home/claude/local/mcp-tools.json $D/
+cp /home/claude/local/serveur.js /home/claude/local/mcp.js /home/claude/local/ndi.js $D/; [ -f /home/claude/local/mcp-tools.json ] && cp /home/claude/local/mcp-tools.json $D/
 printf '@echo off\r\ntitle StageFactory\r\ncd /d "%%~dp0"\r\nwhere node >nul 2>nul\r\nif errorlevel 1 (\r\n  echo Node.js n est pas installe sur ce PC.\r\n  echo Installe la version LTS depuis https://nodejs.org puis relance ce fichier.\r\n  start "" https://nodejs.org\r\n  pause\r\n  exit /b 1\r\n)\r\nnode serveur.js\r\npause\r\n' > $D/Lancer-Windows.bat
 cat > $D/Lancer-Mac.command <<'SH'
 #!/bin/bash

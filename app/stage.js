@@ -525,8 +525,8 @@ function drawContent(r){
   if (!r.src){ r.src = document.createElement('canvas'); r.src.width = 1024; } const sh = Math.round(1024 / ar); if (r.src.height !== sh) r.src.height = sh;
   const md = MEDIA.get(o.id), kind = o.content || 'mire';
   { const g = r.src.getContext('2d'), w = 1024, h = sh; g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
-    if ((kind === 'image' || kind === 'video' || kind === 'cam' || kind === 'ecran') && md?.el){ try { const el = md.el, sw = el.videoWidth || el.naturalWidth || 0, shh = el.videoHeight || el.naturalHeight || 0; if (md.live && sw && shh){ const k = Math.min(w / sw, h / shh), dw = sw * k, dh = shh * k; g.drawImage(el, (w - dw) / 2, (h - dh) / 2, dw, dh); } else g.drawImage(el, 0, 0, w, h); } catch (_){} }          // une source en direct garde son format (bandes noires), comme sur un vrai projecteur
-    else if (kind === 'cam' || kind === 'ecran'){ g.fillStyle = '#0a1a3a'; g.fillRect(0, 0, w, h); g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = `600 ${Math.round(h * .09)}px Inter, sans-serif`; g.fillText('Pas de signal', w / 2, h * .48); g.font = `${Math.round(h * .045)}px Inter, sans-serif`; g.fillText('choisis la source dans la fiche du projecteur', w / 2, h * .58); }
+    if ((kind === 'image' || kind === 'video' || kind === 'cam' || kind === 'ecran' || kind === 'ndi') && md?.el){ try { const el = md.el, sw = el.videoWidth || el.naturalWidth || el.width || 0, shh = el.videoHeight || el.naturalHeight || el.height || 0; if (md.live && sw && shh){ const k = Math.min(w / sw, h / shh), dw = sw * k, dh = shh * k; g.drawImage(el, (w - dw) / 2, (h - dh) / 2, dw, dh); } else g.drawImage(el, 0, 0, w, h); } catch (_){} }          // une source en direct garde son format (bandes noires), comme sur un vrai projecteur
+    else if (kind === 'cam' || kind === 'ecran' || kind === 'ndi'){ g.fillStyle = '#0a1a3a'; g.fillRect(0, 0, w, h); g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = `600 ${Math.round(h * .09)}px Inter, sans-serif`; g.fillText('Pas de signal', w / 2, h * .48); g.font = `${Math.round(h * .045)}px Inter, sans-serif`; g.fillText('choisis la source dans la fiche du projecteur', w / 2, h * .58); }
     else if (kind === 'blanc'){ g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); }
     else if (kind === 'degrade'){ const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#ff2bd6'); gr.addColorStop(.5, '#2a4dff'); gr.addColorStop(1, '#00ffc8'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
     else {
@@ -751,7 +751,7 @@ function update(dt){
     } else if (ty.cat === 'vid'){
       const on = live && o.on !== false && nvp < 3; if (live && o.on !== false) nvp++;
       const md = MEDIA.get(o.id);
-      if (r.dirty || (on && (o.content === 'video' || o.content === 'cam' || o.content === 'ecran') && md?.el && !md.el.paused)){
+      if (r.dirty || (on && (o.content === 'video' || o.content === 'cam' || o.content === 'ecran' || o.content === 'ndi') && md?.el && !md.el.paused)){
         dirOf(o.pan, o.tilt, _d); r.head.getWorldPosition(_v); r.head.lookAt(_v2.copy(_v).add(_d));
         if (r.dirty){
           const G = r.geom = vpGeom(o, ty, r), hd = G.op.T;
@@ -1265,7 +1265,7 @@ function propHtml(){
     <label>Vitesse</label>${rng('speed', .05, 3, .05, o.speed)}`;
   } else if (t.cat === 'vid'){
     h += `<label>Allumé</label><div><input type="checkbox" data-k="on" ${o.on !== false ? 'checked' : ''}></div>
-    <label>Contenu</label><select class="inp" data-k="content">${[['mire', 'Mire de réglage'], ['blanc', 'Blanc'], ['degrade', 'Dégradé'], ['image', 'Image…'], ['video', 'Vidéo…'], ['cam', 'Source en direct : caméra, carte d\'acquisition, NDI…'], ['ecran', 'Source en direct : écran ou fenêtre…']].map(([k, v]) => `<option value="${k}" ${o.content === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    <label>Contenu</label><select class="inp" data-k="content">${[['mire', 'Mire de réglage'], ['blanc', 'Blanc'], ['degrade', 'Dégradé'], ['image', 'Image…'], ['video', 'Vidéo…'], ['cam', 'Source en direct : caméra, carte d\'acquisition, NDI…'], ['ndi', 'Source en direct : NDI (réseau)…'], ['ecran', 'Source en direct : écran ou fenêtre…']].map(([k, v]) => `<option value="${k}" ${o.content === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
     <label title="${esc(t.lensSrc || 'Aucune liste d\'optiques relevée pour cet appareil : tu peux saisir le rapport de la tienne.')}">Optique</label><select class="inp" data-k="lens">${t.lenses ? t.lenses.map(l => `<option value="${l.id}"${l.id === vpLens(o, t)?.id ? ' selected' : ''}>${esc(l.name)}</option>`).join('') : `<option value=""${o.lens === '__c' ? '' : ' selected'}>${t.noThrow || !(t.catalog || t.userCat) ? 'Générique' : 'Celle de la fiche'} (${fmt(t.throw[0], 2)}–${fmt(t.throw[1], 2)}:1)</option>`}<option value="__c"${vpLens(o, t)?.custom ? ' selected' : ''}>Saisir une optique…</option></select>
     ${vpLens(o, t)?.custom ? `<label title="Rapport de projection de ton optique, lu sur sa fiche : distance ÷ largeur d'image. Pour une optique fixe, mets la même valeur deux fois.">Son rapport</label><div style="display:flex;gap:6px;align-items:center"><input type="number" class="inp" data-k="lcA" min="0.2" max="20" step="0.01" value="${+(+o.lcA).toFixed(3)}" style="width:5.2em"> à <input type="number" class="inp" data-k="lcB" min="0.2" max="20" step="0.01" value="${+(+(o.lcB || o.lcA)).toFixed(3)}" style="width:5.2em"> :1</div>` : t.lensNominal ? `<label></label><div><small style="color:var(--text-muted,#a3abb8)">rapport nominal de la fiche ; décalage non relevé</small></div>` : ''}
     <label>Rapport</label>${vpThrow(o, t)[0] === vpThrow(o, t)[1] ? `<div><b>${fmt(vpThrow(o, t)[0], 2)}:1</b> <small style="color:var(--text-muted,#a3abb8)">optique fixe : pour changer la taille, déplace le projecteur</small></div>` : rng('throw', vpThrow(o, t)[0], vpThrow(o, t)[1], .01, clamp(o.throw, vpThrow(o, t)[0], vpThrow(o, t)[1]), ':1')}
@@ -1371,7 +1371,7 @@ function onInput(e){
   }
   if (k === 'lens'){ for (const o of tg){ const t = typeOf(o); if (o.lens === '') delete o.lens; if (o.lens === '__c' && !(+o.lcA > 0)){ delete o.lens; const T0 = vpThrow(o, t); o.lcA = T0[0]; o.lcB = T0[1]; o.lens = '__c'; } const TR = vpThrow(o, t); o.throw = clamp(o.throw ?? TR[0], TR[0], TR[1]); } }
   if (k === 'hang' || k === 'mat' || k === 'lens') select(UI.sel); else if (/^size|^len$|^tint$|^pcol$|^rx$|^rz$|^sc$/.test(k)) reattach();
-  if (k === 'content' && (val === 'image' || val === 'video')) pickMedia(p, val); else if (k === 'content' && (val === 'cam' || val === 'ecran') && window.VIDEO) VIDEO.live(p, val);
+  if (k === 'content' && (val === 'image' || val === 'video')) pickMedia(p, val); else if (k === 'content' && (val === 'cam' || val === 'ecran' || val === 'ndi') && window.VIDEO) VIDEO.live(p, val);
   touch(); photo();
 }
 function pickMedia(o, kind){

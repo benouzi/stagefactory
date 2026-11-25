@@ -1,9 +1,14 @@
 #!/bin/bash
 set -e
 /home/claude/local/build.sh >/dev/null
-SRC=/home/claude/local/dist/StageFactory; P=/home/claude/pack; OUT=$P/out; VER=4.40.0; rm -rf $OUT $P/win $P/mac; mkdir -p $OUT $P/win
+SRC=/home/claude/local/dist/StageFactory; P=/home/claude/pack; OUT=$P/out; VER=4.41.0; rm -rf $OUT $P/win $P/mac; mkdir -p $OUT $P/win
+# ---------------- récepteur NDI : koffi (appel de la bibliothèque NDI installée sur l'ordinateur) et son binaire par plateforme. pack/* n'est pas dans git : on les reprend de npm s'ils manquent.
+KS=$P/koffi-src; KV=3.3.8
+if [ ! -d $KS/node_modules/koffi ] || [ ! -d $KS/node_modules/@koromix/koffi-win32-x64 ] || [ ! -d $KS/node_modules/@koromix/koffi-darwin-arm64 ] || [ ! -d $KS/node_modules/@koromix/koffi-darwin-x64 ]; then mkdir -p $KS; (cd $KS && { [ -f package.json ] || npm init -y >/dev/null; } && npm i --no-save koffi@$KV >/dev/null && npm i --force --no-save @koromix/koffi-win32-x64@$KV @koromix/koffi-darwin-x64@$KV @koromix/koffi-darwin-arm64@$KV >/dev/null); fi
+koffi(){ # $1 = dossier où poser node_modules, $2 = plateforme (win32-x64, darwin-arm64, darwin-x64)
+  mkdir -p "$1/node_modules/@koromix"; cp -r $KS/node_modules/koffi "$1/node_modules/"; rm -rf "$1/node_modules/koffi/doc" "$1/node_modules/koffi/vendor"; find "$1/node_modules/koffi" \( -name "*.cc" -o -name "*.hh" -o -name "*.c" -o -name "*.h" -o -name "*.S" -o -name "*.asm" -o -name "*.inc" \) -delete; cp -r "$KS/node_modules/@koromix/koffi-$2" "$1/node_modules/@koromix/"; }
 # ---------------- Windows : installateur NSIS
-cp -r $SRC/app $SRC/serveur.js $SRC/mcp.js $SRC/mcp-tools.json $P/win/; cp $P/rt/node-win-x64-22.23.4/package/bin/node.exe $P/win/; cp $P/icon.ico $P/win/
+cp -r $SRC/app $SRC/serveur.js $SRC/mcp.js $SRC/ndi.js $SRC/mcp-tools.json $P/win/; koffi $P/win win32-x64; cp $P/rt/node-win-x64-22.23.4/package/bin/node.exe $P/win/; cp $P/icon.ico $P/win/
 cat > $P/win/LISEZMOI.txt <<'TXT'
 STAGEFACTORY (ex-Onex Previz) - PREVISUALISATION 3D (Windows)
 
@@ -68,6 +73,7 @@ Section "StageFactory"
   Delete "\$INSTDIR\\node.old\$1.exe"
   SetOutPath "\$INSTDIR"
   RMDir /r "\$INSTDIR\\app"
+  RMDir /r "\$INSTDIR\\node_modules"
   File /r "$P/win/*.*"
   WriteUninstaller "\$INSTDIR\\Desinstaller.exe"
   ; raccourcis de l'ancien nom (Onex Previz) retires : le dossier d'installation et le registre gardent leur nom, pour une mise a jour en place
@@ -103,7 +109,7 @@ chmod +x $P/nsis/linux/makensis; NSISDIR=$P/nsis $P/nsis/linux/makensis -V2 $P/o
 # ---------------- Mac : application dans un zip, une par type de processeur
 mac(){ # $1 = nom, $2 = binaire node
   local A="$P/mac/$1/StageFactory.app"; mkdir -p "$A/Contents/MacOS" "$A/Contents/Resources"
-  cp -r $SRC/app $SRC/serveur.js $SRC/mcp.js $SRC/mcp-tools.json "$A/Contents/Resources/"; cp "$2" "$A/Contents/Resources/node"; chmod +x "$A/Contents/Resources/node"; cp $P/icon.icns "$A/Contents/Resources/"
+  cp -r $SRC/app $SRC/serveur.js $SRC/mcp.js $SRC/ndi.js $SRC/mcp-tools.json "$A/Contents/Resources/"; koffi "$A/Contents/Resources" "$3"; cp "$2" "$A/Contents/Resources/node"; chmod +x "$A/Contents/Resources/node"; cp $P/icon.icns "$A/Contents/Resources/"
   cat > "$A/Contents/Info.plist" <<PL
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -119,7 +125,7 @@ mac(){ # $1 = nom, $2 = binaire node
   <key>LSMinimumSystemVersion</key><string>11.0</string>
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
-  <key>NSLocalNetworkUsageDescription</key><string>StageFactory reçoit le DMX (Art-Net, sACN) envoyé par les consoles lumière du réseau.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>StageFactory reçoit le DMX (Art-Net, sACN) envoyé par les consoles lumière du réseau, et les sources vidéo NDI.</string>
 </dict></plist>
 PL
   cat > "$A/Contents/MacOS/onex" <<'SH'
@@ -152,6 +158,6 @@ Journal en cas de souci : ~/Library/Logs/OnexPreviz.log
 TXT
   (cd "$P/mac/$1" && zip -qry "$OUT/StageFactory-$1.zip" "StageFactory.app" LISEZMOI.txt)
 }
-mac Mac-Apple-Silicon $P/rt/node-bin-darwin-arm64-22.23.4/package/bin/node
-mac Mac-Intel $P/rt/node-darwin-x64-22.23.4/package/bin/node
+mac Mac-Apple-Silicon $P/rt/node-bin-darwin-arm64-22.23.4/package/bin/node darwin-arm64
+mac Mac-Intel $P/rt/node-darwin-x64-22.23.4/package/bin/node darwin-x64
 ls -la $OUT | cut -c24-

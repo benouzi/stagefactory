@@ -7,6 +7,9 @@ def route(r):
     m=re.match(r'https://cdn\.jsdelivr\.net/npm/((?:@[\w\-]+/)?[\w\-]+)@[^/]+/(.*)',u)
     if m: return r.fulfill(path=os.path.join(NM,m.group(1),m.group(2)),content_type='application/wasm' if u.endswith('.wasm') else 'application/javascript',headers={'Access-Control-Allow-Origin':'*'})
     if u.startswith('https://fonts.'): return r.fulfill(body='',content_type='text/css')
+    if os.environ.get('SF_API') and u.startswith(BASE+'api/'):
+        try: return r.fulfill(response=r.fetch(url=os.environ['SF_API']+u[len(BASE)-1:]))
+        except Exception as e: return r.abort()
     if u.startswith(BASE):
         f=os.path.join(APP,u[len(BASE):].split('?')[0] or 'index.html')
         return r.fulfill(path=f,content_type=CT.get(os.path.splitext(f)[1],'text/plain'))
