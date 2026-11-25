@@ -1,21 +1,21 @@
 import os, re, sys, json, base64, zipfile, io
 from playwright.sync_api import sync_playwright
-APP='/home/claude/app'; NM='/home/claude/npmx/node_modules'; OUT='/home/claude/shots'; os.makedirs(OUT, exist_ok=True)
+BASE=os.environ.get('SF_BASE','http://app/'); APP='/home/claude/app'; NM='/home/claude/npmx/node_modules'; OUT='/home/claude/shots'; os.makedirs(OUT, exist_ok=True)
 CT={'.html':'text/html','.js':'application/javascript','.mjs':'application/javascript','.json':'application/json','.wasm':'application/wasm'}
 def route(r):
     u=r.request.url
     m=re.match(r'https://cdn\.jsdelivr\.net/npm/((?:@[\w\-]+/)?[\w\-]+)@[^/]+/(.*)',u)
     if m: return r.fulfill(path=os.path.join(NM,m.group(1),m.group(2)),content_type='application/wasm' if u.endswith('.wasm') else 'application/javascript',headers={'Access-Control-Allow-Origin':'*'})
     if u.startswith('https://fonts.'): return r.fulfill(body='',content_type='text/css')
-    if u.startswith('http://app/'):
-        f=os.path.join(APP,u[len('http://app/'):].split('?')[0] or 'index.html')
+    if u.startswith(BASE):
+        f=os.path.join(APP,u[len(BASE):].split('?')[0] or 'index.html')
         return r.fulfill(path=f,content_type=CT.get(os.path.splitext(f)[1],'text/plain'))
     return r.abort()
 def open_app(p, w=900, h=560, quality='basse'):
-    b=p.chromium.launch(args=['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader'])
+    b=p.chromium.launch(args=['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']+os.environ.get('SF_ARGS','').split())
     pg=b.new_page(viewport={'width':w,'height':h}); errs=[]
     pg.on('console',lambda m: m.type in ('error',) and errs.append(m.text)); pg.on('pageerror',lambda e: errs.append('PAGEERROR '+str(e)))
-    pg.route('**/*',route); pg.set_default_timeout(240000); pg.goto('http://app/index.html'+('' if os.environ.get('SF_BLANK') else '?demo'))
+    pg.route('**/*',route); pg.set_default_timeout(240000); pg.goto(BASE+'index.html'+('' if os.environ.get('SF_BLANK') else '?demo'))
     pg.wait_for_function("window.STAGE && document.querySelector('#loader').style.display==='none'",timeout=240000)
     pg.evaluate(f"(()=>{{const e=document.querySelector('#qual');e.value='{quality}';e.dispatchEvent(new Event('change'))}})()")
     return b,pg,errs
