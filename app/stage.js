@@ -556,13 +556,18 @@ function drawContent(r){
 // ============================================================ mise à jour par image
 // Optique d'un vidéoprojecteur, dans le plan à 1 m de l'objectif (x vers la droite du projecteur, y vers le haut) :
 // rapport de projection, décalage d'optique (lsh / lsv, en % de la largeur / hauteur d'image), 4 coins (warp, en fractions de la matrice).
-const VPC = [[0, 0], [1, 0], [1, 1], [0, 1]];          // bas-gauche, bas-droite, haut-droite, haut-gauche
+const VPC = [[0, 0], [1, 0], [1, 1], [0, 1]];
+// l'optique montée (appareils du catalogue qui ont leur liste d'optiques), son rapport de projection et sa plage de décalage.
+// vpShift rend { v: [bas, haut], h: [gauche, droite] } en % de l'image entière, ou null si la plage n'est pas connue (rien n'est alors limité).
+const vpLens = (o, t) => t.lenses ? t.lenses.find(l => l.id === o.lens) || t.lenses.find(l => l.id === t.lens) || t.lenses[0] : null, vpThrow = (o, t) => vpLens(o, t)?.throw || t.throw;
+function vpShift(o, t){ const l = vpLens(o, t); if (!l) return null; const s = l.shift === undefined ? t.shift : l.shift; if (s === null || s === undefined) return null; if (s === 0) return { v: [0, 0], h: [0, 0], none: true };
+  return o.hang ? { ...s, v: [-s.v[1], -s.v[0]], hung: true } : s; }          // suspendu, le projecteur est tête en bas : la plage verticale se retourne          // bas-gauche, bas-droite, haut-droite, haut-gauche
 function vpOptics(o, t){
-  const th = clamp(o.throw ?? t.throw[0], t.throw[0], t.throw[1]), a = .5 / th, b = a * t.res[1] / t.res[0], cx = (o.lsh || 0) / 100 * 2 * a, cy = (o.lsv || 0) / 100 * 2 * b;
+  const TR = vpThrow(o, t), SH = vpShift(o, t), th = clamp(o.throw ?? TR[0], TR[0], TR[1]), a = .5 / th, b = a * t.res[1] / t.res[0], lsh = SH ? clamp(o.lsh || 0, SH.h[0], SH.h[1]) : o.lsh || 0, lsv = SH ? clamp(o.lsv || 0, SH.v[0], SH.v[1]) : o.lsv || 0, cx = lsh / 100 * 2 * a, cy = lsv / 100 * 2 * b;
   const at = ([u, v]) => [cx + (u - .5) * 2 * a, cy + (v - .5) * 2 * b], warp = Array.isArray(o.warp) && o.warp.length === 4 && o.warp.some((c, i) => Math.abs(c[0] - VPC[i][0]) > 1e-4 || Math.abs(c[1] - VPC[i][1]) > 1e-4);
   const pan = VPC.map(at), quad = warp ? o.warp.map(c => at([clamp(c[0], 0, 1), clamp(c[1], 0, 1)])) : pan;
   let used = 1; if (warp){ const w = o.warp; used = 0; for (let i = 0; i < 4; i++){ const p = w[i], q = w[(i + 1) % 4]; used += p[0] * q[1] - q[0] * p[1]; } used = Math.abs(used) / 2; }
-  return { th, a, b, cx, cy, pan, quad, warp, used, T: Math.max(...pan.map(p => Math.hypot(p[0], p[1]))) };
+  return { th, a, b, cx, cy, lsh, lsv, pan, quad, warp, used, T: Math.max(...pan.map(p => Math.hypot(p[0], p[1]))) };
 }
 function vpGeom(o, t, r){
   const src = r.head.getWorldPosition(new THREE.Vector3()), d = dirOf(o.pan, o.tilt, new THREE.Vector3()), op = vpOptics(o, t);
@@ -806,7 +811,7 @@ function nextNum(cat){ const pre = { lum: 0, vid: 500, son: 600, str: 900 }[cat]
 function defaults(t){
   const o = { id: uid(), type: t.id, name: t.name, pos: [0, 0, 0], hang: null };
   if (t.cat === 'lum') Object.assign(o, { pan: 180, tilt: 30, dim: .8, color: t.color === 'gel' ? '#ffd9a0' : t.color === 'white' ? '#fff0d8' : '#ffffff', zoom: t.zoom[0] + (t.zoom[1] - t.zoom[0]) * .4, fx: 'fixe', speed: .5, fx2: 'fixe', speed2: .5, fx3: 'fixe', speed3: .5, amp: 1, mode: 0, uni: 1, addr: 0, grp: '' });
-  if (t.cat === 'vid') Object.assign(o, { pan: 180, tilt: 85, on: true, content: 'mire', throw: (t.throw[0] + t.throw[1]) / 2, bright: 1 });
+  if (t.cat === 'vid') Object.assign(o, { pan: 180, tilt: 85, on: true, content: 'mire', throw: Math.round((vpThrow({}, t)[0] + vpThrow({}, t)[1]) / 2 * 100) / 100, bright: 1, ...(t.lenses ? { lens: vpLens({}, t).id } : {}) });
   if (t.cat === 'son') Object.assign(o, { pan: 0, tilt: t.kind === 'wedge' ? 125 : 88, on: true, gain: 0 });
   if (t.cat === 'str'){ o.yaw = 0; if (t.size) o.size = [...t.size]; if (t.len) o.len = t.len; }
   return o;
@@ -1254,11 +1259,12 @@ function propHtml(){
   } else if (t.cat === 'vid'){
     h += `<label>Allumé</label><div><input type="checkbox" data-k="on" ${o.on !== false ? 'checked' : ''}></div>
     <label>Contenu</label><select class="inp" data-k="content">${[['mire', 'Mire de réglage'], ['blanc', 'Blanc'], ['degrade', 'Dégradé'], ['image', 'Image…'], ['video', 'Vidéo…']].map(([k, v]) => `<option value="${k}" ${o.content === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
-    <label>Rapport</label>${rng('throw', t.throw[0], t.throw[1], .01, clamp(o.throw, t.throw[0], t.throw[1]), ':1')}
+    ${t.lenses ? `<label title="${esc(t.lensSrc || '')}">Optique</label><select class="inp" data-k="lens">${t.lenses.map(l => `<option value="${l.id}"${l.id === vpLens(o, t).id ? ' selected' : ''}>${esc(l.name)}</option>`).join('')}</select>` : ''}
+    <label>Rapport</label>${vpThrow(o, t)[0] === vpThrow(o, t)[1] ? `<div><b>${fmt(vpThrow(o, t)[0], 2)}:1</b> <small style="color:var(--text-muted,#a3abb8)">optique fixe : pour changer la taille, déplace le projecteur</small></div>` : rng('throw', vpThrow(o, t)[0], vpThrow(o, t)[1], .01, clamp(o.throw, vpThrow(o, t)[0], vpThrow(o, t)[1]), ':1')}
     <label>Luminosité</label>${rng('bright', .1, 1, .01, o.bright ?? 1)}
     <label>Pan</label>${rng('pan', -180, 180, .5, o.pan, '°')}<label>Tilt</label>${rng('tilt', 0, 180, .5, o.tilt, '°')}
-    <label title="Décalage d'optique (lens shift) : l'image se déplace sans incliner le projecteur, donc sans trapèze. En % de la largeur d'image.">Décalage H</label>${rng('lsh', -100, 100, 1, o.lsh || 0, ' %')}
-    <label title="Décalage d'optique vertical, en % de la hauteur d'image. La plage réelle dépend de l'optique : à vérifier sur sa fiche.">Décalage V</label>${rng('lsv', -150, 150, 1, o.lsv || 0, ' %')}${window.VIDEO ? VIDEO.fiche(o, t) : ''}`;
+    ${(SH => SH && SH.none ? `<label>Décalage</label><div><small style="color:var(--text-muted,#a3abb8)">cette optique ne se décale pas (fiche du fabricant)</small></div>` : `<label title="Décalage d'optique (lens shift) : l'image se déplace sans incliner le projecteur, donc sans trapèze. En % de la largeur d'image.${SH ? ' Plage de cette optique d\'après le fabricant.' : ' Plage non connue pour cet appareil : à vérifier sur la fiche de l\'optique.'}">Décalage H</label>${rng('lsh', SH ? SH.h[0] : -100, SH ? SH.h[1] : 100, SH ? .5 : 1, SH ? clamp(o.lsh || 0, SH.h[0], SH.h[1]) : o.lsh || 0, ' %')}
+    <label title="Décalage d'optique vertical, en % de la hauteur d'image.${SH ? ' Plage de cette optique d\'après le fabricant' + (SH.hung ? ', retournée car le projecteur est suspendu tête en bas.' : '.') : ' Plage non connue pour cet appareil : à vérifier sur la fiche de l\'optique.'}">Décalage V</label>${rng('lsv', SH ? SH.v[0] : -150, SH ? SH.v[1] : 150, SH ? .5 : 1, SH ? clamp(o.lsv || 0, SH.v[0], SH.v[1]) : o.lsv || 0, ' %')}`)(vpShift(o, t))}${window.VIDEO ? VIDEO.fiche(o, t) : ''}`;
   } else if (t.cat === 'son'){
     h += `<label>Actif</label><div><input type="checkbox" data-k="on" ${o.on !== false ? 'checked' : ''}></div>
     <label>Niveau</label>${rng('gain', -30, 0, .5, o.gain || 0, ' dB')}
@@ -1350,10 +1356,11 @@ function onInput(e){
     if (/^size\d$/.test(k)){ o.size = [...(o.size || typeOf(o).size)]; o.size[+k[4]] = +val; }
     else if (k === 'pi'){ o.pi = +val; o.pos[2] = A.PERCHES[o.pi].z; }
     else if (k === 'hang'){ const was = !!o.hang; o.hang = val || null; if (o.hang !== 'perche') delete o.pi; if (o.hang === 'pont'){ if (!window.PONTS?.attachNearest(o)) o.hang = 'fixe'; } else delete o.sid; }
-    else if (k === 'tint'){ if (val) o.tint = val; else delete o.tint; } else if (k === 'w'){ if (val === '' || !(+val >= 0)) delete o.w; else o.w = +val; } else if (['fx', 'fx2', 'fx3', 'color', 'content', 'grp', 'pcol'].includes(k)) o[k] = val; else if (k === 'mat'){ o.mat = val; o.pcol = MATBY.get(val)?.col || o.pcol; } else if (k === 'on') o.on = val; else if (k === 'mode') o.mode = +val; else o[k] = +val;
+    else if (k === 'tint'){ if (val) o.tint = val; else delete o.tint; } else if (k === 'w'){ if (val === '' || !(+val >= 0)) delete o.w; else o.w = +val; } else if (['fx', 'fx2', 'fx3', 'color', 'content', 'grp', 'pcol', 'lens'].includes(k)) o[k] = val; else if (k === 'mat'){ o.mat = val; o.pcol = MATBY.get(val)?.col || o.pcol; } else if (k === 'on') o.on = val; else if (k === 'mode') o.mode = +val; else o[k] = +val;
     if (/^size|^len$|^hang$|^tint$|^pcol$|^rx$|^rz$|^mat$/.test(k)) rebuild(o);
   }
-  if (k === 'hang' || k === 'mat') select(UI.sel); else if (/^size|^len$|^tint$|^pcol$|^rx$|^rz$/.test(k)) reattach();
+  if (k === 'lens'){ for (const o of tg){ const TR = vpThrow(o, typeOf(o)); o.throw = clamp(o.throw ?? TR[0], TR[0], TR[1]); } }
+  if (k === 'hang' || k === 'mat' || k === 'lens') select(UI.sel); else if (/^size|^len$|^tint$|^pcol$|^rx$|^rz$/.test(k)) reattach();
   if (k === 'content' && (val === 'image' || val === 'video')) pickMedia(p, val);
   touch(); photo();
 }
@@ -1632,5 +1639,5 @@ export function init(APP){
   import('./render.js').then(m => m.initRender(A, window.STAGE)).catch(e => console.error(e));
   setTimeout(() => import('./wins.js').then(m => m.initWins(A, window.STAGE)).catch(e => console.error(e)), 600);
   setTimeout(() => import('./dock.js').then(m => m.initDock(A, window.STAGE)).catch(e => console.error(e)), 900);
-  window.STAGE = { hitAlong, vpOptics, MEDIA, MATS, matFor, boxUV, matTile, matCol: id => MATBY.get(id)?.col, parseD4, LKEYS, HIL, FLS, FXHOOK, sceneShow, dirOf, setDl: x => { dl = x; }, get gizmoR(){ return gizmoR; }, fmt, LED: LEDW, FXS, defaults, recCue, tick: update, weightOf, LIBALL: () => LIB, removeSel, duplicate, cloudSave, cloudLoad, runAct, undoTo, hist: () => ({ undo: undoStack, redo: redoStack }), byId, build, unbuild, nextNum, freeAddr, modeCh, modal, esc, gizmo, uid, posOf, setGizmo: m => { UI.gizmo = m; setGizmoMode(); }, hasCloud: () => !!db, histChanged, typeOf, pushUndo, touch, refreshProps, addrStr, saveFile, toast, selObjs, undo, redo, conflicts, S, UI, RT, select, setLive, goCue, place, placeSeries, seriePts, percheNear, hitAt, blkType, blkCells, blkSnap, placeBlock, blkTip, stageEdges, dressStage, importFiles, loadShow, demoShow, blankShow, serialize, exportMvr, parseGdtf, splMap, render, magnet, magState, magSay, supportNear };
+  window.STAGE = { hitAlong, vpOptics, vpLens, vpThrow, vpShift, MEDIA, MATS, matFor, boxUV, matTile, matCol: id => MATBY.get(id)?.col, parseD4, LKEYS, HIL, FLS, FXHOOK, sceneShow, dirOf, setDl: x => { dl = x; }, get gizmoR(){ return gizmoR; }, fmt, LED: LEDW, FXS, defaults, recCue, tick: update, weightOf, LIBALL: () => LIB, removeSel, duplicate, cloudSave, cloudLoad, runAct, undoTo, hist: () => ({ undo: undoStack, redo: redoStack }), byId, build, unbuild, nextNum, freeAddr, modeCh, modal, esc, gizmo, uid, posOf, setGizmo: m => { UI.gizmo = m; setGizmoMode(); }, hasCloud: () => !!db, histChanged, typeOf, pushUndo, touch, refreshProps, addrStr, saveFile, toast, selObjs, undo, redo, conflicts, S, UI, RT, select, setLive, goCue, place, placeSeries, seriePts, percheNear, hitAt, blkType, blkCells, blkSnap, placeBlock, blkTip, stageEdges, dressStage, importFiles, loadShow, demoShow, blankShow, serialize, exportMvr, parseGdtf, splMap, render, magnet, magState, magSay, supportNear };
 }
