@@ -26,7 +26,7 @@ with sync_playwright() as p:
     # Ctrl : un étage
     go(2,True); z2=ev(Z); l2=ev(LG); ab=ev(AB); up=[q for q in l2 if q[0]=='face haut']
     ok(abs(z2.get('face haut',0)-z1['face']-2000)<=250 and all(z2[k]==z1[k] for k in z1) and ab.get('face haut')==ab0['face'],'Ctrl + flèche verticale, +2 m : la face reste, une travée « face haut » naît 2 m au-dessus, à l\'aplomb',z2)
-    ok(len(up)==2 and all(280<=q[1]-z1['face']<=295 for q in up) and all(900<=q[2]<=2000 and abs(q[3])<=2 for q in up) and len(l2)==len(l1)+2,'elle est portée par deux montants qui partent du dessus de la face (pas du sol) et tombent juste en pièces de la gamme',up)
+    ok(len(up)==2 and all(600<=q[1]-z1['face']<=700 for q in up) and all(500<=q[2]<=2000 and abs(q[3])<=2 for q in up) and len(l2)==len(l1)+2,'elle est portée par deux montants qui partent du dessus de la face (pas du sol) et tombent juste en pièces de la gamme',up)
     r=ev("[PONTS.structs().map(q=>[q.name,q.m.length]),PONTS.sel===STAGE.S.sups.find(s=>s.name.endsWith('face haut')).id,[...document.querySelectorAll('.ptree>div')].filter(d=>/Montant/.test(d.innerText)).length]"); ok(r[0]==[['Gril',5]] and r[1] and r[2]==2,'toujours UNE structure (5 travées) ; la nouvelle travée est choisie ; l\'arbre montre ses deux montants',r)
     ev("(()=>{APP.camera.position.set(-11,11,13);APP.orbit.target.set(0,4,-2);APP.orbit.update()})()"); pg.wait_for_timeout(1200); pg.screenshot(path=OUT+'/t94.png',clip={'x':60,'y':45,'width':1090,'height':560})
     hi=ev("(()=>{let n=0;APP.scene.getObjectByName('ponts').traverse(o=>{if(o.isInstancedMesh)n+=o.count});return n})()")

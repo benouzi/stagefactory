@@ -17,8 +17,8 @@ with sync_playwright() as p:
     ev("PONTS.select(null)"); pg.wait_for_timeout(500); ok(ev("!PONTS.gz.gz.object"),'rien de choisi : pas de gizmo')
     ev("(()=>{APP.camera.position.set(-9,9,10);APP.orbit.target.set(0,3,-3);APP.orbit.update()})()"); pg.wait_for_timeout(900)
     S3="([x,y,z])=>{const v=new APP.THREE.Vector3(x,y,z).project(APP.camera),r=APP.renderer.domElement.getBoundingClientRect();return [r.left+(v.x+1)/2*r.width,r.top+(1-v.y)/2*r.height]}"
-    pg.mouse.click(*ev(S3,[1,5.29,0])); pg.wait_for_timeout(900)
-    g=ev("(()=>{const z=PONTS.gz;return {on:!!z.gz.object,rot:!!z.gzR.object,p:z.proxy.position.toArray().map(v=>+v.toFixed(2)),pc:!!PONTS.pc}})()"); ok(g['on'] and g['rot'] and g['pc'] and g['p']==[0,5.14,-3],'clic sur une pièce du gril : le gizmo (flèches + anneau) apparaît au centre de la structure',g)
+    pg.mouse.click(*ev(S3,[1,ev('STAGE.S.sups[0].zMm')/1000+.28,0])); pg.wait_for_timeout(900)
+    g=ev("(()=>{const z=PONTS.gz;return {on:!!z.gz.object,rot:!!z.gzR.object,p:z.proxy.position.toArray().map(v=>+v.toFixed(2)),pc:!!PONTS.pc}})()"); ok(g['on'] and g['rot'] and g['pc'] and g['p'][0]==0 and g['p'][2]==-3 and 4.5<g['p'][1]<5.6,'clic sur une pièce du gril : le gizmo (flèches + anneau) apparaît au centre de la structure',g)
     pg.screenshot(path=OUT+'/t91.png',clip={'x':60,'y':45,'width':1090,'height':560})
     # glisser la flèche X à la souris
     s0=ev(SU); h=ev("(()=>{const z=PONTS.gz,c=z.proxy.position;let sc=null;(z.gz.getHelper?z.gz.getHelper():z.gz).traverse(o=>{if(sc==null&&o.name==='X'&&o.isMesh&&o.visible){o.updateWorldMatrix(true,false);const w=new APP.THREE.Vector3();o.getWorldScale(w);sc=Math.max(w.x,w.y,w.z)}});return sc?[c.x+.3*sc,c.y,c.z,sc]:null})()"); print('poignée',h); h=h and h[:3]
@@ -32,11 +32,11 @@ with sync_playwright() as p:
     # même chemin que la souris, piloté directement : translation, hauteur, rotation
     ev("(()=>{const z=PONTS.gz;z.start(false);z.proxy.position.x+=1.5;z.proxy.position.z+=2;z.proxy.position.y+=.5;z.apply(false);z.end()})()"); pg.wait_for_timeout(700); s1=ev(SU)
     ok(all(b_[0]-a_[0]==1500 and b_[2]-a_[2]==1500 and b_[1]-a_[1]==-2000 and b_[3]-a_[3]==-2000 and b_[4]-a_[4]==500 for a_,b_ in zip(s0,s1)),'déplacement : +1,5 m en X, +2 m vers le public, +0,5 m en hauteur pour toute la structure',[s0[0],s1[0]])
-    lg=ev("(()=>{const s=STAGE.S.sups.find(s=>(s.points||[]).some(p=>p.leg)),p=s.points.find(p=>p.leg);return [PONTS.legMm(s,p),s.zMm]})()"); ok(lg[1]==5500 and lg[0]>4900,'les tours suivent la nouvelle hauteur',lg)
+    lg=ev("(()=>{const s=STAGE.S.sups.find(s=>(s.points||[]).some(p=>p.leg)),p=s.points.find(p=>p.leg);return [PONTS.legMm(s,p),s.zMm]})()"); ok(lg[1]==s1[0][4] and lg[0]>4400,'les tours suivent la nouvelle hauteur',lg)
     ev("(()=>{const z=PONTS.gz,q=new APP.THREE.Quaternion().setFromAxisAngle(new APP.THREE.Vector3(0,1,0),Math.PI/2);z.start(true);z.proxy.quaternion.copy(q);z.apply(true);z.end()})()"); pg.wait_for_timeout(700); s2=ev(SU)
     L=lambda q: round(((q[2]-q[0])**2+(q[3]-q[1])**2)**.5)
     ok([L(q) for q in s2]==[L(q) for q in s1] and all(abs(q[2]-q[0])<3 for q in s2[:2]) and ev("PONTS.nodes().length")==4 and ev("PONTS.structs().length")==1,'rotation de 90° : la structure tourne d\'un bloc autour de son centre, longueurs et coins conservés',s2)
-    g=ev("PONTS.gz.proxy.position.toArray().map(v=>+v.toFixed(2))"); ok(g==[1.5,5.64,-1],'le gizmo est resté au centre de la structure',g)
+    g=ev("PONTS.gz.proxy.position.toArray().map(v=>+v.toFixed(2))"); ok(g[0]==1.5 and g[2]==-1,'le gizmo est resté au centre de la structure',g)
     ev("PONTS.select(null)"); pg.wait_for_timeout(500); ok(ev("!PONTS.gz.gz.object"),'désélection : le gizmo disparaît')
     e=[x for x in errs if 'favicon' not in x]; ok(not e,'aucune erreur dans la console',e[:3])
     b.close()

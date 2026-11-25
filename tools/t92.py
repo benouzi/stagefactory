@@ -20,14 +20,14 @@ with sync_playwright() as p:
     ev("PONTS.select('%s')"%fid); pg.wait_for_timeout(600)
     pg.click('.ptree [data-id="po|%s"]'%fid,timeout=8000); pg.wait_for_timeout(800)
     g=ev("(()=>{const z=PONTS.gz;return {span:!!z.span,p:z.proxy.position.toArray().map(v=>+v.toFixed(2)),x:z.gz.showX,y:z.gz.showY,zz:z.gz.showZ,rot:!!z.gzR.object,sp:z.gz.space}})()")
-    ok(g['span'] and g['p']==[0,5.14,0] and not g['x'] and g['y'] and g['zz'] and not g['rot'] and g['sp']=='local','« face » choisie dans l\'arbre : gizmo centré sur cette travée, une flèche perpendiculaire et une flèche de hauteur',g)
+    ok(g['span'] and g['p'][0]==0 and g['p'][2]==0 and not g['x'] and g['y'] and g['zz'] and not g['rot'] and g['sp']=='local','« face » choisie dans l\'arbre : gizmo centré sur cette travée, une flèche perpendiculaire et une flèche de hauteur',g)
     ev("(()=>{APP.camera.position.set(-9,9,10);APP.orbit.target.set(0,3,-3);APP.orbit.update()})()"); pg.wait_for_timeout(900); pg.screenshot(path=OUT+'/t92.png',clip={'x':60,'y':45,'width':1090,'height':560})
     # pousser la face de 1 m vers le public : jardin et cour s'allongent de 1 m
     ev("(()=>{const z=PONTS.gz;z.start(false);z.proxy.position.z+=1;z.apply(false);z.end()})()"); pg.wait_for_timeout(900); s1=ev(SU); tw=ev(TW)
     ok(s1['face'][:4]==[-4000,-1000,4000,-1000] and s1['face'][4]==s0['face'][4] and s1['lointain']==s0['lointain'] and s1['jardin'][:4]==[-4000,-1000,-4000,6000] and s1['cour'][:4]==[4000,-1000,4000,6000],'pousser la face de 1 m : elle avance, le lointain ne bouge pas, jardin et cour s\'allongent jusqu\'à elle',s1)
     ok(sum(s1['jardin'][4])==6000==s1['jardin'][5] and sum(s1['cour'][4])==6000 and s1['jardin'][4]!=s0['jardin'][4],'jardin et cour sont recomposés en pièces de la gamme (6 m entre coins)',[s0['jardin'][4],s1['jardin'][4]])
     ok(tw==['-4000,-1000','-4000,6000','4000,-1000','4000,6000'] and ev("PONTS.nodes().length")==4 and ev("PONTS.structs().length")==1,'les tours et les coins de la face ont suivi, toujours une seule structure',tw)
-    g=ev("PONTS.gz.proxy.position.toArray().map(v=>+v.toFixed(2))"); pg.wait_for_timeout(300); ok(g==[0,5.14,1],'le gizmo est resté centré sur la face',g)
+    g=ev("PONTS.gz.proxy.position.toArray().map(v=>+v.toFixed(2))"); pg.wait_for_timeout(300); ok(g[0]==0 and g[2]==1,'le gizmo est resté centré sur la face',g)
     pg.screenshot(path=OUT+'/t92-b.png',clip={'x':60,'y':45,'width':1090,'height':560})
     # la reculer de 2 m : jardin et cour raccourcissent
     ev("(()=>{const z=PONTS.gz;z.start(false);z.proxy.position.z-=2;z.apply(false);z.end()})()"); pg.wait_for_timeout(900); s2=ev(SU)

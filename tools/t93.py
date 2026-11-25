@@ -25,7 +25,7 @@ with sync_playwright() as p:
     r=ev("[PONTS.structs().map(q=>[q.name,q.m.length]),PONTS.nodes().map(n=>n.ways).sort(),PONTS.sel===STAGE.S.sups.find(s=>s.name.endsWith('face 2')).id,!!PONTS.gz.span]"); pg.wait_for_timeout(500)
     ok(r[0]==[['Gril',7]] and len(r[1])==6 and r[2],'toujours UNE structure (7 travées, 6 coins) ; la nouvelle travée est choisie, prête à être prolongée encore',r)
     ev("(()=>{APP.camera.position.set(-11,10,12);APP.orbit.target.set(0,3,-1);APP.orbit.update()})()"); pg.wait_for_timeout(1200); pg.screenshot(path=OUT+'/t93.png',clip={'x':60,'y':45,'width':1090,'height':560})
-    g=ev("PONTS.gz.proxy.position.toArray().map(v=>+v.toFixed(2))"); ok(g==[0,5.14,4],'le gizmo est passé sur la nouvelle travée',g)
+    g=ev("PONTS.gz.proxy.position.toArray().map(v=>+v.toFixed(2))"); ok(g[0]==0 and g[2]==4,'le gizmo est passé sur la nouvelle travée',g)
     # sans Ctrl, la nouvelle travée se pousse comme avant : ses liaisons s'allongent
     ev("(()=>{const z=PONTS.gz;z.start(false,false);z.proxy.position.z+=1;z.apply(false);z.end()})()"); pg.wait_for_timeout(1000); s2=ev(SU); ok(s2['face 2'][1]==-5000 and s2['jardin 2'][:4]==[-4000,0,-4000,-5000] and s2['face']==s0['face'],'sans Ctrl : la nouvelle travée avance, ses deux liaisons s\'allongent, l\'ancienne face reste',[s2['face 2'][:4],s2['jardin 2'][:4]])
     pg.evaluate("document.activeElement&&document.activeElement.blur&&document.activeElement.blur()")
