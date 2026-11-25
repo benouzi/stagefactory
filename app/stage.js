@@ -423,6 +423,7 @@ function build(o){
       const m = new THREE.Mesh(g, mat), piv = new THREE.Group(); m.castShadow = m.receiveShadow = true; m.userData.noBake = true; piv.rotation.set((o.rx || 0) * D2R, 0, (o.rz || 0) * D2R); piv.add(m); r.head.add(piv); }
     else if (k === 'sprop'){ const [w, d, h] = o.size || t.size, g = window.DECOR && DECOR.ready ? DECOR.build(t.key, w, h, d, o.tint) : null; if (g){ g.traverse(m => { if (m.isMesh) m.userData.noBake = true; }); r.head.add(g); }          // jamais fusionné : un personnage est un maillage articulé, le fusionner le remet en pose neutre et perd des morceaux
     else { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: 0x6e7787, wireframe: true })); m.position.y = h / 2; r.head.add(m); window.DECOR?.load(); } }
+    else if (k === 'mesh3d'){ if (window.IMPORT3D) r.head.add(IMPORT3D.mesh(t, o)); }          // modèle importé (import3d.js) ; reconstruit quand le module est prêt
     else if (k === 'screen'){ const [w, h] = o.size || t.size; const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, h), M.screen); pl.position.y = h / 2; r.head.add(pl);
       r.head.add(box(w + .12, .06, .05, M.frame, 0, h + .03, -.03), box(w + .12, .06, .05, M.frame, 0, -.03, -.03), box(.06, h + .12, .05, M.frame, -w / 2 - .03, h / 2, -.03), box(.06, h + .12, .05, M.frame, w / 2 + .03, h / 2, -.03)); }
     else if (k === 'gear'){ gearModel(t, r); }
@@ -1027,18 +1028,19 @@ function recCue(i){ const E = window.ENG; if (!E) return toast('Moteur lumière 
 function goCue(i, o = {}){ const E = window.ENG; if (!E || !S.cues[i]) return; if (!o.keepProg) E.clearProg(); E.go(0, i, o); syncConsole(); }
 
 // ============================================================ annuler / rétablir / enregistrer
-const serialize = () => JSON.stringify({ v: 3, name: S.name, objs: S.objs, cues: S.cues, lib: [...S.lib, ...LIB.filter(t => t.userCat && !S.lib.some(x => x.id === t.id) && S.objs.some(o => o.type === t.id))].map(({ raw, ...t }) => t), master: S.master, haze: S.haze, room: A.roomState(), rig: S.rig, audio: S.audio, follow: S.follow, pal: S.pal, salle: A.venue, prog: S.prog, xseq: S.xseq, seqMaster: S.seqMaster, seqName: S.seqName, sups: S.sups || [], cornerKg: S.cornerKg || {}, safety: S.safety || null, dims: S.dims || [], shapes: S.shapes || [], layers: S.layers || {}, arrays: S.arrays || [] });
-function pushUndo(key, label){ const now = performance.now(); if (key && pushUndo.k === key && now - pushUndo.t < 900){ pushUndo.t = now; return; } pushUndo.k = key; pushUndo.t = now; undoStack.push({ s: serialize(), label: label || ULAB[key] || 'Modification', at: Date.now() }); if (undoStack.length > 100) undoStack.shift(); redoStack.length = 0; UI.dirty = true; histChanged(); }
+// light = true (pas d'annulation) : les modèles 3D importés, lourds, ne sont pas recopiés à chaque pas — seulement leur référence
+const MODELS = new Map(), serialize = light => JSON.stringify({ v: 3, name: S.name, objs: S.objs, cues: S.cues, lib: [...S.lib, ...LIB.filter(t => t.userCat && !S.lib.some(x => x.id === t.id) && S.objs.some(o => o.type === t.id))].map(({ raw, ...t }) => light === true && t.model && t.model.groups ? (MODELS.set(t.id, t.model), { ...t, model: { ref: t.id } }) : t), master: S.master, haze: S.haze, room: A.roomState(), rig: S.rig, audio: S.audio, follow: S.follow, pal: S.pal, salle: A.venue, prog: S.prog, xseq: S.xseq, seqMaster: S.seqMaster, seqName: S.seqName, sups: S.sups || [], cornerKg: S.cornerKg || {}, safety: S.safety || null, dims: S.dims || [], shapes: S.shapes || [], layers: S.layers || {}, arrays: S.arrays || [] });
+function pushUndo(key, label){ const now = performance.now(); if (key && pushUndo.k === key && now - pushUndo.t < 900){ pushUndo.t = now; return; } pushUndo.k = key; pushUndo.t = now; undoStack.push({ s: serialize(true), label: label || ULAB[key] || 'Modification', at: Date.now() }); if (undoStack.length > 100) undoStack.shift(); redoStack.length = 0; UI.dirty = true; histChanged(); }
 const ULAB = { pcolor: 'Couleur', drag: 'Déplacement' };
 function histChanged(){ const u = $('#undoBtn'), r = $('#redoBtn'); if (u){ u.disabled = !undoStack.length; u.title = undoStack.length ? 'Annuler : ' + undoStack[undoStack.length - 1].label + ' (Ctrl+Z)' : 'Rien à annuler'; r.disabled = !redoStack.length; r.title = redoStack.length ? 'Rétablir : ' + redoStack[redoStack.length - 1].label + ' (Ctrl+Y)' : 'Rien à rétablir'; } window.WS?.status(); }
-function undo(){ if (!undoStack.length) return toast('Rien à annuler.'); const u = undoStack.pop(); redoStack.push({ s: serialize(), label: u.label, at: u.at }); loadShow(JSON.parse(u.s), true); UI.dirty = true; histChanged(); toast('Annulé : ' + u.label); }
-function undoTo(n){ let k = 0; while (undoStack.length > n && k++ < 200){ const u = undoStack.pop(); redoStack.push({ s: serialize(), label: u.label, at: u.at }); loadShow(JSON.parse(u.s), true); } UI.dirty = true; histChanged(); }
-function redo(){ if (!redoStack.length) return toast('Rien à rétablir.'); const u = redoStack.pop(); undoStack.push({ s: serialize(), label: u.label, at: u.at }); loadShow(JSON.parse(u.s), true); UI.dirty = true; histChanged(); toast('Rétabli : ' + u.label); }
+function undo(){ if (!undoStack.length) return toast('Rien à annuler.'); const u = undoStack.pop(); redoStack.push({ s: serialize(true), label: u.label, at: u.at }); loadShow(JSON.parse(u.s), true); UI.dirty = true; histChanged(); toast('Annulé : ' + u.label); }
+function undoTo(n){ let k = 0; while (undoStack.length > n && k++ < 200){ const u = undoStack.pop(); redoStack.push({ s: serialize(true), label: u.label, at: u.at }); loadShow(JSON.parse(u.s), true); } UI.dirty = true; histChanged(); }
+function redo(){ if (!redoStack.length) return toast('Rien à rétablir.'); const u = redoStack.pop(); undoStack.push({ s: serialize(true), label: u.label, at: u.at }); loadShow(JSON.parse(u.s), true); UI.dirty = true; histChanged(); toast('Rétabli : ' + u.label); }
 const blankShow = () => ({ name: 'Sans titre', objs: [], cues: [], follow: false, salle: { ...A.VOPEN } });
 function loadShow(d, keepSel){
   gizmo?.detach(); for (const id of [...RT.keys()]) unbuild(id);
   const raws = new Map(S.lib.filter(t => t.raw).map(t => [t.id, t.raw]));
-  S.name = d.name || 'Sans titre'; S.objs = d.objs || []; { const known = new Set([...LIB, ...(d.lib || [])].map(t => t.id)), n0 = S.objs.length; S.objs = S.objs.filter(o => o && known.has(o.type) && Array.isArray(o.pos)); if (S.objs.length < n0) setTimeout(() => toast(`${n0 - S.objs.length} objet(s) d'un type inconnu ont été ignorés à l'ouverture.`, true), 50); } S.cues = d.cues || []; S.prog = d.prog && typeof d.prog === 'object' ? d.prog : {}; S.xseq = Array.isArray(d.xseq) ? d.xseq : []; S.seqMaster = d.seqMaster ?? 1; S.seqName = d.seqName || ''; S.lib = (d.lib || []).map(t => ({ ...t, raw: raws.get(t.id) })); setTimeout(rawRestore, 0); S.master = d.master ?? 1; S.haze = d.haze ?? .5; S.pal = d.pal && d.pal.color ? d.pal : null; S.follow = d.follow !== false; { const fc = document.querySelector('#followCfg'); if (fc) fc.checked = S.follow; }
+  S.name = d.name || 'Sans titre'; S.objs = d.objs || []; { const known = new Set([...LIB, ...(d.lib || [])].map(t => t.id)), n0 = S.objs.length; S.objs = S.objs.filter(o => o && known.has(o.type) && Array.isArray(o.pos)); if (S.objs.length < n0) setTimeout(() => toast(`${n0 - S.objs.length} objet(s) d'un type inconnu ont été ignorés à l'ouverture.`, true), 50); } S.cues = d.cues || []; S.prog = d.prog && typeof d.prog === 'object' ? d.prog : {}; S.xseq = Array.isArray(d.xseq) ? d.xseq : []; S.seqMaster = d.seqMaster ?? 1; S.seqName = d.seqName || ''; S.lib = (d.lib || []).map(t => ({ ...t, raw: raws.get(t.id), ...(t.model && t.model.ref ? { model: MODELS.get(t.model.ref) } : {}) })); setTimeout(rawRestore, 0); S.master = d.master ?? 1; S.haze = d.haze ?? .5; S.pal = d.pal && d.pal.color ? d.pal : null; S.follow = d.follow !== false; { const fc = document.querySelector('#followCfg'); if (fc) fc.checked = S.follow; }
   S.shapes = Array.isArray(d.shapes) ? d.shapes : []; S.sups = Array.isArray(d.sups) ? d.sups : []; S.safety = d.safety && typeof d.safety === 'object' ? d.safety : null; S.cornerKg = d.cornerKg && typeof d.cornerKg === 'object' ? d.cornerKg : {}; S.dims = Array.isArray(d.dims) ? d.dims : []; S.layers = d.layers && typeof d.layers === 'object' ? d.layers : {}; S.arrays = Array.isArray(d.arrays) ? d.arrays : [];
   S.rig = d.rig && d.rig.def ? d.rig : { def: {}, per: {} }; S.audio = d.audio && d.audio.groups ? d.audio : { groups: {}, sens: 1, bpm: 120 }; window.AUDIO?.render();
   { const pd = d.planData && d.salle && d.salle.plan && d.salle.plan.id; if (pd) A.setPlanData(d.salle.plan.id, d.planData); const cur = JSON.stringify(A.venue), nv = d.salle && d.salle.type === 'param' ? d.salle : { type: 'onex' }; if (pd || JSON.stringify(nv) !== cur) A.setVenue(nv, keepSel); }
@@ -1133,7 +1135,7 @@ function addType(t){ if (t.raw && t.gdtf) rawPut(t.id, t.raw); const i = S.lib.f
 const m2a = (x, y, z) => [x / 1000, z / 1000, -y / 1000];           // MVR (mm, Z haut) -> app (m, Y haut, Z vers le public)
 const a2m = v => [v.x, -v.z, v.y];
 async function importFiles(files){
-  let nT = 0, nO = 0; const errs = []; pushUndo(0, 'Import');
+  let nT = 0, nO = 0, n3 = 0; const errs = []; pushUndo(0, 'Import');
   for (const f of files){
     try {
       const ext = f.name.split('.').pop().toLowerCase(), buf = new Uint8Array(await f.arrayBuffer());
@@ -1155,12 +1157,14 @@ async function importFiles(files){
           const md = (fx.querySelector(':scope > GDTFMode')?.textContent || '').trim(); const mi = t.modes.findIndex(q => q[0] === md); o.mode = Math.max(0, mi);
           o.n = parseInt(fx.querySelector(':scope > FixtureID')?.textContent) || nextNum('lum'); o.grp = fx.closest('Layer')?.getAttribute('name') || ''; o.dim = .6; o.pos[1] = Math.max(0, o.pos[1]);
           S.objs.push(o); build(o); nO++; } }
+      else if (ext === 'obj' || ext === 'glb' || ext === 'stl'){ if (!window.IMPORT3D) throw new Error('import 3D pas encore prêt, réessaie dans un instant'); if (await IMPORT3D.importFile(f, files)){ nT++; n3++; } }
+      else if (ext === 'mtl'){ if (!files.some(x => /\.obj$/i.test(x.name))) errs.push(f.name + ' : un .mtl s\'importe avec son .obj (choisis les deux fichiers ensemble)'); }
       else errs.push(f.name + ' : format non pris en charge');
     } catch (e){ errs.push(f.name + ' : ' + e.message); }
   }
   touch(); render();
-  toast(`${nT} type${nT > 1 ? 's' : ''} ajouté${nT > 1 ? 's' : ''} à la bibliothèque` + (nO ? `, ${nO} projecteur${nO > 1 ? 's' : ''} posé${nO > 1 ? 's' : ''}` : '') + (errs.length ? ' · ' + errs.join(' · ') : '.'), errs.length > 0);
-  if (nT && !nO){ UI.tab = 'lib'; UI.libCat = 'imp'; render(); }
+  if (!(n3 && n3 === nT && !errs.length)) toast(`${nT} type${nT > 1 ? 's' : ''} ajouté${nT > 1 ? 's' : ''} à la bibliothèque` + (nO ? `, ${nO} projecteur${nO > 1 ? 's' : ''} posé${nO > 1 ? 's' : ''}` : '') + (errs.length ? ' · ' + errs.join(' · ') : '.'), errs.length > 0);
+  if (nT && !nO && !n3){ UI.tab = 'lib'; UI.libCat = 'imp'; render(); }
 }
 const slug = n => (n || 'projet').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w\-]+/g, '_').replace(/^_+|_+$/g, '');
 const csv = rows => rows.map(r => r.map(c => /[;"\n]/.test(String(c)) ? '"' + String(c).replace(/"/g, '""') + '"' : c).join(';')).join('\n');
@@ -1274,6 +1278,7 @@ function propHtml(){
     h += `<label>Rotation</label>${rng('yaw', -180, 180, 1, o.yaw || 0, '°')}`;
     if (t.kind === 'ledwall'){ const I = LEDW.info(o); h += `</div><div class="info">${fmt(I.w, 2)} × ${fmt(I.h, 2)} m · ${I.px} × ${I.py} px · ${I.kg} kg</div><div class="btns"><button class="b on" data-a="ledcfg">Configurer le mur LED…</button></div><div class="pf">`; }
     if (t.kind === 'drape') h += `<label>Largeur</label>${rng('size0', .5, 30, .05, (o.size || t.size)[0], ' m')}<label>Hauteur</label>${rng('size1', .3, 20, .05, (o.size || t.size)[1], ' m')}`;
+    if (t.kind === 'mesh3d'){ const k = o.sc || 1, sz = t.size || [0, 0, 0]; h += `<label title="Agrandit ou réduit le modèle importé. 1 = la taille choisie à l'import.">Échelle</label><input type="number" class="inp" data-k="sc" min="0.01" step="0.05" value="${+(+k).toFixed(3)}"><label>Taille</label><div><b>${fmt(sz[0] * k, 2)} × ${fmt(sz[1] * k, 2)} × ${fmt(sz[2] * k, 2)} m</b> <small style="color:var(--text-muted,#a3abb8)">larg. × prof. × haut. · ${(t.model?.tri || 0).toLocaleString('fr')} triangles · ${esc(t.model?.src?.file || '')}</small></div>`; }
     if (t.kind === 'screen') h += `<label>Largeur</label>${rng('size0', 1, 14, .05, (o.size || t.size)[0], ' m')}<label>Hauteur</label>${rng('size1', .5, 8, .025, (o.size || t.size)[1], ' m')}`;
     if (t.kind === 'truss') h += `<label>Longueur</label>${rng('len', .5, 14, .5, o.len || t.len, ' m')}`;
     if (t.kind === 'prim'){ const sz = o.size || t.size, ni = (k, v, mn = .01) => `<input type="number" class="inp" data-k="${k}" min="${mn}" step="0.05" value="${+(+v).toFixed(3)}">`, flat = t.shape === 'plane';
@@ -1358,10 +1363,11 @@ function onInput(e){
     else if (k === 'pi'){ o.pi = +val; o.pos[2] = A.PERCHES[o.pi].z; }
     else if (k === 'hang'){ const was = !!o.hang; o.hang = val || null; if (o.hang !== 'perche') delete o.pi; if (o.hang === 'pont'){ if (!window.PONTS?.attachNearest(o)) o.hang = 'fixe'; } else delete o.sid; }
     else if (k === 'tint'){ if (val) o.tint = val; else delete o.tint; } else if (k === 'w'){ if (val === '' || !(+val >= 0)) delete o.w; else o.w = +val; } else if (['fx', 'fx2', 'fx3', 'color', 'content', 'grp', 'pcol', 'lens'].includes(k)) o[k] = val; else if (k === 'mat'){ o.mat = val; o.pcol = MATBY.get(val)?.col || o.pcol; } else if (k === 'on') o.on = val; else if (k === 'mode') o.mode = +val; else o[k] = +val;
-    if (/^size|^len$|^hang$|^tint$|^pcol$|^rx$|^rz$|^mat$/.test(k)) rebuild(o);
+    if (k === 'sc') o.sc = clamp(+val || 1, .001, 1000);
+    if (/^size|^len$|^hang$|^tint$|^pcol$|^rx$|^rz$|^mat$|^sc$/.test(k)) rebuild(o);
   }
   if (k === 'lens'){ for (const o of tg){ const TR = vpThrow(o, typeOf(o)); o.throw = clamp(o.throw ?? TR[0], TR[0], TR[1]); } }
-  if (k === 'hang' || k === 'mat' || k === 'lens') select(UI.sel); else if (/^size|^len$|^tint$|^pcol$|^rx$|^rz$/.test(k)) reattach();
+  if (k === 'hang' || k === 'mat' || k === 'lens') select(UI.sel); else if (/^size|^len$|^tint$|^pcol$|^rx$|^rz$|^sc$/.test(k)) reattach();
   if (k === 'content' && (val === 'image' || val === 'video')) pickMedia(p, val);
   touch(); photo();
 }
@@ -1402,7 +1408,7 @@ function onClick(e){
     ren: openRename, _x(){ modal(`<h1>Renommer la mémoire</h1><div class="pf"><label>Nom</label><input type="text" id="cueName" value="${esc(S.cues[UI.cue].name)}"></div><div class="btns"><button class="b on" data-a="renok">OK</button><button class="b" data-a="close">Annuler</button></div>`); },
     renok(){ pushUndo(); S.cues[UI.cue].name = $('#cueName').value || S.cues[UI.cue].name; $('#modal').style.display = 'none'; touch(); render(); },
     flib(){ window.FLIB?.toggle(true); },
-    import(){ const i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.accept = '.gdtf,.d4,.mvr,.json,.zip'; i.onchange = () => importFiles([...i.files]); i.click(); },
+    import(){ const i = document.createElement('input'); i.type = 'file'; i.multiple = true; i.accept = '.gdtf,.d4,.mvr,.json,.zip,.obj,.mtl,.glb,.stl'; i.onchange = () => importFiles([...i.files]); i.click(); },
     autopatch: autoPatch, csave: cloudSave, cload: cloudLoad,
     xproj(){ const d = JSON.parse(serialize()), pd = window.VENUE && VENUE.planData(); if (pd) d.planData = pd; const t = pd ? JSON.stringify(d) : JSON.stringify(d, null, 1); saveFile(slug(S.name) + '.json', t, pd ? undefined : t); },
     xpatch(){ const t = csv(patchRows()); saveFile('patch.csv', '﻿' + t, t); }, xgear(){ const t = csv(gearRows()); saveFile('materiel.csv', '﻿' + t, t); }, xmvr: exportMvr,
@@ -1627,6 +1633,7 @@ export function init(APP){
   import('./ponts.js').then(m => m.initPonts(A, window.STAGE)).catch(e => console.error(e));
   import('./scenes.js').then(m => m.initScenes(A, window.STAGE)).catch(e => console.error(e));
   import('./video.js').then(m => m.initVideo(A, window.STAGE)).catch(e => console.error(e));
+  import('./import3d.js').then(m => m.initImport3d(A, window.STAGE)).catch(e => console.error(e));
   import('./decor.js').then(m => m.initDecor(A, window.STAGE)).catch(e => console.error(e));
   import('./linearray.js').then(m => m.initLineArray(A, window.STAGE)).catch(e => console.error(e));
   import('./publish.js').then(m => m.initPublish(A, window.STAGE)).catch(e => console.error(e));
@@ -1640,5 +1647,5 @@ export function init(APP){
   import('./render.js').then(m => m.initRender(A, window.STAGE)).catch(e => console.error(e));
   setTimeout(() => import('./wins.js').then(m => m.initWins(A, window.STAGE)).catch(e => console.error(e)), 600);
   setTimeout(() => import('./dock.js').then(m => m.initDock(A, window.STAGE)).catch(e => console.error(e)), 900);
-  window.STAGE = { quadMap, triDraw, hitAlong, vpOptics, vpLens, vpThrow, vpShift, MEDIA, MATS, matFor, boxUV, matTile, matCol: id => MATBY.get(id)?.col, parseD4, LKEYS, HIL, FLS, FXHOOK, sceneShow, dirOf, setDl: x => { dl = x; }, get gizmoR(){ return gizmoR; }, fmt, LED: LEDW, FXS, defaults, recCue, tick: update, weightOf, LIBALL: () => LIB, removeSel, duplicate, cloudSave, cloudLoad, runAct, undoTo, hist: () => ({ undo: undoStack, redo: redoStack }), byId, build, unbuild, nextNum, freeAddr, modeCh, modal, esc, gizmo, uid, posOf, setGizmo: m => { UI.gizmo = m; setGizmoMode(); }, hasCloud: () => !!db, histChanged, typeOf, pushUndo, touch, refreshProps, addrStr, saveFile, toast, selObjs, undo, redo, conflicts, S, UI, RT, select, setLive, goCue, place, placeSeries, seriePts, percheNear, hitAt, blkType, blkCells, blkSnap, placeBlock, blkTip, stageEdges, dressStage, importFiles, loadShow, demoShow, blankShow, serialize, exportMvr, parseGdtf, splMap, render, magnet, magState, magSay, supportNear };
+  window.STAGE = { addType, quadMap, triDraw, hitAlong, vpOptics, vpLens, vpThrow, vpShift, MEDIA, MATS, matFor, boxUV, matTile, matCol: id => MATBY.get(id)?.col, parseD4, LKEYS, HIL, FLS, FXHOOK, sceneShow, dirOf, setDl: x => { dl = x; }, get gizmoR(){ return gizmoR; }, fmt, LED: LEDW, FXS, defaults, recCue, tick: update, weightOf, LIBALL: () => LIB, removeSel, duplicate, cloudSave, cloudLoad, runAct, undoTo, hist: () => ({ undo: undoStack, redo: redoStack }), byId, build, unbuild, nextNum, freeAddr, modeCh, modal, esc, gizmo, uid, posOf, setGizmo: m => { UI.gizmo = m; setGizmoMode(); }, hasCloud: () => !!db, histChanged, typeOf, pushUndo, touch, refreshProps, addrStr, saveFile, toast, selObjs, undo, redo, conflicts, S, UI, RT, select, setLive, goCue, place, placeSeries, seriePts, percheNear, hitAt, blkType, blkCells, blkSnap, placeBlock, blkTip, stageEdges, dressStage, importFiles, loadShow, demoShow, blankShow, serialize, exportMvr, parseGdtf, splMap, render, magnet, magState, magSay, supportNear };
 }
