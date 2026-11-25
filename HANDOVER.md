@@ -371,3 +371,5 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
    - `clearSub()` lâche tour et coin dès qu'on choisit autre chose ; `pcBar()` aiguille vers `nodeBar`, `legBar` ou la barre de pièce.
    - Essai `tools/t88.py`. Pas fait : choisir une tour dans le plan (elle est sous le coin, c'est le coin qui est pris), changer les pièces d'une tour une à une, déplacer un coin ou une tour à la souris, embase et tête de tour du catalogue (sleeve block, base), poids d'embase relevé.
 
+
+39. 4.15.2 (25.11.2026) — fenêtre « structure toute faite » : les flèches des champs Longueur et Profondeur avancent de 0,1 m (au lieu de 0,5) et celles de l’orientation de 1° (au lieu de 5), demande de Benjamin sur capture.
