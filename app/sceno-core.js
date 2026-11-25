@@ -1,4 +1,4 @@
-// ../src/sceno/ScenoFactory-0.45.0-sources/app/src/trussLib.ts
+// src/trussLib.ts
 var TRUSS_LIB = [
   {
     id: "prolyte-h30v",
@@ -124,12 +124,11 @@ function trussBom(doc) {
         notes.add(`${through.name} : une jonction en T le coupe \xE0 ${String((h.al / 1e3).toFixed(2)).replace(".", ",")} m ; ses \xE9l\xE9ments sont \xE0 r\xE9partir de part et d'autre du t\xE9.`);
       }
     }
-    const arm = se.cornerArmMm;
-    if (ends && arm == null) notes.add(`${seriesLabel(se)} : la longueur prise par un coin n'est pas relev\xE9e ; les \xE9l\xE9ments droits sont compt\xE9s sur toute la longueur du pont.`);
-    const explicit = !!s.pieces?.length && Math.abs(s.pieces.reduce((t, p) => t + p, 0) - L) <= 5;
-    if (explicit && ends) notes.add(`${s.name} : pos\xE9 \xE9l\xE9ment par \xE9l\xE9ment, ses pi\xE8ces sont compt\xE9es telles quelles ; le bras des coins n'en est pas retir\xE9.`);
-    const mm = explicit ? L : L - ends * (arm ?? 0), c = explicit ? (() => {
-      const cc = compOf(se, s, L), w = new Map(se.lengths);
+    const AR = s.armsMm, arm = se.cornerArmMm, taken = AR ? AR[0] + AR[1] : ends * (arm ?? 0);
+    if (!AR && ends && arm == null) notes.add(`${seriesLabel(se)} : la longueur prise par un coin n'est pas relev\xE9e ; les \xE9l\xE9ments droits sont compt\xE9s sur toute la longueur du pont.`);
+    const explicit = !!s.pieces?.length && Math.abs(s.pieces.reduce((t, p) => t + p, 0) - (L - taken)) <= 5;
+    const mm = L - taken, c = explicit ? (() => {
+      const cc = compOf(se, s, mm), w = new Map(se.lengths);
       for (const p of cc.pieces) add(se, `\xE9l\xE9ment droit ${String(p / 1e3).replace(".", ",")} m`, `${se.name}-L${String(Math.round(p / 10)).padStart(3, "0")}`, w.get(p) ?? null);
       return cc;
     })() : straight(se, mm);
@@ -177,12 +176,12 @@ function compOf(series, s, lengthMm) {
   return { pieces, restMm: 0, kg: unknown.length ? null : +pieces.reduce((t, p) => t + w.get(p), 0).toFixed(2), unknown };
 }
 
-// ../src/sceno/ScenoFactory-0.45.0-sources/app/src/model.ts
+// src/model.ts
 var defaultSafety = () => ({ dynFactor: 1.2, cableKgPerM: 1, accessoryKg: 1, peopleBelow: true, supplyA: null, supplyPhases: 3, checklist: {}, checkedBy: "" });
 var uid = () => crypto.randomUUID ? crypto.randomUUID() : "id-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 var evenPoints = (lengthMm, n, kind = "fixed") => Array.from({ length: Math.max(0, n) }, (_, i) => ({ id: uid(), alongMm: Math.round(lengthMm * (i + 0.5) / n), capacityKg: null, kind }));
 
-// ../src/sceno/ScenoFactory-0.45.0-sources/app/src/structures.ts
+// src/structures.ts
 var STRUCTURES = [
   { key: "portique", label: "Portique", note: "Un pont pos\xE9 sur deux tours : face, contre, arche d'entr\xE9e, pont de fond." },
   { key: "gril", label: "Gril sur quatre tours", note: "Un cadre de quatre ponts sur quatre tours d'angle : sc\xE8ne couverte, stand, plateau sans accroche." },
@@ -234,13 +233,13 @@ function structureTotals(p) {
   return { trussM: m, ownKg: kg };
 }
 
-// ../src/sceno/ScenoFactory-0.45.0-sources/app/src/geom.ts
+// src/geom.ts
 var sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y });
 var len = (a) => Math.hypot(a.x, a.y);
 var dist = (a, b) => len(sub(a, b));
 var supportLength = (s) => dist(s.a, s.b);
 
-// ../src/sceno/ScenoFactory-0.45.0-sources/app/src/library.ts
+// src/library.ts
 var M = (name, layout, cells = 1) => {
   const channels = [];
   let o = 0;
@@ -289,7 +288,7 @@ var LIBRARY = [
 var registry = new Map(LIBRARY.map((s) => [s.key, s]));
 var symbolOf = (key) => registry.get(key) ?? { key, name: key.startsWith("gdtf-") ? "Fiche GDTF manquante" : key, moving: false, weightKg: 0, powerW: 0, modes: [{ name: "\u2014", footprint: 1 }], plan: [circle(0, 0, 150)] };
 
-// ../src/sceno/ScenoFactory-0.45.0-sources/app/src/rigging.ts
+// src/rigging.ts
 function solve(A, b) {
   const n = b.length;
   for (let i = 0; i < n; i++) {
@@ -581,7 +580,7 @@ function power(doc) {
   };
 }
 
-// ../src/sceno/ScenoFactory-0.45.0-sources/app/src/beam.ts
+// src/beam.ts
 var T = (material, odMm, tMm) => ({ key: `${material}-${odMm}x${tMm}`, label: `${material === "acier" ? "Acier" : "Aluminium"} \xD8 ${String(odMm).replace(".", ",")} \xD7 ${String(tMm).replace(".", ",")} mm`, odMm, tMm, material, E: material === "acier" ? 21e4 : 7e4, rho: material === "acier" ? 7850 : 2700 });
 var TUBES = [T("acier", 48.3, 3.2), T("acier", 48.3, 4), T("acier", 60.3, 3.6), T("alu", 48.3, 4), T("alu", 50, 3), T("alu", 50, 4), T("alu", 50, 5)];
 var tubeOf = (key) => TUBES.find((t) => t.key === key) ?? null;

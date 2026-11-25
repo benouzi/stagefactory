@@ -25,11 +25,11 @@ with sync_playwright() as p:
     ok(len(t[0]['pts'])==2 and t[0]['pts']==[2000,6000],'moteurs répartis de nouveau sur la longueur',t[0]['pts'])
     # souris sur le côté : part en coin à 90°
     pg.click('#pontBar [data-pa=pcPick][data-id="1000"]'); pg.mouse.move(*P(4.1,-1)); pg.wait_for_timeout(100); info=ev("PONTS.tl.info"); pg.mouse.click(*P(4.1,-1)); pg.wait_for_timeout(250)
-    t=T(); ok(len(t)==2 and t[1]['L']==1000 and t[1]['a']['x']==4000 and t[1]['b']['x']==4000 and 'coin 90' in info and 'C003' in info,'pièce posée sur le côté : nouveau pont en coin 90° (H30V-C003)',[t[1],info])
-    pg.mouse.move(*P(4,2)); pg.mouse.click(*P(4,2)); pg.wait_for_timeout(250); t=T(); ok(t[1]['L']==2000 and t[1]['pc']==[1000,1000],'la branche se prolonge à son tour',t[1])
+    t=T(); ok(len(t)==2 and t[1]['L']==1500 and t[1]['pc']==[1000] and t[1]['a']['x']==4500 and t[1]['b']['x']==4500 and t[0]['b']['x']==4500 and t[0]['pc']==[3000,3000,2000] and 'coin 90' in info and 'C003' in info,'pièce posée sur le côté : nouveau pont en coin 90° (H30V-C003)',[t[1],info])
+    pg.mouse.move(*P(4,2)); pg.mouse.click(*P(4,2)); pg.wait_for_timeout(250); t=T(); ok(t[1]['L']==2500 and t[1]['pc']==[1000,1000],'la branche se prolonge à son tour',t[1])
     ok(ev("PONTS.C.trussBom(PONTS.doc()).lines.map(l=>l.qty+'x'+l.code).join(' ')")=='1xH30V-C003 2xH30V-L100 1xH30V-L200 2xH30V-L300','nomenclature : 2 × 3 m, 1 × 2 m, 2 × 1 m, 1 coin',ev("PONTS.C.trussBom(PONTS.doc()).lines.map(l=>l.qty+'x'+l.code).join(' ')"))
     # retirer la dernière (Retour arrière), deux fois
-    pg.keyboard.press('Backspace'); pg.wait_for_timeout(350); t=T(); ok(t[1]['L']==1000,'Retour arrière : dernière pièce retirée',t[1])
+    pg.keyboard.press('Backspace'); pg.wait_for_timeout(350); t=T(); ok(t[1]['L']==1500,'Retour arrière : dernière pièce retirée',t[1])
     pg.keyboard.press('Backspace'); pg.wait_for_timeout(350); t=T(); ok(len(t)==1 and ev("PONTS.tl.from && PONTS.tl.from.at.x")==4000,'encore : la branche disparaît, on repart du bout du pont de 8 m',t)
     # nouveau départ ailleurs, pièce tournée de 90°
     pg.keyboard.press('Escape'); pg.wait_for_timeout(100); ok(ev("PONTS.tl && PONTS.tl.k")=='piece' and ev("PONTS.tl.from")==None,'Échap : lâche le bout, l\'outil reste')
