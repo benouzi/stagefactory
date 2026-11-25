@@ -161,7 +161,7 @@ export function initDraw(A, ST){
   // ---------------------------------------------------------------- plan : clics, glisser, clavier
   function bindPlan(){ const cv = $('#plan2d'); if (!cv || !window.PLAN || !PLAN.world){ setTimeout(bindPlan, 400); return; }
     const busy = () => !!(UI.placing || (window.PONTS && PONTS.tl) || (window.PUB && PUB.tl) || PLAN.P.picker), tol = () => Math.max(.06, 7 / PLAN.P.s);
-    cv.addEventListener('pointerdown', e => { if (e.button !== 0 || PLAN.P.view === 'coupe' || !layerOn()) return; const [x, z] = PLAN.world(e);
+    cv.addEventListener('pointerdown', e => { if (e.button !== 0 || PLAN.P.view !== 'plan' || !layerOn()) return; const [x, z] = PLAN.world(e);
       if (D.tl){ e.stopImmediatePropagation(); e.preventDefault(); const t = D.tl; return click(snap(x, z, e, t.pts[t.pts.length - 1]), e); }
       if (busy()) return; const s0 = D.sels.length === 1 ? byId(D.sel) : null;
       if (s0 && !e.shiftKey){ const P = ptsOf(s0), hv = s0.k === 'poly' ? P.findIndex(p => Math.hypot(p[0] - x, p[1] - z) < tol() * 1.4) : -1, edge = s0.k === 'circle' && Math.abs(Math.hypot(x - s0.c[0], z - s0.c[1]) - s0.r) < tol() * 1.4;
@@ -212,7 +212,7 @@ export function initDraw(A, ST){
     const path = (P, cl) => { c.beginPath(); P.forEach((p, i) => c[i ? 'lineTo' : 'moveTo'](X(p[0]), Z(p[1]))); if (cl) c.closePath(); };
     const one = D.sels.length === 1;
     for (const s of shapes()){ const sel = isSel(s.id), P = ptsOf(s), cl = closed(s), col = s.col || '#8a93a6';
-      if (cp){ if (s.k === 'text') continue; const zs = P.map(p => p[1]), z0 = Math.min(...zs), z1 = Math.max(...zs), y = s.y || 0, h = s.h || 0; c.strokeStyle = sel ? ACC : col; c.lineWidth = (sel ? 2 : 1.2) * K; c.setLineDash([]); if (h > 0){ c.fillStyle = col + '55'; c.fillRect(X(z0), V(y + h), (z1 - z0) * sc, h * sc); c.strokeRect(X(z0), V(y + h), (z1 - z0) * sc, h * sc); } else { c.beginPath(); c.moveTo(X(z0), V(y)); c.lineTo(X(z1), V(y)); c.stroke(); } continue; }
+      if (cp){ if (s.k === 'text') continue; const zs = P.map(p => p[PP.face ? 0 : 1]), z0 = Math.min(...zs), z1 = Math.max(...zs), y = s.y || 0, h = s.h || 0; c.strokeStyle = sel ? ACC : col; c.lineWidth = (sel ? 2 : 1.2) * K; c.setLineDash([]); if (h > 0){ c.fillStyle = col + '55'; c.fillRect(X(z0), V(y + h), (z1 - z0) * sc, h * sc); c.strokeRect(X(z0), V(y + h), (z1 - z0) * sc, h * sc); } else { c.beginPath(); c.moveTo(X(z0), V(y)); c.lineTo(X(z1), V(y)); c.stroke(); } continue; }
       if (s.k === 'text'){ text(s.txt || '', s.c[0], s.c[1], { px: Math.max(6, (s.size || .35) * sc / K), col: sel ? ACC : col, b: true }); continue; }
       c.setLineDash(s.h > 0 ? [] : [6 * K, 3 * K]); c.lineWidth = (sel ? 2.2 : s.h > 0 ? 1.5 : 1.1) * K; c.strokeStyle = sel ? ACC : col; path(P, cl); for (const H of s.holes || []){ H.forEach((q, i) => c[i ? 'lineTo' : 'moveTo'](X(q[0]), Z(q[1]))); c.closePath(); } if (cl){ c.fillStyle = col + (s.h > 0 ? '66' : '2e'); c.fill('evenodd'); } c.stroke(); c.setLineDash([]);
       if (PP.labels && sc > 18 && (sel || s.h > 0)){ const ce = center(s); text(`${s.name || ''}${s.h > 0 ? '  h ' + f(s.h) + (s.y ? '  +' + f(s.y) : '') : ''}`, ce[0], ce[1], { px: 8.5, col: sel ? ACC : MID, bg: true }); }

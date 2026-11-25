@@ -383,7 +383,7 @@
 <aside id="console" class="hide"></aside>
 <div id="conGrip" title="Glisser pour élargir le panneau"></div>
 <div id="labels"></div>
-<div id="planWin"><div id="planGrip"></div><div class="ph"><b>Plan technique</b><span class="pv"><a class="on" data-pv="plan" title="Vue de dessus">Plan</a><a data-pv="coupe" title="Coupe longitudinale dans l'axe : scène à gauche, public à droite">Coupe</a></span><span class="xy mono" id="planXY"></span><button class="b" id="planTool" title="Sélection par rectangle (ou Maj + glisser)">▭ Sélection</button><button class="b" id="planFit">Ajuster</button><button class="b" id="planLab" title="Numéros, adresses DMX et noms">Étiquettes</button><button class="b" id="planPng" title="Exporter en PNG (A3, 1:100)">PNG</button><span style="cursor:pointer;color:var(--mute);padding:0 4px" id="planClose">✕</span></div><canvas id="plan2d"></canvas></div>
+<div id="planWin"><div id="planGrip"></div><div class="ph"><b>Plan technique</b><span class="pv"><a class="on" data-pv="plan" title="Vue de dessus">Plan</a><a data-pv="coupe" title="Coupe longitudinale dans l'axe : scène à gauche, public à droite">Coupe</a><a data-pv="face" title="Coupe transversale vue depuis le public : jardin à gauche, cour à droite">Face</a></span><span class="xy mono" id="planXY"></span><button class="b" id="planTool" title="Sélection par rectangle (ou Maj + glisser)">▭ Sélection</button><button class="b" id="planFit">Ajuster</button><button class="b" id="planLab" title="Numéros, adresses DMX et noms">Étiquettes</button><button class="b" id="planPng" title="Exporter en PNG (A3, 1:100)">PNG</button><span style="cursor:pointer;color:var(--mute);padding:0 4px" id="planClose">✕</span></div><canvas id="plan2d"></canvas></div>
 <div id="status"><span id="stMsg"></span><span class="grow"></span><span id="stSel"></span><span id="stPos" class="mono"></span><span id="stSnap" title="Pas d'accrochage (clic pour changer)"></span><span id="stCfg"></span><span id="stSave"></span></div>
 <div id="menuPop"></div>
 <div id="toast"></div>
@@ -1553,7 +1553,14 @@ function sectionPoints(x = .35){
   for (let y = -4; y <= VB.h + 5; y += .06){ rr.set(o.set(x, y, VB.z0 - 3), fw); rr.far = VB.z1 - VB.z0 + 6; for (const h of rr.intersectObjects(list, false)) out.push(h.point.z, y); }
   SECT.key = key; return SECT.pts = new Float32Array(out);
 }
-APP.sectionPoints = sectionPoints; Object.assign(APP, { setVenue, venueBounds, VDEF, percheLen: i => (VEN.cur.type !== 'param' ? 16 : PERCHES[i] && !PERCHES[i].off ? PERCHES[i].len : VEN.cur.percheLen), percheX: i => (PERCHES[i] && !PERCHES[i].off ? PERCHES[i].x || 0 : 0), PLANS, setPlanData, planXf, planPaint, planBounds, planLayers, venueNorm, MAXP }); Object.defineProperty(APP, 'venue', { get: () => VEN.cur });
+// coupe transversale (vue depuis le public) : le bâti coupé par le plan z, en [x, y]
+const SECTF = {}; function sectionPointsF(z = -1){ const key = z + JSON.stringify(APP.roomState()) + pickMeshes.length + JSON.stringify(VEN.cur), VB = venueBounds(); if (SECTF.key === key && SECTF.pts) return SECTF.pts;
+  const skip = new Set(['rideaux', 'perches', 'mobilier', 'fauteuils', 'fauteuils_fosse']), vis = m => { for (let o = m; o; o = o.parent) if (!o.visible) return false; return true; }, list = pickMeshes.filter(m => !skip.has(m.userData.gid) && !m.isInstancedMesh && vis(m)), rr = new THREE.Raycaster(), o = new THREE.Vector3(), out = [], W = VB.hw + 3; rr.firstHitOnly = false;
+  const dn = new THREE.Vector3(0, -1, 0), rt = new THREE.Vector3(1, 0, 0);
+  for (let x = -W; x <= W; x += .06){ rr.set(o.set(x, VB.h + 7, z), dn); rr.far = VB.h + 13; for (const h of rr.intersectObjects(list, false)) out.push(x, h.point.y); }
+  for (let y = -4; y <= VB.h + 5; y += .06){ rr.set(o.set(-W - 1, y, z), rt); rr.far = 2 * W + 2; for (const h of rr.intersectObjects(list, false)) out.push(h.point.x, y); }
+  SECTF.key = key; return SECTF.pts = new Float32Array(out); }
+APP.sectionPointsF = sectionPointsF; APP.sectionPoints = sectionPoints; Object.assign(APP, { setVenue, venueBounds, VDEF, percheLen: i => (VEN.cur.type !== 'param' ? 16 : PERCHES[i] && !PERCHES[i].off ? PERCHES[i].len : VEN.cur.percheLen), percheX: i => (PERCHES[i] && !PERCHES[i].off ? PERCHES[i].x || 0 : 0), PLANS, setPlanData, planXf, planPaint, planBounds, planLayers, venueNorm, MAXP }); Object.defineProperty(APP, 'venue', { get: () => VEN.cur });
 // gros bouton du mode spectacle, toujours visible
 { const lb = $('#liveBtn'); lb.onclick = () => window.STAGE && window.STAGE.setLive(!APP.live); setInterval(() => { if (lb.classList.contains('on') !== !!APP.live){ lb.classList.toggle('on', !!APP.live); lb.querySelector('span').textContent = APP.live ? 'SPECTACLE' : 'Mode spectacle'; lb.title = APP.live ? 'Mode spectacle actif : cliquer pour revenir à la lumière de service' : 'Passer en mode spectacle : éteint la lumière de service, allume projecteurs et vidéo'; } }, 150); }
 setMode('orbit');

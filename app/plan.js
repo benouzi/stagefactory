@@ -37,6 +37,8 @@ export function initPlan(A, ST){
     if (!P.fitted) fit(); P.dirty = true;
   }
   function fit(){
+    if (P.view === 'face'){ const B = A.venueBounds(), open = A.venue.open; let x0 = open ? -9 : -B.hw - 1.5, x1 = open ? 9 : B.hw + 1.5, top = open ? 6 : B.h + 2; for (const o of ST.S.objs){ x0 = Math.min(x0, o.pos[0] - 2); x1 = Math.max(x1, o.pos[0] + 2); top = Math.max(top, o.pos[1] + 2); } for (const s of ST.S.sups || []){ x0 = Math.min(x0, s.a.x / 1000 - 2, s.b.x / 1000 - 2); x1 = Math.max(x1, s.a.x / 1000 + 2, s.b.x / 1000 + 2); top = Math.max(top, (s.zMm || 0) / 1000 + 2.5); }
+      const m = 14, bot = open ? 1.2 : -B.floor + 1.6; P.s = Math.min((P.w - 2 * m) / (x1 - x0), (P.h - 2 * m - 110) / (top + bot)); P.ox = P.w / 2 - (x0 + x1) / 2 * P.s; P.oy = m + 30 + top * P.s; P.fitted = true; P.dirty = true; return; }
     if (P.view === 'coupe' && A.venue.open){ let z0 = -9, z1 = 7, top = 6; for (const o of ST.S.objs){ z0 = Math.min(z0, o.pos[2] - 2); z1 = Math.max(z1, o.pos[2] + 2); top = Math.max(top, o.pos[1] + 2); } for (const s of ST.S.sups || []){ z0 = Math.min(z0, -s.a.y / 1000 - 2, -s.b.y / 1000 - 2); z1 = Math.max(z1, -s.a.y / 1000 + 2, -s.b.y / 1000 + 2); top = Math.max(top, s.zMm / 1000 + 2.5); }
       const m = 14; P.s = Math.min((P.w - 2 * m) / (z1 - z0), (P.h - 2 * m - 150) / (top + 1.2)); P.ox = P.w / 2 - (z0 + z1) / 2 * P.s; P.oy = m + 30 + top * P.s; P.fitted = true; P.dirty = true; return; }
     if (P.view === 'coupe' && A.venue.type === 'param'){ const m = 14, B = A.venueBounds(), top = B.h + 2.5, bot = -B.floor + 1.6; P.s = Math.min((P.w - 2 * m) / (B.z1 - B.z0 + 6), (P.h - 2 * m - 96) / (top + bot)); P.ox = P.w / 2 - (B.z0 + B.z1) / 2 * P.s; P.oy = m + 30 + top * P.s; P.fitted = true; P.dirty = true; return; }
@@ -59,7 +61,7 @@ export function initPlan(A, ST){
   $('#planLab').classList.add('on');
   // deux vues : plan (dessus) et coupe longitudinale ; chacune garde son cadrage
   P.view = 'plan'; const TV = {};
-  function setView(v){ if (v === P.view) return; TV[P.view] = { s: P.s, ox: P.ox, oy: P.oy }; P.view = v; win.querySelectorAll('[data-pv]').forEach(a => a.classList.toggle('on', a.dataset.pv === v)); if (TV[v]) Object.assign(P, TV[v]); else fit(); $('#planPng').title = v === 'coupe' ? 'Exporter la coupe en PNG (A3 paysage, 1:100)' : 'Exporter en PNG (A3, 1:100)'; draw(); }
+  function setView(v){ if (v === P.view) return; TV[P.view] = { s: P.s, ox: P.ox, oy: P.oy }; P.view = v; win.querySelectorAll('[data-pv]').forEach(a => a.classList.toggle('on', a.dataset.pv === v)); if (TV[v]) Object.assign(P, TV[v]); else fit(); P.face = v === 'face'; $('#planPng').title = v !== 'plan' ? 'Exporter la coupe en PNG (A3 paysage, 1:100)' : 'Exporter en PNG (A3, 1:100)'; draw(); }
   win.querySelectorAll('[data-pv]').forEach(a => a.onclick = () => setView(a.dataset.pv));
   addEventListener('resize', () => { if (P.on || root.style.getPropertyValue('--vw')) { if (!layout.busy){ layout.busy = true; layout(); layout.busy = false; } } });
   addEventListener('keydown', e => { if (e.key.toLowerCase() === 'p' && !e.ctrlKey && !e.metaKey && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) toggle(); });
@@ -283,9 +285,18 @@ export function initPlan(A, ST){
       if (P.labels && (P.s > 15 || i % 2 === 0)) textC('P' + (i + 1), pe.z, pe.y, { px: 7.5, b: true, col: BLUE, dy: 9, bg: P.s > 22 }); });
     if (P.labels && st.perches.length){ const ys = st.perches.map(q => q.y), same = Math.max(...ys) - Math.min(...ys) < .02, za = st.perches[0].z, zb = st.perches[st.perches.length - 1].z; if (same) textC('perches à ' + lvl(ys[0]), (za + zb) / 2, ys[0], { px: 8.5, col: BLUE, bg: true, dy: -11 }); else if (P.s > 22) st.perches.forEach(pe => textC(f1(pe.y), pe.z, pe.y, { px: 7, col: BLUE, mono: true, dy: -9 })); }
   }
+  // ---------------------------------------------------------------- coupe transversale, vue depuis le public (x horizontal : jardin à gauche, cour à droite ; hauteur verticale)
+  const U = o => P.face ? o.pos[0] : o.pos[2];          // l'abscisse d'un objet dans la coupe affichée
+  function sectionF(st){ const B = A.venueBounds(), open = A.venue.open, hw = open ? 10 : B.hw + 1, x0 = -Math.ceil(hw), x1 = Math.ceil(hw), yT = open ? 8 : Math.ceil(B.h) + 1, zc = -1;
+    grid2(x0, x1, -3, yT, lineC); if (!open){ const pts = A.sectionPointsF(zc), r = Math.max(1.1 * K, P.s * .034); c.fillStyle = INK; for (let i = 0; i < pts.length; i += 2) c.fillRect(X(pts[i]) - r / 2, V(pts[i + 1]) - r / 2, r, r); }
+    lw(.9, ACC, [6, 3]); lineC(x0, 0, x1, 0); textC('niveau scène  ±0,00', x1 - .2, 0, { al: 'right', px: 8.5, col: ACC, bg: true, dy: -7 }); lw(.6, ACC, [10, 3, 2, 3]); lineC(0, -3.2, 0, yT + .4); textC('AXE', 0, yT + .75, { px: 8, col: ACC });
+    for (let y = -2; y <= yT - 1; y += 2){ lw(.6, MID); lineC(x0 - .35, y, x0, y); textC(lvl(y), x0 - .45, y, { al: 'right', px: 8, mono: true, col: MID }); }
+    textC('◄ JARDIN', x0 + 2.2, yT + .75, { px: 9.5, b: true, col: MID }); textC('COUR ►', x1 - 2, yT + .75, { px: 9.5, b: true, col: MID }); textC('vue depuis le public' + (open ? '' : ' · bâti coupé à ' + f1(-zc) + ' m derrière le nez de scène'), 0, -2.6, { px: 9, col: MID });
+    { const G = new Map(); st.perches.forEach((pe, i) => { const hl = A.percheLen(i) / 2, cx = A.percheX(i), k = [pe.y.toFixed(2), (cx - hl).toFixed(2), (cx + hl).toFixed(2)].join('|'); if (!G.has(k)) G.set(k, { y: pe.y, a: cx - hl, b: cx + hl, ids: [] }); G.get(k).ids.push(i + 1); });          // vues de face, les perches à la même hauteur se superposent : un seul trait, étiqueté une fois
+      for (const g of G.values()){ lw(1.1, BLUE); lineC(g.a, g.y, g.b, g.y); if (P.labels) textC((g.ids.length > 2 ? 'P' + g.ids[0] + ' à P' + g.ids[g.ids.length - 1] : g.ids.map(n => 'P' + n).join(', ')) + '  ' + lvl(g.y), g.a, g.y, { px: 7.5, b: true, col: BLUE, al: 'left', dy: -8, bg: true }); } } }
   function symbolC(o, t, sel){
-    const z = o.pos[2], y = objY(o), col = sel ? ACC : INK, k = Math.max(.34, 9 / P.s); lw(sel ? 1.8 : 1.1, col); c.fillStyle = PAPER;
-    if (t.cat === 'lum'){ const p = (o.pan || 0) * D2R, ti = (o.tilt || 0) * D2R, dz = Math.sin(ti) * Math.cos(p), dy = -Math.cos(ti), n = Math.hypot(dz, dy) || 1, L = sel ? 40 : 1.1;
+    const z = U(o), y = objY(o), col = sel ? ACC : INK, k = Math.max(.34, 9 / P.s); lw(sel ? 1.8 : 1.1, col); c.fillStyle = PAPER;
+    if (t.cat === 'lum'){ const p = (o.pan || 0) * D2R, ti = (o.tilt || 0) * D2R, dz = Math.sin(ti) * (P.face ? Math.sin(p) : Math.cos(p)), dy = -Math.cos(ti), n = Math.hypot(dz, dy) || 1, L = sel ? 40 : 1.1;
       // faisceau projeté dans le plan de coupe ; pour la sélection, jusqu'au sol avec l'ouverture
       if (n > .15){ lw(sel ? .9 : .7, sel ? ACC : MID, sel ? null : [3, 2]); let e = L; if (sel && dy < -.02) e = Math.min(40, (y + 3) / -(dy / n)); if (sel && t.zoom){ const a = Math.atan2(dy, dz), h = (o.zoom ?? t.zoom[0]) * D2R / 2; for (const q of [a - h, a + h]) lineC(z, y - .15, z + Math.cos(q) * e, y - .15 + Math.sin(q) * e); } else lineC(z, y - .15, z + dz / n * e, y - .15 + dy / n * e); }
       lw(sel ? 1.8 : 1.1, col); c.beginPath(); c.arc(X(z), V(y - .18), k * .42 * P.s, 0, 7); c.fill(); c.stroke(); lineC(z, y, z, y - .05); return; }
@@ -295,22 +306,22 @@ export function initPlan(A, ST){
     else if ((kd === 'screen' || kd === 'drape') && sz){ bw = sz[0]; bd = .05; hgt = sz[1]; }
     else if ((kd === 'prim' || kd === 'sprop' || kd === 'riser' || kd === 'desk' || kd === 'stairs') && sz && sz.length >= 3){ bw = sz[0]; bd = sz[1]; hgt = Math.max(.02, sz[2]); }
     else { hgt = t.cat === 'son' ? .7 : /pers|human|chant|music|public/.test(t.id + (kd || '')) ? 1.75 : Math.min(2.2, Math.max(.3, (t.h || t.fp && Math.min(t.fp[0], t.fp[1])) || .5)); bw = t.fp ? t.fp[0] : .45; bd = t.fp ? t.fp[1] : .45; if (!t.fp){ bw = bd = Math.max(.25, Math.min(1.6, .45)); } }
-    const ya = (o.yaw || 0) * D2R, dep = Math.max(.04, Math.abs(bw * Math.sin(ya)) + Math.abs(bd * Math.cos(ya)));
+    const ya = (o.yaw || 0) * D2R, dep = Math.max(.04, P.face ? Math.abs(bw * Math.cos(ya)) + Math.abs(bd * Math.sin(ya)) : Math.abs(bw * Math.sin(ya)) + Math.abs(bd * Math.cos(ya)));
     const down = o.hang ? 1 : 0; c.fillRect(X(z - dep / 2), V(y + (down ? 0 : hgt)), dep * P.s, hgt * P.s); c.strokeRect(X(z - dep / 2), V(y + (down ? 0 : hgt)), dep * P.s, hgt * P.s);
   }
   function objectsC(){
     const S = ST.S, sel = ST.UI.sel, list = S.objs.filter(o => !(o.hidden || A.layHid(o))).sort((a, b) => sel.includes(a.id) - sel.includes(b.id));
     for (const o of list){ const t = ST.typeOf(o), isSel = sel.includes(o.id); symbolC(o, t, isSel); if (!P.labels) continue; const far = P.s < 26 && !isSel; if (far && t.cat !== 'lum') continue;
-      const y = objY(o); if (isSel) textC(`${t.cat === 'str' ? '' : (o.n ?? '') + ' · '}${o.name || t.name} · h ${f1(y)}`, o.pos[2], y, { px: 8.5, col: ACC, bg: true, bl: 'bottom', dy: -13 });
-      else if (!far) textC(t.cat === 'str' ? (o.name || t.name) : String(o.n ?? ''), o.pos[2], y, { px: 7.5, b: true, mono: t.cat !== 'str', bl: 'bottom', dy: -11 }); }
+      const y = objY(o); if (isSel) textC(`${t.cat === 'str' ? '' : (o.n ?? '') + ' · '}${o.name || t.name} · h ${f1(y)}`, U(o), y, { px: 8.5, col: ACC, bg: true, bl: 'bottom', dy: -13 });
+      else if (!far) textC(t.cat === 'str' ? (o.name || t.name) : String(o.n ?? ''), U(o), y, { px: 7.5, b: true, mono: t.cat !== 'str', bl: 'bottom', dy: -11 }); }
   }
-  function hitC(z, y){ let best = null, bd = 1e9; const R = Math.max(.4, 11 / P.s); for (const o of ST.S.objs){ if ((o.hidden || A.layHid(o)) || o.locked) continue; const t = ST.typeOf(o), oy = objY(o), cy = t.cat === 'lum' ? oy - .18 : o.hang ? oy - .4 : oy + .5, d = Math.hypot(o.pos[2] - z, (cy - y) * (t.cat === 'lum' ? 1 : .6)); if (d < R && d < bd){ bd = d; best = o; } } return best; }
+  function hitC(z, y){ let best = null, bd = 1e9; const R = Math.max(.4, 11 / P.s); for (const o of ST.S.objs){ if ((o.hidden || A.layHid(o)) || o.locked) continue; const t = ST.typeOf(o), oy = objY(o), cy = t.cat === 'lum' ? oy - .18 : o.hang ? oy - .4 : oy + .5, d = Math.hypot(U(o) - z, (cy - y) * (t.cat === 'lum' ? 1 : .6)); if (d < R && d < bd){ bd = d; best = o; } } return best; }
   function cartouche(st, x, y, w){
     const S = ST.S, n = cat => S.objs.filter(o => ST.typeOf(o).cat === cat).length, h = 58 * K;
     c.setLineDash([]); c.fillStyle = PAPER; c.fillRect(x, y, w, h); c.lineWidth = 1.2 * K; c.strokeStyle = INK; c.strokeRect(x, y, w, h);
     c.lineWidth = .6 * K; c.beginPath(); c.moveTo(x, y + 20 * K); c.lineTo(x + w, y + 20 * K); c.moveTo(x, y + 39 * K); c.lineTo(x + w, y + 39 * K); c.stroke();
     c.textBaseline = 'middle'; c.textAlign = 'left'; c.fillStyle = INK;
-    c.font = `600 ${11 * K}px system-ui,sans-serif`; c.fillText((st.param ? st.param.name : 'Salle de démonstration') + ' — ' + (P.view === 'coupe' ? 'coupe longitudinale (axe)' : 'plan technique'), x + 6 * K, y + 10 * K);
+    c.font = `600 ${11 * K}px system-ui,sans-serif`; c.fillText((st.param ? st.param.name : 'Salle de démonstration') + ' — ' + (P.view === 'coupe' ? 'coupe longitudinale (axe)' : P.view === 'face' ? 'coupe transversale, vue depuis le public' : 'plan technique'), x + 6 * K, y + 10 * K);
     c.font = `${9.5 * K}px system-ui,sans-serif`; c.fillText(`Projet : ${S.name}  ·  Configuration : ${st.cfg}`, x + 6 * K, y + 29.5 * K);
     c.fillText(`${n('lum')} projecteurs · ${n('vid')} VP · ${n('son')} enceintes  ·  ${new Date().toLocaleDateString('fr-CH')}  ·  cotes en m`, x + 6 * K, y + 48.5 * K);
   }
@@ -334,7 +345,7 @@ export function initPlan(A, ST){
     if (!P.on || !P.w) return; P.dirty = false; LBOX.length = 0;
     const st = A.planState(); c = ctx; K = 1;
     c.setTransform(P.d, 0, 0, P.d, 0, 0); c.fillStyle = PAPER; c.fillRect(0, 0, P.w, P.h);
-    const cp = P.view === 'coupe'; if (cp){ section(st); objectsC(); } else { room(st); objects(); } extras(cp);
+    const cp = P.view !== 'plan'; if (cp){ (P.face ? sectionF : section)(st); objectsC(); } else { room(st); objects(); } extras(cp);
     if (drag?.box){ let [a, b, c2, d] = drag.box; if (cp){ b = -b; d = -d; } c.setLineDash([4, 3]); c.lineWidth = 1; c.strokeStyle = BLUE; c.fillStyle = 'rgba(31,78,156,.08)'; c.fillRect(X(a), Z(b), (c2 - a) * P.s, (d - b) * P.s); c.strokeRect(X(a), Z(b), (c2 - a) * P.s, (d - b) * P.s); c.setLineDash([]); }
     if (!cp && drag?.ser?.moved && drag.ser.blk){ const q = drag.ser, k = ST.blkCells(q.blk, q.a, q.b); lw(1.2, ACC); for (const [px, pz] of k.pts) c.strokeRect(X(px - k.mw / 2), Z(pz - k.md / 2), k.mw * P.s, k.md * P.s); c.fillStyle = 'rgba(255,170,40,.14)'; c.fillRect(X(k.x0), Z(k.z0), k.w * P.s, k.d * P.s); text(ST.blkTip(k), k.x0 + k.w / 2, k.z0, { dy: -14, px: 10, col: ACC, bg: true, b: true }); }
     else if (!cp && drag?.ser?.moved){ const q = drag.ser, [a, b] = serAB(q), pts = ST.seriePts(a, b); lw(1.2, ACC); c.setLineDash([5, 4]); c.beginPath(); c.moveTo(X(a[0]), Z(a[1])); c.lineTo(X(b[0]), Z(b[1])); c.stroke(); c.setLineDash([]); c.fillStyle = ACC; for (const [px, pz] of pts){ c.beginPath(); c.arc(X(px), Z(pz), 4.5, 0, 7); c.fill(); }
@@ -342,18 +353,18 @@ export function initPlan(A, ST){
     if (!cp && P.marks) for (const [mx, mz, ml] of P.marks){ lw(1.4, ACC); c.beginPath(); c.arc(X(mx), Z(mz), 6, 0, 7); c.moveTo(X(mx) - 11, Z(mz)); c.lineTo(X(mx) + 11, Z(mz)); c.moveTo(X(mx), Z(mz) - 11); c.lineTo(X(mx), Z(mz) + 11); c.stroke(); if (ml) text(ml, mx, mz, { dy: -16, px: 9.5, col: ACC, bg: true, b: true }); }
     if (!cp && P.picker){ c.font = '600 12px system-ui,sans-serif'; c.textAlign = 'center'; c.textBaseline = 'top'; const w = c.measureText(P.picker.hint).width + 20; c.fillStyle = ACC; c.fillRect(P.w / 2 - w / 2, 8, w, 24); c.fillStyle = '#fff'; c.fillText(P.picker.hint, P.w / 2, 14); }
     const cw = Math.min(360, P.w - 16); cartouche(st, P.w - cw - 8, P.h - 66, cw); if (P.w - cw > 150) scaleBar(14, P.h - 30);
-    if (cp){ c.font = '9px system-ui,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'top'; c.fillStyle = MID; c.fillText('Coupe dans l\'axe. Glisser un objet : profondeur, et hauteur s\'il n\'est pas sur perche.', 12, 8); } else if (P.s < 26 && P.labels && ST.S.objs.length){ c.font = '9px system-ui,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'top'; c.fillStyle = MID; c.fillText('Zoome (molette) pour afficher les adresses DMX et les noms.', 12, 8); }
+    if (cp){ c.font = '9px system-ui,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'top'; c.fillStyle = MID; c.fillText(P.face ? 'Coupe transversale, vue depuis le public. Glisser un objet : jardin-cour, et hauteur s\'il n\'est pas sur perche.' : 'Coupe dans l\'axe. Glisser un objet : profondeur, et hauteur s\'il n\'est pas sur perche.', 12, 8); } else if (P.s < 26 && P.labels && ST.S.objs.length){ c.font = '9px system-ui,sans-serif'; c.textAlign = 'left'; c.textBaseline = 'top'; c.fillStyle = MID; c.fillText('Zoome (molette) pour afficher les adresses DMX et les noms.', 12, 8); }
   }
   A.hooks.update.push(dt => { if (!P.on) return; P.acc = (P.acc || 0) + dt; if (P.acc > .15 || P.dirty){ P.acc = 0; draw(); } });
 
   // ---------------------------------------------------------------- export PNG (A3 portrait, 1:100)
   $('#planPng').onclick = async () => {
-    if (P.view === 'coupe'){ const st = A.planState(), keep = { s: P.s, ox: P.ox, oy: P.oy, w: P.w, h: P.h }, dpi = 150, W = Math.round(420 / 25.4 * dpi), H = Math.round(297 / 25.4 * dpi);
+    if (P.view !== 'plan'){ const st = A.planState(), keep = { s: P.s, ox: P.ox, oy: P.oy, w: P.w, h: P.h }, dpi = 150, W = Math.round(420 / 25.4 * dpi), H = Math.round(297 / 25.4 * dpi);
       const off = document.createElement('canvas'); off.width = W; off.height = H; c = off.getContext('2d'); K = dpi / 96 * 1.15; P.s = dpi / 25.4 * 10; P.ox = 110 + 13.6 * P.s; P.oy = 150 + 11.6 * P.s; P.w = W; P.h = H;
-      c.fillStyle = PAPER; c.fillRect(0, 0, W, H); try { section(st); objectsC(); extras(true); cartouche(st, W - 400 * K - 40, H - 58 * K - 40, 400 * K); scaleBar(60, H - 70); c.font = `${9 * K}px system-ui,sans-serif`; c.textAlign = 'left'; c.textBaseline = 'top'; c.fillStyle = INK; c.fillText('Échelle 1:100 sur A3 paysage', 60, H - 110); }
+      c.fillStyle = PAPER; c.fillRect(0, 0, W, H); try { (P.face ? sectionF : section)(st); objectsC(); extras(true); cartouche(st, W - 400 * K - 40, H - 58 * K - 40, 400 * K); scaleBar(60, H - 70); c.font = `${9 * K}px system-ui,sans-serif`; c.textAlign = 'left'; c.textBaseline = 'top'; c.fillStyle = INK; c.fillText('Échelle 1:100 sur A3 paysage', 60, H - 110); }
       finally { Object.assign(P, keep); c = ctx; K = 1; draw(); }
       const blob = await new Promise(r => off.toBlob(r, 'image/png')); if (!blob) return ST.toast('Export impossible dans cette vue.', true);
-      return void await ST.saveFile('coupe-' + (ST.S.name || 'stagefactory').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png', new Uint8Array(await blob.arrayBuffer())); }
+      return void await ST.saveFile((P.face ? 'face-' : 'coupe-') + (ST.S.name || 'stagefactory').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png', new Uint8Array(await blob.arrayBuffer())); }
     const st = A.planState(), keep = { s: P.s, ox: P.ox, oy: P.oy, w: P.w, h: P.h }, dpi = 150, W = Math.round(297 / 25.4 * dpi), H = Math.round(420 / 25.4 * dpi);
     const off = document.createElement('canvas'); off.width = W; off.height = H; c = off.getContext('2d'); K = dpi / 96 * 1.15;
     P.s = dpi / 25.4 * 10; P.ox = W / 2; P.oy = 150 + (-st.Z0 + 1.9) * P.s; P.w = W; P.h = H;
@@ -366,7 +377,7 @@ export function initPlan(A, ST){
   };
 
   // ---------------------------------------------------------------- interaction : zoom, déplacement, sélection
-  const CP = () => P.view === 'coupe';
+  const CP = () => P.view !== 'plan';
   const world = e => { const r = cv.getBoundingClientRect(), u = (e.clientX - r.left - P.ox) / P.s, v = (e.clientY - r.top - P.oy) / P.s; return CP() ? [u, -v] : [u, v]; };          // en coupe : [profondeur z, hauteur y]
   function hit(x, z){
     if (CP()) return hitC(x, z);
@@ -395,7 +406,7 @@ export function initPlan(A, ST){
   });
   cv.addEventListener('pointermove', e => {
     if (ptr.has(e.pointerId)) ptr.set(e.pointerId, [e.clientX, e.clientY]);
-    const [x, z] = world(e); $('#planXY').textContent = CP() ? `Z ${f1(x)}  H ${f1(z)} m` : `X ${f1(x)}  Z ${f1(z)} m`;
+    const [x, z] = world(e); $('#planXY').textContent = CP() ? `${P.face ? 'X' : 'Z'} ${f1(x)}  H ${f1(z)} m` : `X ${f1(x)}  Z ${f1(z)} m`;
     if (!drag){ cv.style.cursor = P.picker || ST.UI.placing ? 'crosshair' : hit(x, z) ? 'pointer' : 'grab'; return; }
     if (drag.pinch){ if (ptr.size < 2) return; const [a, b] = [...ptr.values()], r = cv.getBoundingClientRect(), mx = (a[0] + b[0]) / 2 - r.left, my = (a[1] + b[1]) / 2 - r.top; zoomAt(mx, my, drag.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / drag.pinch / P.s); return; }
     if (drag.box){ drag.box[2] = x; drag.box[3] = z; draw(); return; }
@@ -403,7 +414,7 @@ export function initPlan(A, ST){
     if (drag.pan){ const dx = e.clientX - drag.pan[0], dy = e.clientY - drag.pan[1]; if (Math.hypot(dx, dy) > 3) drag.moved = true; P.ox = drag.pan[2] + dx; P.oy = drag.pan[3] + dy; draw(); return; }
     const dx = x - drag.x, dz = z - drag.z; if (!drag.moved){ if (Math.hypot(dx, dz) * P.s < 4) return; drag.moved = true; ST.pushUndo(0, 'Déplacement'); }
     const snap = e.altKey ? 1e-3 : (window.WS?.pref.snap || 1e-3);
-    if (CP()){ for (const [o, , z0, y0] of drag.start){ o.pos[2] = Math.round((z0 + dx) / snap) * snap; if (o.hang !== 'perche') o.pos[1] = Math.max(0, Math.round((y0 + dz) / snap) * snap); } }
+    if (CP()){ for (const [o, x0, z0, y0] of drag.start){ if (P.face) o.pos[0] = Math.round((x0 + dx) / snap) * snap; else o.pos[2] = Math.round((z0 + dx) / snap) * snap; if (o.hang !== 'perche') o.pos[1] = Math.max(0, Math.round((y0 + dz) / snap) * snap); } }
     else { for (const [o, x0, z0] of drag.start){ o.pos[0] = Math.round((x0 + dx) / snap) * snap; o.pos[2] = Math.round((z0 + dz) / snap) * snap; }
       if (!drag.mag) drag.mag = drag.start.map(q => [q[0], { hang: drag.h0.get(q[0].id).hang, sid: drag.h0.get(q[0].id).sid, pi: drag.h0.get(q[0].id).pi, y: q[3] }]);
       ST.magnet(drag.mag, Math.max(.25, Math.min(.8, 40 / P.s)), e.altKey, false); }   // aimant : à 40 pixels d'une perche ou d'un pont, l'appareil s'y accroche (Alt : sans aimant)
@@ -412,7 +423,7 @@ export function initPlan(A, ST){
   const end = e => {
     ptr.delete(e.pointerId); if (!drag) return;
     if (drag.ser){ const q = drag.ser, [a, b] = serAB(q), id = ST.UI.placing; drag = null; cv.style.cursor = 'grab'; if (id && q.blk){ ST.placeBlock(id, q.moved ? ST.blkCells(q.blk, q.a, q.b) : ST.blkCells(q.blk, q.c)); if (!e.shiftKey) ST.UI.placing = null; ST.render(); } else if (id){ ST.placeSeries(id, q.moved ? ST.seriePts(a, b) : [q.a], q.pi); if (!e.shiftKey) ST.UI.placing = null; ST.render(); } draw(); return; }
-    if (drag.box){ const [a, b, c2, d] = drag.box, x0 = Math.min(a, c2), x1 = Math.max(a, c2), z0 = Math.min(b, d), z1 = Math.max(b, d); ST.select(ST.S.objs.filter(o => { if ((o.hidden || A.layHid(o)) || o.locked) return false; const u = CP() ? o.pos[2] : o.pos[0], v = CP() ? objY(o) : o.pos[2]; return u >= x0 && u <= x1 && v >= z0 && v <= z1; }).map(o => o.id), true); }
+    if (drag.box){ const [a, b, c2, d] = drag.box, x0 = Math.min(a, c2), x1 = Math.max(a, c2), z0 = Math.min(b, d), z1 = Math.max(b, d); ST.select(ST.S.objs.filter(o => { if ((o.hidden || A.layHid(o)) || o.locked) return false; const u = CP() ? U(o) : o.pos[0], v = CP() ? objY(o) : o.pos[2]; return u >= x0 && u <= x1 && v >= z0 && v <= z1; }).map(o => o.id), true); }
     else if (drag.start && drag.moved){ if (drag.mag) ST.magSay(drag.mag); ST.touch(); ST.refreshProps(); const g = ST.selObjs().pop(); if (g) ST.select(ST.UI.sel); }
     else if (drag.pan && !drag.moved && ST.UI.sel.length) ST.select([]);
     drag = null; cv.style.cursor = 'grab'; draw();

@@ -449,7 +449,7 @@ export async function initPonts(A, ST){
     A.canvas.addEventListener('pointerup', e => { if (!P.tl || !dn || e.button !== 0) return; const mv = Math.hypot(e.clientX - dn[0], e.clientY - dn[1]); dn = null; if (mv > 4) return; const g = ground(e); if (g) toolClick(g[0], g[1], e.altKey); }, true); }
   // plan technique : tracé, sélection, déplacement d'un pont
   function bindPlan(){ const cv = document.querySelector('#plan2d'); if (!cv || !window.PLAN || !PLAN.world){ setTimeout(bindPlan, 400); return; } let drag = null;
-    cv.addEventListener('pointerdown', e => { if (e.button !== 0 || PLAN.P.view === 'coupe') return; const [x, z] = PLAN.world(e);
+    cv.addEventListener('pointerdown', e => { if (e.button !== 0 || PLAN.P.view !== 'plan') return; const [x, z] = PLAN.world(e);
       if (P.tl){ e.stopImmediatePropagation(); e.preventDefault(); toolClick(x, z, e.altKey); return; }
       if (UI.placing || PLAN.P.tl === 'box' || PLAN.P.picker || !layerOn() || window.PUB?.busy?.()) return;
       if (!e.shiftKey){ const tolP = Math.max(.18, 8 / PLAN.P.s); let bp = null, bd = tolP; for (const q of trusses()) (q.points || []).forEach((pt, pi) => { if (pt.leg) return; const [px, pz] = at(q, pt.alongMm), dd = Math.hypot(px - x, pz - z); if (dd < bd){ bd = dd; bp = [q, pi]; } }); if (bp && !PLAN.hit(x, z)){ e.stopImmediatePropagation(); e.preventDefault(); const q = bp[0]; pickPt(q, bp[1]); cv.setPointerCapture(e.pointerId); drag = { pt: true, s: q, pid: q.points[bp[1]].id, x, z, moved: false, id: e.pointerId, grp: [] }; return; } }
@@ -473,10 +473,10 @@ export async function initPonts(A, ST){
   (window.PLANX || (window.PLANX = [])).push(({ c, X, Z, V, s: sc, K, cp, INK, BLUE, ACC, MID, PAPER, text, P: PP }) => {
     if (!layerOn()) return; const R = results();
     for (const s of sups()){ const sel = P.sel === s.id || inSt(s), r = s.kind === 'truss' ? R.get(s.id) : null, col = sel ? ACC : r && r.count && r.verdict === 'bad' ? ACC : INK, sec = sect(s);
-      if (cp){ if (s.kind === 'point'){ if (!s.on && s.zMm){ c.strokeStyle = BLUE; c.lineWidth = 1.2 * K; c.beginPath(); c.arc(X(-s.a.y / 1000), V(s.zMm / 1000), 3.5 * K, 0, 7); c.stroke(); } continue; }
-        if (s.kind === 'totem'){ c.strokeStyle = col; c.lineWidth = 1 * K; c.strokeRect(X(-s.a.y / 1000 - sec / 2), V(s.zMm / 1000), sec * sc, s.zMm / 1000 * sc); continue; }
-        const z0 = -s.a.y / 1000, z1 = -s.b.y / 1000, y = s.zMm / 1000; c.fillStyle = PAPER; c.strokeStyle = col; c.lineWidth = (sel ? 1.8 : 1.1) * K; const xa = X(Math.min(z0, z1) - sec / 2), w = (Math.abs(z1 - z0) + sec) * sc; c.fillRect(xa, V(y + sec), w, sec * sc); c.strokeRect(xa, V(y + sec), w, sec * sc);
-        for (const p of s.points || []) if (p.leg){ const [, pz] = at(s, p.alongMm); c.beginPath(); c.moveTo(X(pz), V(y)); c.lineTo(X(pz), V(0)); c.stroke(); }
+      if (cp){ const hz = q => PP.face ? q.x / 1000 : -q.y / 1000; if (s.kind === 'point'){ if (!s.on && s.zMm){ c.strokeStyle = BLUE; c.lineWidth = 1.2 * K; c.beginPath(); c.arc(X(hz(s.a)), V(s.zMm / 1000), 3.5 * K, 0, 7); c.stroke(); } continue; }
+        if (s.kind === 'totem'){ c.strokeStyle = col; c.lineWidth = 1 * K; c.strokeRect(X(hz(s.a) - sec / 2), V(s.zMm / 1000), sec * sc, s.zMm / 1000 * sc); continue; }
+        const z0 = hz(s.a), z1 = hz(s.b), y = s.zMm / 1000; c.fillStyle = PAPER; c.strokeStyle = col; c.lineWidth = (sel ? 1.8 : 1.1) * K; const xa = X(Math.min(z0, z1) - sec / 2), w = (Math.abs(z1 - z0) + sec) * sc; c.fillRect(xa, V(y + sec), w, sec * sc); c.strokeRect(xa, V(y + sec), w, sec * sc);
+        for (const p of s.points || []){ const [px0, pz0] = at(s, p.alongMm), pz = PP.face ? px0 : pz0; if (p.leg){ c.beginPath(); c.moveTo(X(pz), V(y)); c.lineTo(X(pz), V((p.baseMm || 0) / 1000)); c.stroke(); } else { const hk = hookOf(s, p), top = hk.hi != null ? hk.hi / 1000 : y + sec + 1.2; c.save(); c.strokeStyle = BLUE; c.lineWidth = .9 * K; c.setLineDash(hk.hi != null ? [] : [3 * K, 3 * K]); c.beginPath(); c.moveTo(X(pz), V(y + sec)); c.lineTo(X(pz), V(top)); c.stroke(); c.setLineDash([]); if (p.kind === 'hoist'){ c.fillStyle = PAPER; c.fillRect(X(pz) - 3 * K, V(y + sec + .5), 6 * K, 7 * K); c.strokeRect(X(pz) - 3 * K, V(y + sec + .5), 6 * K, 7 * K); } if (p.tag && PP.labels) text(p.tag, pz, -(y + sec + .55), { px: 7.5, b: true, col: BLUE, dx: 8 }); c.restore(); } }
         if (PP.labels) text(s.name + '  +' + f(y, 2), (z0 + z1) / 2, -(y + sec), { px: 8.5, col: MID, dy: -8 }); continue; }
       if (s.kind === 'point'){ const [x, z] = m2(s.a), rad = Math.max(4 * K, .18 * sc), pc = sel ? ACC : BLUE; c.strokeStyle = pc; c.lineWidth = (sel ? 2 : 1.3) * K; c.setLineDash([]);
         if (s.on){ c.beginPath(); c.arc(X(x), Z(z), rad * 1.45, 0, 7); c.stroke(); continue; }
