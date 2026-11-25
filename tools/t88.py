@@ -20,7 +20,7 @@ with sync_playwright() as p:
     S3="([x,y,z])=>{const v=new APP.THREE.Vector3(x,y,z).project(APP.camera),r=APP.renderer.domElement.getBoundingClientRect();return [r.left+(v.x+1)/2*r.width,r.top+(1-v.y)/2*r.height]}"
     # clic sur la tour, à mi-hauteur
     pg.mouse.click(*ev(S3,[nd['x'],nd['y']/2,nd['z']])); pg.wait_for_timeout(500); txt=ev("document.querySelector('#pontBar').innerText")
-    ok(ev("!!PONTS.leg") and txt.startswith('Tour') and 'hauteur' in txt and ev("getComputedStyle(document.querySelector('#pontBar')).display")=='flex','clic sur une tour en 3D : elle est choisie, sa barre donne hauteur et pièces',txt[:150])
+    ok(ev("!!PONTS.leg") and txt.startswith('Tour') and 'Longueur' in txt and ev("getComputedStyle(document.querySelector('#pontBar')).display")=='flex','clic sur une tour en 3D : elle est choisie, sa barre donne ses pièces',txt[:150])
     hi=ev("(()=>{let n=0;APP.scene.getObjectByName('ponts').traverse(o=>{if(o.isInstancedMesh&&o.material.emissive&&o.material.emissive.getHex()===0x4a3008)n+=o.count});return n})()"); ok(hi>30,'la tour choisie est mise en évidence',hi); pg.screenshot(path=OUT+'/t88-tour.png',clip={'x':60,'y':45,'width':1090,'height':560})
     zb=ev("[...document.querySelectorAll('#pontBar [data-pa=legZ]')].map(b=>+b.dataset.id)")
     if zb:
