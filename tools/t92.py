@@ -20,7 +20,7 @@ with sync_playwright() as p:
     ev("PONTS.select('%s')"%fid); pg.wait_for_timeout(600)
     pg.click('.ptree [data-id="po|%s"]'%fid,timeout=8000); pg.wait_for_timeout(800)
     g=ev("(()=>{const z=PONTS.gz;return {span:!!z.span,p:z.proxy.position.toArray().map(v=>+v.toFixed(2)),x:z.gz.showX,y:z.gz.showY,zz:z.gz.showZ,rot:!!z.gzR.object,sp:z.gz.space}})()")
-    ok(g['span'] and g['p']==[0,5.14,0] and not g['x'] and not g['y'] and g['zz'] and not g['rot'] and g['sp']=='local','« face » choisie dans l\'arbre : gizmo centré sur cette travée, une seule flèche, perpendiculaire',g)
+    ok(g['span'] and g['p']==[0,5.14,0] and not g['x'] and g['y'] and g['zz'] and not g['rot'] and g['sp']=='local','« face » choisie dans l\'arbre : gizmo centré sur cette travée, une flèche perpendiculaire et une flèche de hauteur',g)
     ev("(()=>{APP.camera.position.set(-9,9,10);APP.orbit.target.set(0,3,-3);APP.orbit.update()})()"); pg.wait_for_timeout(900); pg.screenshot(path=OUT+'/t92.png',clip={'x':60,'y':45,'width':1090,'height':560})
     # pousser la face de 1 m vers le public : jardin et cour s'allongent de 1 m
     ev("(()=>{const z=PONTS.gz;z.start(false);z.proxy.position.z+=1;z.apply(false);z.end()})()"); pg.wait_for_timeout(900); s1=ev(SU); tw=ev(TW)
