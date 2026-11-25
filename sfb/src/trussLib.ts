@@ -77,7 +77,7 @@ export function trussBom(doc: Doc): Bom {
     if (ang === 180) { continue; } // deux ponts dans le prolongement l'un de l'autre : pas de coin, un simple raccord
     const c = (nd.tee && ways === 3 ? se.corners.find((x) => x.ways === 3 && /^té/.test(x.label)) : undefined) ?? se.corners.find((x) => x.ways === ways && (ways !== 2 || x.angleDeg == null || (nd.tower ? x.angleDeg === 90 : ang == null || x.angleDeg === ang))) ?? null;
     if (c) add(se, c.label, c.code, c.kg); else { add(se, `coin ${ways} départs${ang != null ? " " + ang + "°" : ""} (hors catalogue relevé)`, "à définir", null); }
-    if (nd.tower) { const h = nd.z - (se.cornerArmMm ?? 0), t = straight(se, h); add(se, "embase de tour", "à définir", null); if (Math.abs(t.restMm) > 5) notes.add(`Tour de ${String(nd.z / 1000).replace(".", ",")} m : il reste ${Math.round(t.restMm / 10)} cm hors éléments standard.`); }
+    if (nd.tower) { const h = ((nd.members[0]?.s as any)?.legMm as number | undefined) ?? nd.z - (se.cornerArmMm ?? 0), t = straight(se, h); add(se, "embase de tour", "à définir", null); if (Math.abs(t.restMm) > 5) notes.add(`Tour de ${String(nd.z / 1000).replace(".", ",")} m : il reste ${Math.round(t.restMm / 10)} cm hors éléments standard.`); }
   }
   const out = [...lines.values()].sort((a, b) => a.series.localeCompare(b.series) || a.item.localeCompare(b.item, "fr", { numeric: true }));
   const anyNull = out.some((l) => l.kgEach == null); if (anyNull) notes.add("Poids total inconnu : le poids de certains éléments (coins, embases, ou longueurs non relevées) n'est pas dans la bibliothèque.");

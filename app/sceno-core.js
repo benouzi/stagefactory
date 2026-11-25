@@ -152,7 +152,7 @@ function trussBom(doc) {
       add(se, `coin ${ways} d\xE9parts${ang != null ? " " + ang + "\xB0" : ""} (hors catalogue relev\xE9)`, "\xE0 d\xE9finir", null);
     }
     if (nd.tower) {
-      const h = nd.z - (se.cornerArmMm ?? 0), t = straight(se, h);
+      const h = nd.members[0]?.s?.legMm ?? nd.z - (se.cornerArmMm ?? 0), t = straight(se, h);
       add(se, "embase de tour", "\xE0 d\xE9finir", null);
       if (Math.abs(t.restMm) > 5) notes.add(`Tour de ${String(nd.z / 1e3).replace(".", ",")} m : il reste ${Math.round(t.restMm / 10)} cm hors \xE9l\xE9ments standard.`);
     }
