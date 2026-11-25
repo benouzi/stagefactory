@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 /home/claude/local/build.sh >/dev/null
-SRC=/home/claude/local/dist/StageFactory; P=/home/claude/pack; OUT=$P/out; VER=4.30.0; rm -rf $OUT $P/win $P/mac; mkdir -p $OUT $P/win
+SRC=/home/claude/local/dist/StageFactory; P=/home/claude/pack; OUT=$P/out; VER=4.31.0; rm -rf $OUT $P/win $P/mac; mkdir -p $OUT $P/win
 # ---------------- Windows : installateur NSIS
 cp -r $SRC/app $SRC/serveur.js $SRC/mcp.js $SRC/mcp-tools.json $P/win/; cp $P/rt/node-win-x64-22.23.4/package/bin/node.exe $P/win/; cp $P/icon.ico $P/win/
 cat > $P/win/LISEZMOI.txt <<'TXT'
