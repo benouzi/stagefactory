@@ -1575,6 +1575,7 @@ export function init(APP){
   import('./dmx.js').then(m => m.initDmx(A, window.STAGE, DMXIN)).catch(e => console.error(e));
   import('./rig.js').then(m => m.initRig(A, window.STAGE)).catch(e => console.error(e));
   import('./ponts.js').then(m => m.initPonts(A, window.STAGE)).catch(e => console.error(e));
+  import('./scenes.js').then(m => m.initScenes(A, window.STAGE)).catch(e => console.error(e));
   import('./decor.js').then(m => m.initDecor(A, window.STAGE)).catch(e => console.error(e));
   import('./linearray.js').then(m => m.initLineArray(A, window.STAGE)).catch(e => console.error(e));
   import('./publish.js').then(m => m.initPublish(A, window.STAGE)).catch(e => console.error(e));

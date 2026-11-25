@@ -457,3 +457,12 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
     - Essai `t102`.
     - VÉRIFICATION DE LA JOURNÉE : `t103` (nouveau) fait à la VRAIE SOURIS toutes les flèches de gizmo du jour — travée perpendiculaire, travée verticale, Ctrl + flèche (prolonger), coin, bout de pont, moteur : toutes passent. Suite complète relancée une par une : t86 à t103, t72, a3 : tout passe. Non vérifié à la souris : anneau de rotation, Ctrl + flèche verticale (étage), Ctrl sur un coin (nouveau départ) ; non essayé du tout : Imprimer / PDF, Maj+clic en vue 3D, comportement sur vraie carte graphique.
     - Gemini : deux appels sur trois en 503 ce soir ; la description détaillée du palan et des élingues de la vidéo n’a pas pu être obtenue.
+
+59. 4.32.0 (25.11.2026) — Benjamin : « mets-toi sur le module de création de scène ; dans la même idée il faut pouvoir agrandir la scène en tirant et ça ajoute des praticables ». NOUVEAU MODULE `app/scenes.js` (`initScenes(A, ST)`, chargé par stage.js après ponts.js, ajouté à `local/build.sh`) :
+    - Dès qu’un praticable d’une scène (groupe « Scène n ») est choisi, cinq flèches apparaissent dans la vue 3D : une orange au milieu de chaque bord, une verte au centre. Cote affichée (`#scTip`) : « Scène 1 · 8,0 × 6,0 m à 80 cm · 24 praticables ».
+    - Tirer un bord (`grow(g, side, n)`) : chaque praticable posé sur ce bord est copié n fois vers l’extérieur (même modèle, taille, orientation) ; vers l’intérieur, les rangées sont retirées (au moins une reste). Pas = largeur du praticable du bord dans le sens du tirage. Aperçu translucide et cote en direct (« bord cour : +4,0 m (+2 rangées de 2,0 m), la scène fera 12,0 × 6,0 m »), appliqué au relâcher.
+    - Flèche verte (`setH`) : hauteur de toute la scène, par crans de 20 cm (20 à 160 cm).
+    - L’HABILLAGE EST REFAIT à l’identique (`dressOf` relit les côtés de jupe, de garde-corps et l’escalier d’après l’orientation des objets ; `redress` appelle `ST.dressStage` et retire son pas d’annulation) : un geste = une annulation.
+    - Caméra gelée pendant le geste, clic intercepté avant le cœur (capture + `stopImmediatePropagation`).
+    - Essai `t104`, entièrement à la vraie souris.
+    - Limites : vue 3D seulement (pas encore dans le plan) ; ce qui est posé sur la scène ne remonte pas avec la hauteur ; scène non rectangulaire : chaque bord pousse ses propres praticables de tête (non essayé) ; pas de saisie d’une cote au clavier ; les praticables triangle et quart de rond ne sont pas copiés.
