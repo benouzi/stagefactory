@@ -373,3 +373,5 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
 
 
 39. 4.15.2 (25.11.2026) — fenêtre « structure toute faite » : les flèches des champs Longueur et Profondeur avancent de 0,1 m (au lieu de 0,5) et celles de l’orientation de 1° (au lieu de 5), demande de Benjamin sur capture.
+
+40. 4.15.3 (25.11.2026) — Benjamin (capture du petit élément en haut d’une tour) : « pourquoi je n’arrive pas à sélectionner ce bout ? ». Les tours se réglaient en bloc. Maintenant une PIÈCE de tour se choisit au clic (`P.leg.k`, d’après la hauteur du clic), seule mise en évidence ; barre : ▼ ▲, longueur (liste de la gamme), « Insérer la même », « Retirer ». Les pièces sont gardées sur le point (`p.pieces`, de bas en haut) ; `setLegPieces` règle la hauteur de TOUS les ponts du niveau et donne les mêmes pièces aux autres tours ; la nomenclature les reprend (`support.legPieces` lu par `trussLib.ts`). À savoir : une tour d’angle est portée par deux ponts, donc deux points `leg` au même endroit (dessinés l’un sur l’autre, comptés une fois par la nomenclature).

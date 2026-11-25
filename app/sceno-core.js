@@ -152,9 +152,15 @@ function trussBom(doc) {
       add(se, `coin ${ways} d\xE9parts${ang != null ? " " + ang + "\xB0" : ""} (hors catalogue relev\xE9)`, "\xE0 d\xE9finir", null);
     }
     if (nd.tower) {
-      const h = nd.members[0]?.s?.legMm ?? nd.z - (se.cornerArmMm ?? 0), t = straight(se, h);
+      const h = nd.members[0]?.s?.legMm ?? nd.z - (se.cornerArmMm ?? 0), LP = nd.members[0]?.s?.legPieces;
       add(se, "embase de tour", "\xE0 d\xE9finir", null);
-      if (Math.abs(t.restMm) > 5) notes.add(`Tour de ${String(nd.z / 1e3).replace(".", ",")} m : il reste ${Math.round(t.restMm / 10)} cm hors \xE9l\xE9ments standard.`);
+      if (LP?.length && Math.abs(LP.reduce((q, p) => q + p, 0) - h) <= 5) {
+        const w = new Map(se.lengths);
+        for (const p of LP) add(se, `\xE9l\xE9ment droit ${String(p / 1e3).replace(".", ",")} m`, `${se.name}-L${String(Math.round(p / 10)).padStart(3, "0")}`, w.get(p) ?? null);
+      } else {
+        const t = straight(se, h);
+        if (Math.abs(t.restMm) > 5) notes.add(`Tour de ${String(nd.z / 1e3).replace(".", ",")} m : il reste ${Math.round(t.restMm / 10)} cm hors \xE9l\xE9ments standard.`);
+      }
     }
   }
   const out = [...lines.values()].sort((a, b) => a.series.localeCompare(b.series) || a.item.localeCompare(b.item, "fr", { numeric: true }));

@@ -26,6 +26,13 @@ with sync_playwright() as p:
     if zb:
         pg.click('#pontBar [data-pa=legZ]'); pg.wait_for_timeout(900); r2=ev("(()=>{const s=STAGE.S.sups.find(s=>(s.points||[]).some(p=>p.leg)),p=s.points.find(p=>p.leg);return [STAGE.S.sups.map(s=>s.zMm),PONTS.legMm(s,p)%250]})()"); ok(len(set(r2[0]))==1 and r2[0][0]==zb[0] and min(r2[1],250-r2[1])<=2,'« Pont à x m » : toute la structure change de hauteur, la tour tombe juste',[zb,r2])
     else: ok(True,'la tour tombe déjà juste (aucun reste)')
+    # une pièce de la tour : clic sur le petit élément du haut, on le remplace par 1 m, toute la structure monte de 50 cm
+    nd=ev("(()=>{const n=PONTS.nodes().slice().sort((a,b)=>(a.at.x-a.at.y)-(b.at.x-b.at.y))[0];return {x:n.at.x/1000,z:-n.at.y/1000,y:n.z/1000,k:PONTS.nodeKey(n)}})()"); ev("([x,y,z])=>{APP.camera.position.set(x-5,y+2.5,z+7);APP.orbit.target.set(x,y-1.5,z);APP.orbit.update()}",[nd['x'],nd['y'],nd['z']]); pg.wait_for_timeout(900)
+    top=ev("(()=>{const s=STAGE.S.sups.find(s=>(s.points||[]).some(p=>p.leg)),p=s.points.find(p=>p.leg);return (PONTS.legMm(s,p)+30-200)/1000})()"); pg.mouse.click(*ev(S3,[nd['x'],top,nd['z']])); pg.wait_for_timeout(500); txt=ev("document.querySelector('#pontBar').innerText")
+    ok(ev("PONTS.leg&&PONTS.leg.k")==1 and 'pièce 2 sur 2' in txt,'clic sur le petit élément du haut de la tour : c\'est lui qui est choisi',txt[:80]); z0=ev("STAGE.S.sups[0].zMm")
+    pg.select_option('#pontBar [data-lgs]','1000'); pg.wait_for_timeout(900); r3=ev("({z:STAGE.S.sups.map(s=>s.zMm),pcs:STAGE.S.sups.flatMap(s=>(s.points||[]).filter(p=>p.leg).map(p=>p.pieces)),bom:PONTS.bom().lines.filter(l=>/L100|L400/.test(l.code)).map(l=>[l.code,l.qty])})")
+    ok(set(r3['z'])=={z0+500} and all(q==[4000,1000] for q in r3['pcs']) and any(c=='H30V-L100' and q>=4 for c,q in r3['bom']) and any(c=='H30V-L400' and q>=4 for c,q in r3['bom']),'pièce de 0,5 m remplacée par 1 m : la structure monte de 50 cm, les quatre tours suivent, la nomenclature aussi',r3)
+    pg.evaluate("document.activeElement.blur()"); pg.keyboard.press('Control+z'); pg.wait_for_timeout(700); ok(ev("STAGE.S.sups[0].zMm")==z0,'Ctrl+Z : hauteur revenue')
     # clic sur le coin
     nd=ev("(()=>{const n=PONTS.nodes().slice().sort((a,b)=>(a.at.x-a.at.y)-(b.at.x-b.at.y))[0];return {x:n.at.x/1000,z:-n.at.y/1000,y:n.z/1000,k:PONTS.nodeKey(n)}})()"); ev("([x,y,z])=>{APP.camera.position.set(x-5,y+2.5,z+7);APP.orbit.target.set(x,y-1.5,z);APP.orbit.update()}",[nd['x'],nd['y'],nd['z']]); pg.wait_for_timeout(900)
     pg.mouse.click(*ev(S3,[nd['x'],nd['y']+.14,nd['z']])); pg.wait_for_timeout(500); txt=ev("document.querySelector('#pontBar').innerText")
