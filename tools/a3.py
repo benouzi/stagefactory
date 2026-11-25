@@ -37,7 +37,7 @@ with sync_playwright() as p:
     ev("(id)=>PONTS.select(id)",ev("STAGE.S.sups[0].id")); ok(ev("STAGE.UI.sel.length")==0,'pont sélectionné : objets désélectionnés')
     ev("(id)=>STAGE.select([id])",oid); ok(ev("PONTS.sel")==None,'objet sélectionné : pont désélectionné')
     # ---- glisser le pont dans le plan : appareils suivent ; annuler
-    ev("STAGE.select([]);PLAN.fit();PLAN.draw()"); s0=ev("STAGE.S.sups[0].a"); a=P(c[0]+1.5,c[1]); pg.mouse.move(*a); pg.mouse.down(); t=P(c[0]+1.5,c[1]-2); pg.mouse.move(a[0],(a[1]+t[1])/2,steps=3); pg.mouse.move(*t,steps=3); pg.mouse.up(); pg.wait_for_timeout(300)
+    ev("STAGE.select([]);PLAN.fit();PLAN.draw()"); s0=ev("STAGE.S.sups[0].a"); a=P(c[0]+0.6,c[1]); pg.mouse.move(*a); pg.mouse.down(); t=P(c[0]+0.6,c[1]-2); pg.mouse.move(a[0],(a[1]+t[1])/2,steps=3); pg.mouse.move(*t,steps=3); pg.mouse.up(); pg.wait_for_timeout(300)
     s1=ev("STAGE.S.sups[0].a"); o=ev("STAGE.S.objs.map(o=>o.pos[2])"); ok(abs(s1['y']-s0['y']-2000)<=60 and all(abs(z-(-s1['y']/1000))<.01 for z in o),'pont glissé de 2 m dans le plan, projecteurs emmenés',[s0,s1,o])
     pg.keyboard.press('Control+z'); pg.wait_for_timeout(400); ok(ev("STAGE.S.sups[0].a")==s0,'un seul Ctrl+Z annule le déplacement',ev("STAGE.S.sups[0].a"))
     # ---- saisie au clavier dans l'Inspecteur : Tab garde la main dans le champ suivant
