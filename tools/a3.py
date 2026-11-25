@@ -23,7 +23,7 @@ with sync_playwright() as p:
     # ---- clic sur le pont en 3D : sélection ; Suppr ; annuler
     ev("PONTS.select(null)"); c=ev("(()=>{const s=STAGE.S.sups[0];return [(s.a.x+s.b.x)/2000,-(s.a.y+s.b.y)/2000]})()"); pg.mouse.click(*S3(c[0],c[1],y+.15)); pg.wait_for_timeout(250)
     ok(ev("PONTS.sel")==sid,'clic sur le pont dans la vue 3D : sélectionné',ev("PONTS.sel"))
-    pg.keyboard.press('Delete'); pg.wait_for_timeout(200); ok(ev("STAGE.S.sups.length")==0,'Suppr retire le pont sélectionné')
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(300); ok(ev("PONTS.st===true"),'Échap : de la pièce on remonte au pont entier'); pg.keyboard.press('Delete'); pg.wait_for_timeout(400); ok(ev("STAGE.S.sups.length")==0,'Suppr retire le pont sélectionné')
     pg.keyboard.press('Control+z'); pg.wait_for_timeout(400); ok(ev("STAGE.S.sups.length")==1,'Ctrl+Z le ramène'); sid=ev("STAGE.S.sups[0].id")
     # ---- projecteur posé d'un clic sur le pont en 3D
     ev("PONTS.select(null);STAGE.UI.serie=1;STAGE.UI.serieStep=0;STAGE.UI.placing='par-led';STAGE.render()"); pg.mouse.click(*S3(c[0]-1,c[1],y+.15)); pg.wait_for_timeout(300)

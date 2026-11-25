@@ -389,3 +389,12 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
     - « Retirer » une pièce (`removePiece`) laisse un TROU, les autres ne bougent pas : en bout, le pont raccourcit de ce côté ; au milieu, il devient deux tronçons. Deux structures seulement si plus rien ne relie les parties (nommées X, X (2)…). Appareils de la pièce retirée reportés sur la voisine (message).
     - Essais : `t89` (nouveau), `t86` adapté.
     - Limites : pas encore de « détacher puis déplacer une pièce seule et la re-boulonner ailleurs » autrement qu’en la retirant et en la reposant avec l’outil pièce ; un coin qui n’a plus qu’un départ n’est plus dessiné ; les totems et points moteurs ne font pas partie d’une structure ; dans le plan, la barre de pièce peut recouvrir le haut du plan.
+
+44. 4.17.0 (25.11.2026) — GESTES DE BASE sur les structures. Benjamin : « Ctrl+déplacement ça copie la pièce, sélection multiple sur Maj… bref tous les comportements basiques et intuitifs d’un logiciel ».
+    - Maj+clic (plan et 3D) : ajoute/enlève une pièce de la sélection (`P.pcs` = ensemble de « sid|i », `togglePiece`, `selPieces`, `hiOf` ; `trussTubes` accepte un ensemble de pièces à mettre en évidence). Barre « N pièces choisies » (Dupliquer, Retirer).
+    - Ctrl+glisser dans le plan : copie ce qui est choisi (structure entière si c’est elle, sinon la ou les pièces, sinon le pont/point/totem) ; les pièces qui se suivent restent en un seul pont (`makeCopies`, `addCopies`, `afterCopy`). L’original ne bouge pas.
+    - Ctrl+D duplique (décalage 1 m), Ctrl+C / Ctrl+V copie-colle (`P.clip`, décalage croissant). app.js laisse passer Ctrl+C/V à ponts.js quand un pont est choisi (sinon son propre copier-coller d’appareils) ; un Ctrl+C sur des appareils vide `P.clip`.
+    - Suppr suit la hiérarchie : pièce(s) choisie(s) → retirées (trou, UNE annulation) ; travée choisie → la travée ; structure choisie → la structure ; coin ou tour → message.
+    - Échap remonte : pièce/coin/tour → structure → rien. Flèches : déplacent la structure choisie de 5 cm (Maj 50 cm, Alt 1 cm).
+    - Lettres lues sur la touche gravée (clavier suisse/AZERTY), comme app.js.
+    - Essai `t90`. Limites : pas de Ctrl+glisser ni de glisser dans la vue 3D pour les ponts (plan seulement) ; pas de cadre de sélection (lasso) pour les pièces ; pas de Ctrl+A ; sur Mac, Ctrl+clic ouvre le menu contextuel : utiliser Cmd.
