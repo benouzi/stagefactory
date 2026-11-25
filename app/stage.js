@@ -536,9 +536,12 @@ function drawContent(r){
       g.fillStyle = '#fff'; g.font = `600 ${Math.round(h * .1)}px Inter, sans-serif`; g.textAlign = 'center'; g.fillText(`${t.res[0]} × ${t.res[1]}`, w / 2, h * .36);
       g.font = `${Math.round(h * .06)}px Inter, sans-serif`; g.fillText(o.name || t.name, w / 2, h * .48);
     }
-    // fondu de bord (raccord entre deux projecteurs) : dégradé noir sur les côtés demandés, en % de la largeur ou de la hauteur
-    const bl = o.blend; if (bl){ const band = (x0, y0, x1, y1, rx, ry, rw, rh) => { const gr = g.createLinearGradient(x0, y0, x1, y1); for (let i = 0; i <= 8; i++){ const k = i / 8; gr.addColorStop(k, `rgba(0,0,0,${Math.pow(1 - k, 2.2).toFixed(3)})`); } g.fillStyle = gr; g.fillRect(rx, ry, rw, rh); };
-      if (bl.l > 0) band(0, 0, w * bl.l / 100, 0, 0, 0, w * bl.l / 100, h); if (bl.r > 0) band(w, 0, w - w * bl.r / 100, 0, w - w * bl.r / 100, 0, w * bl.r / 100, h); if (bl.t > 0) band(0, 0, 0, h * bl.t / 100, 0, 0, w, h * bl.t / 100); if (bl.b > 0) band(0, h, 0, h - h * bl.b / 100, 0, h - h * bl.b / 100, w, h * bl.b / 100); } }
+    // part du contenu montrée par ce projecteur (raccord : chacun montre sa moitié, plus le recouvrement) : crop = [u0, v0, u1, v1], v vers le haut
+    const cr = Array.isArray(o.crop) && o.crop.length === 4 ? o.crop : null; if (cr){ const tmp = r.tmp || (r.tmp = document.createElement('canvas')); tmp.width = w; tmp.height = h; tmp.getContext('2d').drawImage(r.src, 0, 0); g.drawImage(tmp, cr[0] * w, (1 - cr[3]) * h, (cr[2] - cr[0]) * w, (cr[3] - cr[1]) * h, 0, 0, w, h); }
+    // fondu de bord : la lumière monte de 0 à 100 % sur la largeur du recouvrement (bll, blr, blt, blb en % de l'image). Deux fondus qui se
+    // croisent font 100 % partout : la rampe est écrite en lumière réelle, d'où la correction de gamma de la carte (sRGB).
+    const band = (x0, y0, x1, y1, rx, ry, rw, rh) => { const gr = g.createLinearGradient(x0, y0, x1, y1); for (let i = 0; i <= 16; i++){ const k = i / 16; gr.addColorStop(k, `rgba(0,0,0,${(1 - Math.pow(k, 1 / 2.2)).toFixed(4)})`); } g.fillStyle = gr; g.fillRect(rx, ry, rw, rh); }, pc = v => Math.max(0, Math.min(90, +v || 0)) / 100;
+    const L = pc(o.bll), R = pc(o.blr), T = pc(o.blt), B = pc(o.blb); if (L) band(0, 0, w * L, 0, 0, 0, w * L, h); if (R) band(w, 0, w - w * R, 0, w - w * R, 0, w * R, h); if (T) band(0, 0, 0, h * T, 0, 0, w, h * T); if (B) band(0, h, 0, h - h * B, 0, h - h * B, w, h * B); }
   // la carte du faisceau : plus fine quand l'optique est très décalée (l'image n'occupe alors qu'un coin du cône)
   const want = op.T / Math.hypot(op.a, op.b) > 1.25 && kind !== 'video' ? 2048 : 1024;
   if (r.canvas.width !== want){ r.canvas = document.createElement('canvas'); r.canvas.width = r.canvas.height = want; r.tex.dispose(); r.tex = new THREE.CanvasTexture(r.canvas); r.tex.colorSpace = THREE.SRGBColorSpace; }
