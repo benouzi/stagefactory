@@ -1281,7 +1281,7 @@ function render(){
   const el = $('#console'), st = el.scrollTop, inner = [...el.querySelectorAll('.olist')].map(q => [q.id, q.scrollTop]), tabs = DR ? { prop: 'Réglages', doc: 'Projet' } : { lib: 'Biblio.', list: 'Objets', prop: 'Réglages', con: 'Console', doc: 'Projet' };
   el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><h1>${DR ? 'Inspecteur' : 'Atelier'}</h1><span><span class="b" data-a="undo" title="Annuler (Ctrl+Z)">↶</span> <span class="b" data-a="redo" title="Rétablir (Ctrl+Y)">↷</span> <span style="cursor:pointer;color:var(--mute);margin-left:6px" data-a="closep">✕</span></span></div>
   <div class="tabs">${Object.entries(tabs).map(([k, v]) => `<button data-a="tab" data-id="${k}" class="${UI.tab === k ? 'on' : ''}">${v}${k === 'prop' && UI.sel.length ? ' (' + UI.sel.length + ')' : ''}</button>`).join('')}</div>
-  <div id="tabBody">${{ lib: libHtml, list: () => window.WS ? WS.listHtml() : '', prop: () => (!UI.sel.length && window.PONTS && PONTS.sel ? PONTS.propHtml() : propHtml()), con: conHtml, doc: docHtml }[UI.tab]()}</div>`;
+  <div id="tabBody">${{ lib: libHtml, list: () => window.WS ? WS.listHtml() : '', prop: () => (!UI.sel.length && window.PONTS && (PONTS.sel || PONTS.node) ? PONTS.propHtml() : propHtml()), con: conHtml, doc: docHtml }[UI.tab]()}</div>`;
   DR?.refresh(); window.DESK?.sync(); el.scrollTop = st; { const now = [...el.querySelectorAll('.olist')]; inner.forEach(([id, top], i) => { const q = id ? now.find(x => x.id === id) : now[i]; if (q && (!id || q.id === id)) q.scrollTop = top; }); } photo();
   A.canvas.style.cursor = UI.placing || UI.aiming ? 'crosshair' : '';
 }
