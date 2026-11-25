@@ -21,7 +21,7 @@ with sync_playwright() as p:
     # clic sur la tour, à mi-hauteur
     pg.mouse.click(*ev(S3,[nd['x'],nd['y']/2,nd['z']])); pg.wait_for_timeout(500); txt=ev("document.querySelector('#pontBar').innerText")
     ok(ev("!!PONTS.leg") and txt.startswith('Tour') and 'hauteur' in txt and ev("getComputedStyle(document.querySelector('#pontBar')).display")=='flex','clic sur une tour en 3D : elle est choisie, sa barre donne hauteur et pièces',txt[:150])
-    hi=ev("(()=>{let n=0;APP.scene.getObjectByName('ponts').traverse(o=>{if(o.isInstancedMesh&&o.material.emissive&&o.material.emissive.getHex()===0xc8861a)n+=o.count});return n})()"); ok(hi>30,'la tour choisie est mise en évidence',hi); pg.screenshot(path=OUT+'/t88-tour.png',clip={'x':60,'y':45,'width':1090,'height':560})
+    hi=ev("(()=>{let n=0;APP.scene.getObjectByName('ponts').traverse(o=>{if(o.isInstancedMesh&&o.material.emissive&&o.material.emissive.getHex()===0x4a3008)n+=o.count});return n})()"); ok(hi>30,'la tour choisie est mise en évidence',hi); pg.screenshot(path=OUT+'/t88-tour.png',clip={'x':60,'y':45,'width':1090,'height':560})
     zb=ev("[...document.querySelectorAll('#pontBar [data-pa=legZ]')].map(b=>+b.dataset.id)")
     if zb:
         pg.click('#pontBar [data-pa=legZ]'); pg.wait_for_timeout(900); r2=ev("(()=>{const s=STAGE.S.sups.find(s=>(s.points||[]).some(p=>p.leg)),p=s.points.find(p=>p.leg);return [STAGE.S.sups.map(s=>s.zMm),PONTS.legMm(s,p)%250]})()"); ok(len(set(r2[0]))==1 and r2[0][0]==zb[0] and min(r2[1],250-r2[1])<=2,'« Pont à x m » : toute la structure change de hauteur, la tour tombe juste',[zb,r2])

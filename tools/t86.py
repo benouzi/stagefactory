@@ -20,7 +20,7 @@ with sync_playwright() as p:
     # clic dans le plan sur la 2e pièce (x = 0,5 m)
     ev("document.querySelector('#planBtn').click()"); pg.wait_for_timeout(500); ev("PLAN.fit();PLAN.draw()"); pg.wait_for_timeout(200)
     pg.mouse.click(*P(.5,0)); pg.wait_for_timeout(300); pc=ev("PONTS.pc"); txt=ev("document.querySelector('#pontBar').innerText"); ok(pc and pc['i']==1 and 'Pièce 2 sur 3' in txt and ev("getComputedStyle(document.querySelector('#pontBar')).display")=='flex','clic dans le plan : la 2e pièce est choisie, sa barre s\'ouvre',[pc,txt[:60]])
-    hi=ev("(()=>{let n=0;APP.scene.getObjectByName('ponts').traverse(o=>{if(o.isInstancedMesh&&o.material.emissive&&o.material.emissive.getHex()===0xc8861a)n+=o.count});return n})()"); ok(hi>=20,'3D : la pièce choisie est mise en évidence',hi)
+    hi=ev("(()=>{let n=0;APP.scene.getObjectByName('ponts').traverse(o=>{if(o.isInstancedMesh&&o.material.emissive&&o.material.emissive.getHex()===0x4a3008)n+=o.count});return n})()"); ok(hi>=20,'3D : la pièce choisie est mise en évidence',hi)
     # remplacer par 1 m : le pont raccourcit de 1 m, son premier bout ne bouge pas
     pg.select_option('#pontBar [data-pcs]','1000'); pg.wait_for_timeout(400); a=ev("STAGE.S.sups[0].a"); ok(PCS()==[3000,1000,2000] and LEN()==6000 and a['x']==-3500,'remplacer 2 m par 1 m : 3 + 1 + 2, 6 m, premier bout en place',[PCS(),LEN()])
     pg.click('#pontBar [data-pa=pcIns]'); pg.wait_for_timeout(300); ok(PCS()==[3000,1000,1000,2000] and LEN()==7000,'insérer la même après',PCS())

@@ -68,6 +68,8 @@ export async function initPonts(A, ST){
   // ---------------------------------------------------------------- 3D
   const grp = new THREE.Group(); grp.name = 'ponts'; A.scene.add(grp);
   const MAT = new THREE.MeshStandardMaterial({ color: 0xc6cad2, metalness: .7, roughness: .38, emissive: 0x1b1d22 }), MATS = new THREE.MeshStandardMaterial({ color: 0xf2a93b, metalness: .5, roughness: .4, emissive: 0x4a3008 });
+  const MATR = new THREE.MeshBasicMaterial({ color: 0xff5a5a });          // un manque : longueur qu'aucune pièce de la gamme ne couvre
+  const gapTubes = (A0, A1, s) => { const ax = A1.clone().sub(A0), L = ax.length(), out = []; if (L < .003) return out; ax.normalize(); const ref = Math.abs(ax.y) > .9 ? V3(1, 0, 0) : V3(0, 1, 0), u = V3().crossVectors(ax, ref).normalize(), v = V3().crossVectors(ax, u).normalize(), h = Math.max(.04, s / 2 - .025); for (const [i, j] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) out.push([A0.clone().addScaledVector(u, i * h).addScaledVector(v, j * h), A1.clone().addScaledVector(u, i * h).addScaledVector(v, j * h), .006]); return out; };
   const MATP = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: .2, roughness: .35, emissive: 0xc8861a });          // la pièce choisie dans un pont
   const MOT = new THREE.MeshStandardMaterial({ color: 0xd9a514, metalness: .3, roughness: .6 }), DARK = new THREE.MeshStandardMaterial({ color: 0x2a2d33, metalness: .5, roughness: .6 });
   const HID = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false });
@@ -115,7 +117,7 @@ export async function initPonts(A, ST){
   function drop(r){ grp.remove(r.g); r.g.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); const i = A.pickMeshes.indexOf(r.pick); if (i >= 0) A.pickMeshes.splice(i, 1); }
   function build(s){
     ncache = null; const old = RT3.get(s.id); if (old) drop(old);
-    const g = new THREE.Group(), sec = sect(s), y0 = s.zMm / 1000, mat = P.sel === s.id ? MATS : MAT, list = [], chains = [], box = (w, h, d, x, y, z, m) => { const b = new THREE.Mesh(BOX, m); b.scale.set(w, h, d); b.position.set(x, y, z); b.castShadow = true; g.add(b); return b; };
+    const g = new THREE.Group(), sec = sect(s), y0 = s.zMm / 1000, sub = (P.pc && P.pc.sid === s.id) || (P.leg && P.leg.sid === s.id), mat = P.sel === s.id && !sub ? MATS : MAT, list = [], gaps = [], chains = [], box = (w, h, d, x, y, z, m) => { const b = new THREE.Mesh(BOX, m); b.scale.set(w, h, d); b.position.set(x, y, z); b.castShadow = true; g.add(b); return b; };
     let pick, arK = ''; const legs = [], top0 = A.venue && !A.venue.open && A.venue.h ? A.venue.h : null;
     if (s.kind === 'point'){ const [x, z] = m2(s.a), hy = s.zMm ? s.zMm / 1000 : top0 ? top0 - .05 : O.zMm / 1000 + 1.8; box(.16, .03, .16, x, hy, z, P.sel === s.id ? MATS : DARK);
       if (!s.on){ chains.push([V3(x, hy, z), V3(x, hy - .55, z), s.pt.kind === 'hoist' ? .012 : .008]); if (s.pt.kind === 'hoist') box(.2, .32, .26, x, hy - .7, z, P.sel === s.id ? MATS : MOT); else box(.07, .07, .07, x, hy - .58, z, P.sel === s.id ? MATS : MAT); }
@@ -123,10 +125,10 @@ export async function initPonts(A, ST){
     else if (s.kind === 'totem'){ const [x, z] = m2(s.a), se = C.seriesOf(s.series), tc = se ? C.compose(se, Math.round(s.zMm - BASE)) : null, cu = []; if (tc){ let q = 0; for (const pc of tc.pieces){ q += pc; cu.push(q / 1000); } } list.push(...trussTubes(V3(x, .03, z), V3(x, y0, z), sec, cu, -1, shapeOf(s))); box(sec + .5, .03, sec + .5, x, .015, z, DARK);
       pick = new THREE.Mesh(BOX, HID); pick.scale.set(sec, y0, sec); pick.position.set(x, y0 / 2, z); }
     else { const [ax, az] = m2(s.a), [bx, bz] = m2(s.b), yc = y0 + sec / 2, L = len(s) / 1000;
-      { const [a0, a1] = arms(s), ux = (bx - ax) / (L || 1), uz = (bz - az) / (L || 1), tt = trussTubes(V3(ax + ux * a0 / 1000, yc, az + uz * a0 / 1000), V3(bx - ux * a1 / 1000, yc, bz - uz * a1 / 1000), sec, cutsOf(s), P.pc && P.pc.sid === s.id ? P.pc.i : -1, shapeOf(s)); list.push(...tt); if (tt.hi.length) g.add(tubes(tt.hi, MATP)); arK = a0 + ',' + a1 + ',' + (O.corner || ''); }
+      { const [a0, a1] = arms(s), ux = (bx - ax) / (L || 1), uz = (bz - az) / (L || 1), cu = cutsOf(s), full = (len(s) - a0 - a1) / 1000, got = cu.length && C.seriesOf(s.series) ? Math.min(full, cu[cu.length - 1]) : full, e0 = V3(ax + ux * a0 / 1000, yc, az + uz * a0 / 1000), e1 = V3(ax + ux * (a0 / 1000 + got), yc, az + uz * (a0 / 1000 + got)), tt = trussTubes(e0, e1, sec, cu, P.pc && P.pc.sid === s.id ? P.pc.i : -1, shapeOf(s)); list.push(...tt); if (tt.hi.length) g.add(tubes(tt.hi, MATS)); if (full - got > .005) gaps.push(...gapTubes(e1, V3(bx - ux * a1 / 1000, yc, bz - uz * a1 / 1000), sec)); arK = a0 + ',' + a1 + ',' + (O.corner || ''); }
       const top = A.venue && !A.venue.open && A.venue.h ? A.venue.h : null;
       for (const p of s.points || []){ const [px, pz] = at(s, p.alongMm);
-        if (p.leg){ const nd = nodes().find(n => n.tower && Math.hypot(n.at.x / 1000 - px, -n.at.y / 1000 - pz) < .08 && Math.abs(n.z - s.zMm) < 60), topY = nd ? yc - Math.max(sec / 2, armOf(nd) / 1000) : y0, lcuts = []; { let q = 0; for (const pc of legPieces(s, p)){ q += pc; lcuts.push(q / 1000); } } const pi = s.points.indexOf(p), lt = trussTubes(V3(px, .03, pz), V3(px, topY, pz), sec, lcuts, P.leg && P.leg.sid === s.id && P.leg.pi === pi ? (P.leg.k || 0) : -1, shapeOf(s)); list.push(...lt); if (lt.hi.length) g.add(tubes(lt.hi, MATP));
+        if (p.leg){ const nd = nodes().find(n => n.tower && Math.hypot(n.at.x / 1000 - px, -n.at.y / 1000 - pz) < .08 && Math.abs(n.z - s.zMm) < 60), topY = nd ? yc - Math.max(sec / 2, armOf(nd) / 1000) : y0, lcuts = []; { let q = 0; for (const pc of legPieces(s, p)){ q += pc; lcuts.push(q / 1000); } } const pi = s.points.indexOf(p), lgot = lcuts.length ? Math.min(topY, .03 + lcuts[lcuts.length - 1]) : topY, lt = trussTubes(V3(px, .03, pz), V3(px, lgot, pz), sec, lcuts, P.leg && P.leg.sid === s.id && P.leg.pi === pi ? (P.leg.k || 0) : -1, shapeOf(s)); list.push(...lt); if (lt.hi.length) g.add(tubes(lt.hi, MATS)); if (topY - lgot > .005) gaps.push(...gapTubes(V3(px, lgot, pz), V3(px, topY, pz), sec));
           box(sec + .5, .03, sec + .5, px, .015, pz, DARK); for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(.09, .012, .09, px + ox * (sec / 2 + .17), .036, pz + oz * (sec / 2 + .17), MAT);          // embase : platine et ses quatre patins
           const lp = new THREE.Mesh(BOX, HID); lp.scale.set(sec + .06, topY, sec + .06); lp.position.set(px, topY / 2, pz); lp.userData = { gid: 'ponts', sid: s.id, leg: pi }; g.add(lp); legs.push(lp); continue; }
         const yt = y0 + sec, hy = p.originHMm ? p.originHMm / 1000 : Math.max(yt + .6, top ? top - .05 : yt + 1.5);
@@ -134,7 +136,7 @@ export async function initPonts(A, ST){
         else chains.push([V3(px, yt, pz), V3(px, hy, pz), p.kind === 'hoist' ? .012 : .008]);
         if (p.kind === 'hoist') box(.2, .32, .26, px, yt + .32, pz, MOT); }
       pick = new THREE.Mesh(BOX, HID); pick.scale.set(L, sec, sec); pick.position.set((ax + bx) / 2, yc, (az + bz) / 2); pick.rotation.y = -Math.atan2(bz - az, bx - ax); }
-    if (list.length) g.add(tubes(list, mat)); if (chains.length) g.add(tubes(chains, DARK));
+    if (list.length) g.add(tubes(list, mat)); if (chains.length) g.add(tubes(chains, DARK)); if (gaps.length){ const gm = tubes(gaps, MATR); gm.castShadow = false; g.add(gm); }
     pick.userData = { gid: 'ponts', sid: s.id }; g.add(pick); A.pickMeshes.push(pick);
     g.visible = layerOn(); grp.add(g); RT3.set(s.id, { g, pick, arK, legs });
   }
@@ -201,7 +203,7 @@ export async function initPonts(A, ST){
   const legMm = (s, p) => { const nd = legNode(s, p), sec = s.sectionMm || 290; return Math.round(nd ? s.zMm + sec / 2 - Math.max(sec / 2, armOf(nd)) - BASE : s.zMm - BASE); };
   const legComp = (s, p) => { const se = C.seriesOf(s.series), L = legMm(s, p); return se && L > 0 ? { ...C.compose(se, L), mm: L } : null; };
   function clearSub(){ const l = P.leg, n = P.node; if (!l && !n) return; P.leg = null; P.node = null; if (l){ const s = byId(l.sid); if (s) build(s); } if (n) cubes3d(); if (window.PLAN) PLAN.P.dirty = true; }
-  function pickLeg(s, pi, yM){ clearSub(); P.pc = null; let k = 0; if (yM != null){ const pcs = legPieces(s, s.points[pi]); let q = BASE; for (k = 0; k < pcs.length - 1; k++){ q += pcs[k]; if (yM * 1000 <= q) break; } } P.leg = { sid: s.id, pi, k }; build(s); pcBar(); if (window.PLAN) PLAN.P.dirty = true; }
+  function pickLeg(s, pi, yM){ clearSub(); P.pc = null; let k = 0; if (yM != null){ const pcs = legPieces(s, s.points[pi]); let q = BASE; for (k = 0; k < pcs.length - 1; k++){ q += pcs[k]; if (yM * 1000 <= q) break; } if (yM * 1000 > BASE + pcs.reduce((x, y) => x + y, 0) + 5 && pcs.length) ST.toast('Ici il n\'y a pas de pièce : il manque ' + Math.round((legMm(s, s.points[pi]) - pcs.reduce((x, y) => x + y, 0)) / 10) + ' cm que la gamme ne sait pas faire. Les boutons « Pont à … m » de la barre règlent la hauteur pour que la tour tombe juste.', true); } P.leg = { sid: s.id, pi, k }; build(s); pcBar(); if (window.PLAN) PLAN.P.dirty = true; }
   function pickNode(k){ if (P.sel) select(null, true); clearSub(); P.pc = null; P.node = k; cubes3d(); pcBar(); ST.render(); if (window.PLAN) PLAN.P.dirty = true; }
   // les pièces d'une tour, de bas en haut : celles qu'on a choisies si elles font la bonne hauteur, sinon la découpe de la gamme
   const legPieces = (s, p) => { const L = legMm(s, p); if (p.pieces && p.pieces.length && Math.abs(p.pieces.reduce((x, y) => x + y, 0) - L) <= 5) return [...p.pieces]; const c = legComp(s, p); return c ? [...c.pieces] : []; };
