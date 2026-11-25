@@ -66,6 +66,7 @@ export async function initPonts(A, ST){
   // ---------------------------------------------------------------- 3D
   const grp = new THREE.Group(); grp.name = 'ponts'; A.scene.add(grp);
   const MAT = new THREE.MeshStandardMaterial({ color: 0xc6cad2, metalness: .7, roughness: .38, emissive: 0x1b1d22 }), MATS = new THREE.MeshStandardMaterial({ color: 0xf2a93b, metalness: .5, roughness: .4, emissive: 0x4a3008 });
+  const MATP = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: .2, roughness: .35, emissive: 0xc8861a });          // la pièce choisie dans un pont
   const MOT = new THREE.MeshStandardMaterial({ color: 0xd9a514, metalness: .3, roughness: .6 }), DARK = new THREE.MeshStandardMaterial({ color: 0x2a2d33, metalness: .5, roughness: .6 });
   const HID = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false });
   const CYL = new THREE.CylinderGeometry(1, 1, 1, 8), BOX = new THREE.BoxGeometry(1, 1, 1), V3 = (x, y, z) => new THREE.Vector3(x, y, z), RT3 = new Map();
@@ -74,15 +75,16 @@ export async function initPonts(A, ST){
     list.forEach(([a, b, r], i) => { d.subVectors(b, a); const L = d.length() || 1e-4; q.setFromUnitVectors(up, d.normalize()); p.addVectors(a, b).multiplyScalar(.5); sc.set(r, L, r); M.compose(p, q, sc); im.setMatrixAt(i, M); });
     im.castShadow = im.receiveShadow = true; im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); im.computeBoundingBox(); im.userData.truss = true; return im;
   }
-  // les tubes d'un pont carré entre deux points de son axe : quatre membrures, des diagonales tous les 50 cm, un cadre à chaque jonction d'éléments
-  function trussTubes(P0, P1, s, cuts = []){
-    const list = [], ax = P1.clone().sub(P0), L = ax.length(); if (L < .01) return list; ax.normalize();
+  // les tubes d'un pont carré entre deux points de son axe, PIÈCE PAR PIÈCE : chaque élément a ses quatre membrures, ses cadres d'extrémité, ses diagonales, et ses manchons de jonction ;
+  // un petit jour entre deux éléments montre où le pont se démonte. hi : numéro de la pièce choisie, rendue à part (list.hi) pour être mise en évidence.
+  function trussTubes(P0, P1, s, cuts = [], hi = -1){
+    const list = []; list.hi = []; const ax = P1.clone().sub(P0), L = ax.length(); if (L < .01) return list; ax.normalize();
     const ref = Math.abs(ax.y) > .9 ? V3(1, 0, 0) : V3(0, 1, 0), u = V3().crossVectors(ax, ref).normalize(), v = V3().crossVectors(ax, u).normalize(), h = Math.max(.04, s / 2 - .025);
-    const cn = (i, t) => P0.clone().addScaledVector(ax, t).addScaledVector(u, (i & 1 ? 1 : -1) * h).addScaledVector(v, (i & 2 ? 1 : -1) * h), faces = [[0, 1], [1, 3], [3, 2], [2, 0]];
-    for (let i = 0; i < 4; i++) list.push([cn(i, 0), cn(i, L), .025]);
-    const n = Math.max(1, Math.round(L / .5)), st = L / n;
-    for (let k = 0; k < n; k++) for (const [a, b] of faces) list.push(k % 2 ? [cn(a, k * st), cn(b, k * st + st), .009] : [cn(b, k * st), cn(a, k * st + st), .009]);
-    for (const t of [0, L, ...cuts.filter(c => c > .05 && c < L - .05)]) for (const [a, b] of faces) list.push([cn(a, t), cn(b, t), .013]);
+    const cn = (i, t) => P0.clone().addScaledVector(ax, t).addScaledVector(u, (i & 1 ? 1 : -1) * h).addScaledVector(v, (i & 2 ? 1 : -1) * h), faces = [[0, 1], [1, 3], [3, 2], [2, 0]], B = [0, ...cuts.filter(c => c > .05 && c < L - .05), L];
+    for (let k = 0; k < B.length - 1; k++){ const t0 = B[k], t1 = B[k + 1], D = t1 - t0, out = k === hi ? list.hi : list, g = Math.min(.007, D * .1), e = Math.min(.045, D * .22), m = Math.min(.04, D * .2);
+      for (let i = 0; i < 4; i++){ out.push([cn(i, t0 + g), cn(i, t1 - g), .025], [cn(i, t0 + g), cn(i, t0 + g + m), .032], [cn(i, t1 - g - m), cn(i, t1 - g), .032]); }          // membrure et ses deux manchons
+      for (const t of [t0 + e, t1 - e]) for (const [a, b] of faces) out.push([cn(a, t), cn(b, t), .013]);                                                                    // cadres d'extrémité
+      const n = Math.max(1, Math.round((D - 2 * e) / .5)), st = (D - 2 * e) / n; for (let q = 0; q < n; q++) for (const [a, b] of faces){ const ta = t0 + e + q * st; out.push(q % 2 ? [cn(a, ta), cn(b, ta + st), .009] : [cn(b, ta), cn(a, ta + st), .009]); } }
     return list;
   }
   const compOf = s => { const se = C.seriesOf(s.series); return se ? C.compOf(se, s, len(s)) : null; };
@@ -105,7 +107,7 @@ export async function initPonts(A, ST){
     else if (s.kind === 'totem'){ const [x, z] = m2(s.a); list.push(...trussTubes(V3(x, .03, z), V3(x, y0, z), sec)); box(sec + .5, .03, sec + .5, x, .015, z, DARK);
       pick = new THREE.Mesh(BOX, HID); pick.scale.set(sec, y0, sec); pick.position.set(x, y0 / 2, z); }
     else { const [ax, az] = m2(s.a), [bx, bz] = m2(s.b), yc = y0 + sec / 2, L = len(s) / 1000;
-      list.push(...trussTubes(V3(ax, yc, az), V3(bx, yc, bz), sec, cutsOf(s)));
+      { const tt = trussTubes(V3(ax, yc, az), V3(bx, yc, bz), sec, cutsOf(s), P.pc && P.pc.sid === s.id ? P.pc.i : -1); list.push(...tt); if (tt.hi.length) g.add(tubes(tt.hi, MATP)); }
       const top = A.venue && !A.venue.open && A.venue.h ? A.venue.h : null;
       for (const p of s.points || []){ const [px, pz] = at(s, p.alongMm);
         if (p.leg){ list.push(...trussTubes(V3(px, .03, pz), V3(px, y0 + sec, pz), sec)); box(sec + .55, .03, sec + .55, px, .015, pz, DARK); continue; }
@@ -119,7 +121,7 @@ export async function initPonts(A, ST){
     g.visible = layerOn(); grp.add(g); RT3.set(s.id, { g, pick });
   }
   const layerOn = () => !(S.layers && S.layers.ponts === false);
-  function sync(){ for (const r of RT3.values()) drop(r); RT3.clear(); if (P.sel && !byId(P.sel)) P.sel = null; link(); sups().forEach(build); cache = null; changed(); }
+  function sync(){ for (const r of RT3.values()) drop(r); RT3.clear(); if (P.sel && !byId(P.sel)) P.sel = null; link(); sups().forEach(build); cache = null; changed(); if (P.pc || bar.style.display !== 'none') pcBar(); }
 
   // ---------------------------------------------------------------- accrocher les appareils
   function hangAt(o, sid, x, z){ const s = byId(sid); if (!s || s.kind !== 'truss') return false; const q = proj(s, x, z); o.hang = 'pont'; o.sid = s.id; o.pos = [q.x, s.zMm / 1000 - .03, q.z]; return true; }
@@ -168,12 +170,23 @@ export async function initPonts(A, ST){
     if (freePts().some(fp => proj(s, fp.a.x / 1000, -fp.a.y / 1000).d < TOLP)) s.points = [];   // des points sont déjà posés sous ce pont : ce sont eux qui le portent
     if (pieces && pieces.length) s.pieces = pieces; applySeries(s, link ? link.series : O.series); sups().push(s); build(s); if (!quiet){ ST.touch(); select(s.id); } return s;
   }
-  function remove(id){ const s = byId(id); if (!s) return; ST.pushUndo(0, 'Supprimer ' + s.name); const n = hungOn(s).length; S.sups = sups().filter(x => x.id !== id); const r = RT3.get(id); if (r){ drop(r); RT3.delete(id); } if (P.sel === id) P.sel = null; ST.touch(); ST.render(); if (n) ST.toast(`${n} appareil(s) accroché(s) à ce pont passent en « accroche fixe ».`, true); }
-  function select(id, quiet){ if (id === P.sel) return; const old = P.sel; P.sel = id && byId(id) ? id : null; for (const k of [old, P.sel]){ const s = k && byId(k); if (s) build(s); }
-    if (P.sel){ if (UI.sel.length) ST.select([]); UI.tab = 'prop'; } if (!quiet){ ST.render(); window.DRAWER?.refresh(['rig']); } if (window.PLAN) PLAN.P.dirty = true; }
+  function remove(id){ const s = byId(id); if (!s) return; ST.pushUndo(0, 'Supprimer ' + s.name); const n = hungOn(s).length; S.sups = sups().filter(x => x.id !== id); const r = RT3.get(id); if (r){ drop(r); RT3.delete(id); } if (P.sel === id) P.sel = null; pcBar(); ST.touch(); ST.render(); if (n) ST.toast(`${n} appareil(s) accroché(s) à ce pont passent en « accroche fixe ».`, true); }
+  // ---------------------------------------------------------------- une pièce d'un pont, choisie dans la vue : on la remplace, on la scinde, on en insère une, on la retire
+  const pieceAt = (s, alongMm) => { const pcs = piecesOf(s); let x = 0; for (let i = 0; i < pcs.length; i++){ x += pcs[i]; if (alongMm <= x + 1) return i; } return Math.max(0, pcs.length - 1); };
+  function pickPiece(s, alongMm){ if (!s || s.kind !== 'truss' || !C.seriesOf(s.series) || !piecesOf(s).length){ const o = P.pc && byId(P.pc.sid); P.pc = null; if (o) build(o); return pcBar(); } const i = pieceAt(s, alongMm); if (P.pc && P.pc.sid === s.id && P.pc.i === i) return pcBar(); const o = P.pc && P.pc.sid !== s.id && byId(P.pc.sid); P.pc = { sid: s.id, i }; if (o) build(o); build(s); pcBar(); if (window.PLAN) PLAN.P.dirty = true; }
+  function pcBar(){ if (P.tl) return; const s = P.pc && byId(P.pc.sid), se = s && C.seriesOf(s.series); if (!s || !se || P.sel !== s.id){ const o = P.pc && byId(P.pc.sid); P.pc = null; if (o) build(o); bar.style.display = 'none'; return; }
+    const pcs = piecesOf(s); P.pc.i = Math.max(0, Math.min(pcs.length - 1, P.pc.i)); const i = P.pc.i, L = pcs[i], kg = (se.lengths.find(l => l[0] === L) || [])[1], half = se.lengths.some(l => l[0] === L / 2);
+    bar.style.display = 'flex'; bar.innerHTML = `<b style="color:var(--accent,#f2a93b)">Pièce ${i + 1} sur ${pcs.length}</b><span>${esc(C.seriesLabel(se))}</span><button class="b" data-pa="pcNav" data-id="-1" title="Pièce précédente">◀</button><button class="b" data-pa="pcNav" data-id="1" title="Pièce suivante">▶</button>
+      <label>Longueur<select data-pcs="${i}">${se.lengths.map(l => `<option value="${l[0]}"${l[0] === L ? ' selected' : ''}>${f(l[0] / 1000, 2)} m${l[1] != null ? ' · ' + f(l[1], 1) + ' kg' : ''}</option>`).join('')}</select></label><span>${kg != null ? f(kg, 1) + ' kg' : '<span style="color:#f0a23c">poids inconnu</span>'}</span>
+      <button class="b" data-pa="pcIns" title="Ajoute une pièce identique juste après celle-ci">Insérer la même après</button>${half ? '<button class="b" data-pa="pcSplit" title="Deux pièces moitié moins longues à la place">Scinder en deux</button>' : ''}<button class="b" data-pa="pcShift" data-id="-1" title="Échange avec la pièce précédente"${i ? '' : ' disabled'}>⇤ Reculer</button><button class="b" data-pa="pcShift" data-id="1" title="Échange avec la pièce suivante"${i < pcs.length - 1 ? '' : ' disabled'}>Avancer ⇥</button><button class="b" data-pa="pcDel" data-id="${i}">Retirer</button>
+      <span style="flex-basis:100%;color:var(--text-muted,#a3abb8)">Pont ${esc(s.name)} : ${f(len(s) / 1000, 2)} m en ${pcs.length} pièce${pcs.length > 1 ? 's' : ''}. Le pont garde son premier bout en place : changer une pièce déplace l'autre bout. Clique une autre pièce pour la choisir.</span>`; }
+  // les pièces des fabricants, proposées dans la bibliothèque (onglet Structure) : un clic arme l'outil « pièce par pièce » avec cette pièce
+  function libHtml(){ return `<h2>Ponts : pièces des fabricants</h2><div class="info">Choisis une pièce, puis clique dans le plan ou la vue 3D. Près d'un bout de pont, elle s'y raccorde : droit devant elle le prolonge, sur le côté elle part en coin.</div>${C.TRUSS_LIB.map(se => `<div class="sub" style="margin:8px 0 4px"><b>${esc(C.seriesLabel(se))}</b> · carré de ${se.sectionMm / 10} cm</div><div style="display:flex;flex-wrap:wrap;gap:5px">${se.lengths.map(l => `<button class="b${P.tl && P.tl.k === 'piece' && O.series === se.id && O.piece === l[0] ? ' on' : ''}" data-pa="libPiece" data-id="${se.id}|${l[0]}" title="${l[1] != null ? f(l[1], 1) + ' kg' : 'poids non relevé chez le fabricant'}">${f(l[0] / 1000, 2)} m<small style="opacity:.7"> ${l[1] != null ? f(l[1], 1) + ' kg' : '? kg'}</small></button>`).join('')}</div>`).join('')}`; }
+  function select(id, quiet){ if (id === P.sel){ if (P.pc) pcBar(); return; } const old = P.sel; P.sel = id && byId(id) ? id : null; for (const k of [old, P.sel]){ const s = k && byId(k); if (s) build(s); }
+    if (P.sel){ if (UI.sel.length) ST.select([]); UI.tab = 'prop'; } if (!quiet){ ST.render(); window.DRAWER?.refresh(['rig']); } if (window.PLAN) PLAN.P.dirty = true; pcBar(); }
   const rc = new THREE.Raycaster();
   const ray = e => { const r = A.canvas.getBoundingClientRect(); rc.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), A.camera); return rc; };
-  function pick3D(e){ if (P.tl || !layerOn()) return; const h = ray(e).intersectObjects([...RT3.values()].map(r => r.pick), false)[0]; select(h ? h.object.userData.sid : null); }
+  function pick3D(e){ if (P.tl || !layerOn()) return; const h = ray(e).intersectObjects([...RT3.values()].map(r => r.pick), false)[0]; select(h ? h.object.userData.sid : null); const s = h && byId(h.object.userData.sid); pickPiece(s && s.kind === 'truss' ? s : null, s && s.kind === 'truss' ? proj(s, h.point.x, h.point.z).along : 0); }
   const ground = e => { const r = ray(e).ray, t = -r.origin.y / r.direction.y; return isFinite(t) && t > 0 ? [r.origin.x + r.direction.x * t, r.origin.z + r.direction.z * t] : null; };
 
   // ---------------------------------------------------------------- tracé à la souris (repris de trussSnap.ts)
@@ -225,7 +238,7 @@ export async function initPonts(A, ST){
       <button class="b" data-pa="pcMode" title="Poser les éléments un par un, en choisissant chaque longueur">Pièce par pièce</button><button class="b" data-pa="struct">Structure toute faite…</button><button class="b on" data-pa="toolEnd">Terminer (Échap)</button>
       <span style="flex-basis:100%;color:var(--text-muted,#a3abb8)">${t && t.first ? (t.info || 'Clique le second bout.') : 'Clique le premier bout dans le plan ou la vue 3D. Près d\'un bout de pont, il s\'y raccorde.'}${se ? ' À la souris, la longueur va par ' + se.stepMm / 10 + ' cm (éléments standard) ; tape une longueur pour la découpe la plus proche.' : ''}</span>`; }
   const prev = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(), V3()]), new THREE.LineBasicMaterial({ color: 0xf2a93b, depthTest: false })); prev.renderOrder = 999; prev.visible = false; prev.frustumCulled = false; A.scene.add(prev);
-  function tool(on){ const k = on === true ? 'truss' : on || null; if (k === (P.tl ? P.tl.k : null)) return; on = !!k; P.tl = on ? { k, first: null, link: null, cur: null } : null; if (on) window.PUB?.tool?.(null); UI.placing = null; UI.aiming = false; bar.style.display = on ? 'flex' : 'none'; if (on){ barHtml(); select(null, true); } prev.visible = false; A.canvas.style.cursor = on ? 'crosshair' : ''; if (window.PLAN) PLAN.P.dirty = true; ST.render(); window.DOCK?.build?.(); }
+  function tool(on){ const k = on === true ? 'truss' : on || null; if (k === (P.tl ? P.tl.k : null)) return; on = !!k; P.tl = on ? { k, first: null, link: null, cur: null } : null; if (on) window.PUB?.tool?.(null); UI.placing = null; UI.aiming = false; bar.style.display = on ? 'flex' : 'none'; if (on){ P.pc = null; barHtml(); select(null, true); } prev.visible = false; A.canvas.style.cursor = on ? 'crosshair' : ''; if (window.PLAN) PLAN.P.dirty = true; ST.render(); window.DOCK?.build?.(); }
   const gridPts = c => { const q = O.pt, out = []; for (let i = 0; i < q.nx; i++) for (let j = 0; j < q.nz; j++) out.push({ x: Math.round(c.x + (i - (q.nx - 1) / 2) * q.ex * 1000), y: Math.round(c.y + (j - (q.nz - 1) / 2) * q.ez * 1000) }); return out; };
   function toolMove(x, z, free){ const t = P.tl; if (!t) return; const raw = mm(x, z);
     if (t.k === 'piece'){ const pm = O.piece, e = trussEnd(raw, 600), an = e ? e : t.from && byId(t.from.sup.id) && !t.loose ? { at: t.from.at, sup: byId(t.from.sup.id) } : null; let a, b, corner = null, link = null;
@@ -279,7 +292,7 @@ export async function initPonts(A, ST){
       if (UI.placing || PLAN.P.tl === 'box' || PLAN.P.picker || e.shiftKey || !layerOn() || window.PUB?.busy?.()) return;
       const tol = Math.max(.2, 9 / PLAN.P.s); let best = null, bd = 1e9; for (const s of sups()){ const q = s.kind !== 'truss' ? { d: Math.hypot(x - s.a.x / 1000, z + s.a.y / 1000) - (s.kind === 'point' ? .12 : 0) } : proj(s, x, z), lim = s.kind === 'point' ? Math.max(tol, .2) : Math.max(tol, sect(s) / 2 + .05); if (q.d < lim && q.d < bd){ bd = q.d; best = s; } }
       if (!best || PLAN.hit(x, z)) { if (!best && P.sel) select(null); return; }
-      e.stopImmediatePropagation(); e.preventDefault(); select(best.id); cv.setPointerCapture(e.pointerId); drag = { s: best, x, z, a: { ...best.a }, b: { ...best.b }, moved: false, id: e.pointerId }; }, true);
+      e.stopImmediatePropagation(); e.preventDefault(); select(best.id); pickPiece(best.kind === 'truss' ? best : null, best.kind === 'truss' ? proj(best, x, z).along : 0); cv.setPointerCapture(e.pointerId); drag = { s: best, x, z, a: { ...best.a }, b: { ...best.b }, moved: false, id: e.pointerId }; }, true);
     cv.addEventListener('pointermove', e => { if (P.tl){ const [x, z] = PLAN.world(e); toolMove(x, z, e.altKey); return; } if (!drag) return; const [x, z] = PLAN.world(e), st = e.altKey ? .01 : .05, dx = Math.round((x - drag.x) / st) * st * 1000, dy = -Math.round((z - drag.z) / st) * st * 1000;
       if (!drag.moved && Math.hypot(dx, dy) < 40) return; const first = !drag.moved; drag.moved = true; if (first) ST.pushUndo(0, 'Déplacer ' + drag.s.name);
       const s = drag.s, hung = hungOn(s).map(o => [o, proj(s, o.pos[0], o.pos[2]).along]); s.a = { x: drag.a.x + dx, y: drag.a.y + dy }; s.b = { x: drag.b.x + dx, y: drag.b.y + dy };
@@ -305,6 +318,7 @@ export async function initPonts(A, ST){
       c.strokeStyle = col; c.lineWidth = (sel ? 2 : 1.2) * K; c.setLineDash([]); c.fillStyle = PAPER; c.beginPath(); c.moveTo(X(ax + nx), Z(az + nz)); c.lineTo(X(bx + nx), Z(bz + nz)); c.lineTo(X(bx - nx), Z(bz - nz)); c.lineTo(X(ax - nx), Z(az - nz)); c.closePath(); c.fill(); c.stroke();
       if (sc > 14){ c.lineWidth = .5 * K; c.beginPath(); const n = Math.max(1, Math.round(L / .5)); for (let k = 0; k <= n; k++){ const t = L * k / n, sg = k % 2 ? 1 : -1; c[k ? 'lineTo' : 'moveTo'](X(ax + ux * t + nx * sg), Z(az + uz * t + nz * sg)); } c.stroke();
         c.lineWidth = 1 * K; for (const t of cutsOf(s)){ if (t > L - .05) continue; c.beginPath(); c.moveTo(X(ax + ux * t + nx * 1.5), Z(az + uz * t + nz * 1.5)); c.lineTo(X(ax + ux * t - nx * 1.5), Z(az + uz * t - nz * 1.5)); c.stroke(); } }
+      if (P.pc && P.pc.sid === s.id){ const cu = [0, ...cutsOf(s)], t0 = cu[P.pc.i] ?? 0, t1 = Math.min(L, cu[P.pc.i + 1] ?? L); c.strokeStyle = ACC; c.lineWidth = 2.8 * K; c.beginPath(); c.moveTo(X(ax + ux * t0 + nx), Z(az + uz * t0 + nz)); c.lineTo(X(ax + ux * t1 + nx), Z(az + uz * t1 + nz)); c.lineTo(X(ax + ux * t1 - nx), Z(az + uz * t1 - nz)); c.lineTo(X(ax + ux * t0 - nx), Z(az + uz * t0 - nz)); c.closePath(); c.stroke(); c.strokeStyle = col; }
       (s.points || []).forEach((p, i) => { const [px, pz] = at(s, p.alongMm), pr = r && r.points[i], pc = pr && (pr.over || pr.uplift) ? ACC : BLUE, rad = Math.max(3.5 * K, .16 * sc); c.strokeStyle = pc; c.fillStyle = PAPER; c.lineWidth = 1.3 * K;
         if (p.leg){ const h = Math.max(4.5 * K, (sec / 2 + .14) * sc); c.fillRect(X(px) - h, Z(pz) - h, 2 * h, 2 * h); c.strokeRect(X(px) - h, Z(pz) - h, 2 * h, 2 * h); }
         else { c.beginPath(); c.arc(X(px), Z(pz), rad, 0, 7); c.fill(); c.stroke(); if (p.kind === 'hoist'){ c.beginPath(); c.moveTo(X(px) - rad, Z(pz)); c.lineTo(X(px) + rad, Z(pz)); c.moveTo(X(px), Z(pz) - rad); c.lineTo(X(px), Z(pz) + rad); c.stroke(); } else { c.fillStyle = pc; c.beginPath(); c.arc(X(px), Z(pz), rad * .4, 0, 7); c.fill(); } }
@@ -420,13 +434,15 @@ export async function initPonts(A, ST){
   }
   document.addEventListener('change', e => { const el = e.target; if (!el.dataset) return;
     if (el.dataset.ck != null){ e.stopPropagation(); const v = num(el.value), K = cornerKg(); ST.pushUndo(0, 'Poids du coin'); if (v > 0) K[el.dataset.ck] = v; else delete K[el.dataset.ck]; changed(); return; }
-    if (el.dataset.pcs != null){ const s = byId(P.sel); if (!s) return; e.stopPropagation(); const pcs = piecesOf(s); pcs[+el.dataset.pcs] = +el.value; mutate(s, x => setPieces(x, pcs), 'Pièces de ' + s.name); return A.keepFocus(ST.render); }
+    if (el.dataset.pcs != null){ const s = byId(P.sel); if (!s) return; e.stopPropagation(); const pcs = piecesOf(s); pcs[+el.dataset.pcs] = +el.value; mutate(s, x => setPieces(x, pcs), 'Pièces de ' + s.name); pcBar(); return A.keepFocus(ST.render); }
     if (el.dataset.pq){ const k = el.dataset.pq, q = O.pt; if (k === 'kind') q.kind = el.value; else if (k === 'nx' || k === 'nz') q[k] = Math.max(1, Math.min(20, Math.round(num(el.value) || 1))); else if (k === 'ex' || k === 'ez') q[k] = Math.max(.05, num(el.value) || 1); else q[k] = el.value; saveO(); barHtml(); return; }
     if (el.dataset.po){ const k = el.dataset.po; if (k === 'len'){ const v = num(el.value); el.value = ''; return typedLen(v); } if (k === 'series') O.series = el.value; else if (k === 'z'){ const v = num(el.value); if (v > 0) O.zMm = Math.round(v * 1000); } else if (k === 'hang') O.hang = el.value; else if (k === 'chain') O.chain = el.checked; saveO(); barHtml(); return; }
     if (el.dataset.sp && SP){ const k = el.dataset.sp, v = num(el.value); if (k === 'series') SP.series = el.value || undefined; else if (k === 'name') SP.name = el.value; else if (k === 'rotDeg' || k === 'kgPerM') SP[k] = v || 0; else if (k === 'count') SP.count = Math.max(1, Math.round(v || 1)); else if (k === 'sectionMm') SP.sectionMm = +el.value; else SP[k] = Math.round((v || 0) * 1000); structDraw(); return; }
     if (el.dataset.sf){ const sf = safety(), k = el.dataset.sf, v = num(el.value); ST.pushUndo('sf' + k, 'Réglages de sécurité'); if (k === 'peopleBelow') sf.peopleBelow = el.checked; else if (k === 'check') sf.checklist[el.dataset.id] = el.checked; else if (k === 'checkedBy') sf.checkedBy = el.value; else if (k === 'supplyA') sf.supplyA = v > 0 ? v : null; else if (k === 'supplyPhases') sf.supplyPhases = +el.value === 1 ? 1 : 3; else if (k === 'dynFactor') sf.dynFactor = Math.max(1, v || 1); else if (v != null && v >= 0) sf[k] = v; e.stopPropagation(); ST.touch(); A.keepFocus(() => window.DRAWER?.refresh()); return; }
     if (!el.dataset.pk) return; const s = byId(P.sel); if (!s) return; e.stopPropagation(); mutate(s, x => setField(x, el), 'Régler ' + s.name, el.dataset.pk + (el.dataset.pi || '')); A.keepFocus(ST.render); }, true);
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-pa]'); if (!b) return; const a = b.dataset.pa, s = byId(P.sel), id = b.dataset.id;
+    if (a === 'libPiece'){ const [sid, mm_] = id.split('|'); O.series = sid; O.piece = +mm_; saveO(); if (P.tl && P.tl.k === 'piece') barHtml(); else tool('piece'); return ST.render(); }
+
     if (a === 'pcMode') return tool('piece'); if (a === 'pcPick'){ O.piece = +id; saveO(); barHtml(); return; } if (a === 'pcRot'){ O.pieceRot = ((O.pieceRot || 0) + 90) % 360; saveO(); return; } if (a === 'pcBack') return pieceBack(); if (a === 'pcFree'){ if (P.tl){ P.tl.from = null; P.tl.loose = true; P.tl.info = ''; barHtml(); } return; }
     if (a === 'show3d'){ O.show3d = !O.show3d; saveO(); loads3d(); return window.DRAWER?.refresh(['rig']); }
     if (a === 'struct') return structOpen(); if (a === 'toolEnd') return tool(false); if (a === 'stype'){ SP.type = id; return structDraw(); } if (a === 'sok') return structPlace();
@@ -435,7 +451,9 @@ export async function initPonts(A, ST){
     if (!s) return;
     if (a === 'ptOpen'){ UI.ptOpen = UI.ptOpen === id ? null : id; return ST.render(); }
     if (a === 'del') return remove(s.id);
-    if (a === 'pcDel' || a === 'pcAdd'){ const pcs = piecesOf(s); if (a === 'pcDel'){ if (pcs.length < 2) return ST.toast('Un pont garde au moins une pièce : supprime le pont.', true); pcs.splice(+id, 1); } else pcs.push(pcs[pcs.length - 1] || 2000); mutate(s, x => setPieces(x, pcs), 'Pièces de ' + s.name); return ST.render(); }
+    if (a === 'pcNav' && P.pc && s){ const n = piecesOf(s).length; P.pc.i = (P.pc.i + +id + n) % n; build(s); pcBar(); if (window.PLAN) PLAN.P.dirty = true; return; }
+    if ((a === 'pcIns' || a === 'pcSplit' || a === 'pcShift') && P.pc && s){ const pcs = piecesOf(s), i = P.pc.i; if (a === 'pcIns') pcs.splice(i + 1, 0, pcs[i]); else if (a === 'pcSplit') pcs.splice(i, 1, pcs[i] / 2, pcs[i] / 2); else { const j = i + +id; if (j < 0 || j >= pcs.length) return; [pcs[i], pcs[j]] = [pcs[j], pcs[i]]; P.pc.i = j; } mutate(s, x => setPieces(x, pcs), 'Pièces de ' + s.name); pcBar(); return ST.render(); }
+    if (a === 'pcDel' || a === 'pcAdd'){ const pcs = piecesOf(s); if (a === 'pcDel'){ if (pcs.length < 2) return ST.toast('Un pont garde au moins une pièce : supprime le pont.', true); pcs.splice(+id, 1); } else pcs.push(pcs[pcs.length - 1] || 2000); mutate(s, x => setPieces(x, pcs), 'Pièces de ' + s.name); pcBar(); return ST.render(); }
     if (a === 'lenSet'){ const fake = { dataset: { pk: 'lenM' }, value: String(+id / 1000), type: 'number' }; mutate(s, x => setField(x, fake), 'Longueur de ' + s.name); return ST.render(); }
     if (a === 'dup'){ ST.pushUndo(0, 'Dupliquer ' + s.name); const c = JSON.parse(JSON.stringify(s)); c.id = uid(); c.name = nextName(s.kind === 'totem' ? 'Totem' : s.kind === 'point' ? (s.pt.kind === 'hoist' ? 'Moteur' : 'Point') : 'Pont'); c.points = (c.points || []).filter(p => !p.pid); c.a.y -= 1000; c.b.y -= 1000; (c.points || []).forEach(p => p.id = uid()); sups().push(c); build(c); ST.touch(); return select(c.id); }
     const L = len(s);
@@ -497,6 +515,6 @@ export async function initPonts(A, ST){
   }
 
   addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset && e.target.dataset.po === 'len'){ e.preventDefault(); e.target.blur(); } }, true);
-  Object.assign(P, { nodes, bom, cubes3d, placePiece, setPieces, piecesOf, loads3d, nearest, link, addPoints, bestComp, nearComps, O, sync, changed, snap, hangAt, near, attachNearest, pick3D, select, propHtml, rigHtml, secuHtml, tool, structOpen, addTruss, remove, byId, results, resOf, doc, summary, safety, SITE_CHECKS, build, len, at, proj, nameOf: id => byId(id)?.name || '?', layer: () => { const on = layerOn(); for (const r of RT3.values()) r.g.visible = on; loads3d(); if (window.PLAN) PLAN.P.dirty = true; }, WORD, COL });
+  Object.assign(P, { libHtml, pickPiece, nodes, bom, cubes3d, placePiece, setPieces, piecesOf, loads3d, nearest, link, addPoints, bestComp, nearComps, O, sync, changed, snap, hangAt, near, attachNearest, pick3D, select, propHtml, rigHtml, secuHtml, tool, structOpen, addTruss, remove, byId, results, resOf, doc, summary, safety, SITE_CHECKS, build, len, at, proj, nameOf: id => byId(id)?.name || '?', layer: () => { const on = layerOn(); for (const r of RT3.values()) r.g.visible = on; loads3d(); if (window.PLAN) PLAN.P.dirty = true; }, WORD, COL });
   window.PONTS = P; sync();
 }
