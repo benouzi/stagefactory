@@ -112,7 +112,8 @@ export async function initPonts(A, ST){
       const h = nd.sec / 2000 - .02, d = nd.members[0].dir, ux = d.x, uz = -d.y, vx = -uz, vz = ux, cn = (i, j, k) => V3(x + ux * i * h + vx * k * h, yc + j * h, z + uz * i * h + vz * k * h);
       for (const a of [-1, 1]) for (const b of [-1, 1]){ list.push([cn(-1, a, b), cn(1, a, b), .03], [cn(a, -1, b), cn(a, 1, b), .03], [cn(a, b, -1), cn(a, b, 1), .03]); }
       for (const a of [-1, 1]){ list.push([cn(-1, a, -1), cn(1, a, 1), .012], [cn(-1, -1, a), cn(1, 1, a), .012], [cn(a, -1, -1), cn(a, 1, 1), .012]); } }
-    nodePicks.length = 0; for (const nd of N){ const [x, z] = m2(nd.at), sec = nd.sec / 1000, r = Math.max(sec / 2, Math.min(armOf(nd) / 1000, sec / 2 + .12)), pk = new THREE.Mesh(BOX, HID); pk.scale.set(2 * r, sec + .04, 2 * r); pk.position.set(x, nd.z / 1000 + sec / 2, z); pk.userData = { node: ndKey(nd) }; g.add(pk); nodePicks.push(pk); }
+    nodePicks.length = 0; for (const nd of N){ const [x, z] = m2(nd.at), sec = nd.sec / 1000, arm = armOf(nd) / 1000, yc = nd.z / 1000 + sec / 2, k = ndKey(nd), add = (sx, sy, sz, px, py, pz, ry) => { const pk = new THREE.Mesh(BOX, HID); pk.scale.set(sx, sy, sz); pk.position.set(px, py, pz); if (ry) pk.rotation.y = ry; pk.userData = { node: k }; g.add(pk); nodePicks.push(pk); };
+      add(sec + .04, sec + .04, sec + .04, x, yc, z, Math.atan2(nd.members[0].dir.y, nd.members[0].dir.x)); const la = arm - sec / 2; if (la > .02){ for (const m of nd.members){ const dx = m.dir.x, dz = -m.dir.y, c = sec / 2 + la / 2; add(la, sec + .04, sec + .04, x + dx * c, yc, z + dz * c, -Math.atan2(dz, dx)); } if (nd.tower) add(sec + .04, la, sec + .04, x, yc - sec / 2 - la / 2, z, 0); } }
     if (all.length) g.add(tubes(all, CUBE)); if (hiL.length) g.add(tubes(hiL, MATP)); cubeG = g; A.scene.add(g); }
   function drop(r){ grp.remove(r.g); r.g.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); const i = A.pickMeshes.indexOf(r.pick); if (i >= 0) A.pickMeshes.splice(i, 1); }
   function build(s){
@@ -135,7 +136,7 @@ export async function initPonts(A, ST){
         if (p.bridle && p.bridle.dropMm > 0){ const ya = Math.max(yt + .5, hy - p.bridle.dropMm / 1000); chains.push([V3(px, yt, pz), V3(px, ya, pz), .012], [V3(px, ya, pz), V3(px - p.bridle.aMm / 1000, hy, pz), .01], [V3(px, ya, pz), V3(px + p.bridle.bMm / 1000, hy, pz), .01]); }
         else chains.push([V3(px, yt, pz), V3(px, hy, pz), p.kind === 'hoist' ? .012 : .008]);
         if (p.kind === 'hoist') box(.2, .32, .26, px, yt + .32, pz, MOT); }
-      pick = new THREE.Mesh(BOX, HID); pick.scale.set(L, sec, sec); pick.position.set((ax + bx) / 2, yc, (az + bz) / 2); pick.rotation.y = -Math.atan2(bz - az, bx - ax); }
+      { const [q0, q1] = arms(s), ux = (bx - ax) / (L || 1), uz = (bz - az) / (L || 1), sp = Math.max(.05, L - (q0 + q1) / 1000), mid = q0 / 1000 + sp / 2; pick = new THREE.Mesh(BOX, HID); pick.scale.set(sp, sec, sec); pick.position.set(ax + ux * mid, yc, az + uz * mid); pick.rotation.y = -Math.atan2(bz - az, bx - ax); } }
     if (list.length) g.add(tubes(list, mat)); if (chains.length) g.add(tubes(chains, DARK)); if (gaps.length){ const gm = tubes(gaps, MATR); gm.castShadow = false; g.add(gm); }
     pick.userData = { gid: 'ponts', sid: s.id }; g.add(pick); A.pickMeshes.push(pick);
     g.visible = layerOn(); grp.add(g); RT3.set(s.id, { g, pick, arK, legs });
@@ -238,8 +239,8 @@ export async function initPonts(A, ST){
   const rc = new THREE.Raycaster();
   const ray = e => { const r = A.canvas.getBoundingClientRect(); rc.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), A.camera); return rc; };
   function pick3D(e){ if (P.tl || !layerOn()) return; const rr = ray(e), hn = rr.intersectObjects(nodePicks, false)[0], hl = rr.intersectObjects([...RT3.values()].flatMap(r => r.legs || []), false)[0], h0 = rr.intersectObjects([...RT3.values()].map(r => r.pick), false)[0];
-    if (hn && (!hl || hn.distance <= hl.distance + .05) && (!h0 || hn.distance <= h0.distance + .2)) return pickNode(hn.object.userData.node);
-    if (hl && (!h0 || hl.distance <= h0.distance + .05)){ const s = byId(hl.object.userData.sid); if (s){ P._keepSub = true; select(s.id); P._keepSub = false; return pickLeg(s, hl.object.userData.leg, hl.point.y); } }
+    if (hn && (!hl || hn.distance <= hl.distance + .02) && (!h0 || hn.distance <= h0.distance + .02)) return pickNode(hn.object.userData.node);
+    if (hl && (!h0 || hl.distance <= h0.distance + .02)){ const s = byId(hl.object.userData.sid); if (s){ P._keepSub = true; select(s.id); P._keepSub = false; return pickLeg(s, hl.object.userData.leg, hl.point.y); } }
     const h = h0; select(h ? h.object.userData.sid : null); const s = h && byId(h.object.userData.sid); pickPiece(s && s.kind === 'truss' ? s : null, s && s.kind === 'truss' ? proj(s, h.point.x, h.point.z).along : 0); }
   const ground = e => { const r = ray(e).ray, t = -r.origin.y / r.direction.y; return isFinite(t) && t > 0 ? [r.origin.x + r.direction.x * t, r.origin.z + r.direction.z * t] : null; };
 
@@ -352,7 +353,7 @@ export async function initPonts(A, ST){
     cv.addEventListener('pointerdown', e => { if (e.button !== 0 || PLAN.P.view === 'coupe') return; const [x, z] = PLAN.world(e);
       if (P.tl){ e.stopImmediatePropagation(); e.preventDefault(); toolClick(x, z, e.altKey); return; }
       if (UI.placing || PLAN.P.tl === 'box' || PLAN.P.picker || e.shiftKey || !layerOn() || window.PUB?.busy?.()) return;
-      { const nd = nodes().find(n => Math.hypot(n.at.x / 1000 - x, -n.at.y / 1000 - z) < n.sec / 2000 + .08); if (nd && !PLAN.hit(x, z)){ e.stopImmediatePropagation(); e.preventDefault(); return pickNode(ndKey(nd)); } }
+      { const nd = nodes().find(n => { const cx = n.at.x / 1000, cz = -n.at.y / 1000, hw = n.sec / 2000 + .06, arm = armOf(n) / 1000; if (Math.abs(x - cx) < hw && Math.abs(z - cz) < hw) return true; return n.members.some(m => { const dx = m.dir.x, dz = -m.dir.y, t = (x - cx) * dx + (z - cz) * dz, w = Math.abs((x - cx) * dz - (z - cz) * dx); return t > 0 && t < arm && w < hw; }); }); if (nd && !PLAN.hit(x, z)){ e.stopImmediatePropagation(); e.preventDefault(); return pickNode(ndKey(nd)); } }
       const tol = Math.max(.2, 9 / PLAN.P.s); let best = null, bd = 1e9; for (const s of sups()){ const q = s.kind !== 'truss' ? { d: Math.hypot(x - s.a.x / 1000, z + s.a.y / 1000) - (s.kind === 'point' ? .12 : 0) } : proj(s, x, z), lim = s.kind === 'point' ? Math.max(tol, .2) : Math.max(tol, sect(s) / 2 + .05); if (q.d < lim && q.d < bd){ bd = q.d; best = s; } }
       if (!best || PLAN.hit(x, z)) { if (!best && P.sel) select(null); return; }
       e.stopImmediatePropagation(); e.preventDefault(); select(best.id); pickPiece(best.kind === 'truss' ? best : null, best.kind === 'truss' ? proj(best, x, z).along : 0); cv.setPointerCapture(e.pointerId); drag = { s: best, x, z, a: { ...best.a }, b: { ...best.b }, moved: false, id: e.pointerId }; }, true);

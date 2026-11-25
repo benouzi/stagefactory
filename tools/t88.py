@@ -37,13 +37,23 @@ with sync_playwright() as p:
     nd=ev("(()=>{const n=PONTS.nodes().slice().sort((a,b)=>(a.at.x-a.at.y)-(b.at.x-b.at.y))[0];return {x:n.at.x/1000,z:-n.at.y/1000,y:n.z/1000,k:PONTS.nodeKey(n)}})()"); ev("([x,y,z])=>{APP.camera.position.set(x-5,y+2.5,z+7);APP.orbit.target.set(x,y-1.5,z);APP.orbit.update()}",[nd['x'],nd['y'],nd['z']]); pg.wait_for_timeout(900)
     pg.mouse.click(*ev(S3,[nd['x'],nd['y']+.14,nd['z']])); pg.wait_for_timeout(500); txt=ev("document.querySelector('#pontBar').innerText")
     ok(ev("PONTS.node")==nd['k'] and txt.startswith('Coin') and '3 départs' in txt,'clic sur un coin en 3D : il est choisi',txt[:160]); pg.screenshot(path=OUT+'/t88-coin.png',clip={'x':60,'y':45,'width':1090,'height':560})
+    # n'importe où sur le coin : au milieu d'un bras, puis juste après le bras (premier élément droit)
+    mb=ev("(()=>{const n=PONTS.nodes().find(n=>PONTS.nodeKey(n)===PONTS.node);return n.members.map(m=>[m.dir.x,-m.dir.y])})()")
+    for i,(dx,dz) in enumerate(mb):
+        ev('PONTS.select(null)'); pg.wait_for_timeout(200); pg.mouse.click(*ev(S3,[nd['x']+dx*.32,nd['y']+.29,nd['z']+dz*.32])); pg.wait_for_timeout(450)
+        ok(ev('PONTS.node')==nd['k'],'clic au milieu du bras %d du coin en 3D : le coin est choisi'%(i+1),ev('[PONTS.node,PONTS.sel,JSON.stringify(PONTS.pc)]'))
+    dx,dz=mb[0]; ev('PONTS.select(null)'); pg.wait_for_timeout(200); pg.mouse.click(*ev(S3,[nd['x']+dx*.9,nd['y']+.29,nd['z']+dz*.9])); pg.wait_for_timeout(450)
+    ok(ev('!PONTS.node && !!PONTS.sel && !!PONTS.pc'),'clic juste après le bras : c\'est la pièce du pont qui est choisie',ev('[PONTS.node,PONTS.sel,JSON.stringify(PONTS.pc)]'))
+    ev('PONTS.select(null)'); pg.mouse.click(*ev(S3,[nd['x'],nd['y']+.14,nd['z']])); pg.wait_for_timeout(450)
     # son poids, inconnu au catalogue, se saisit et entre dans la nomenclature
     pg.fill('#pontBar [data-ck]','9.5'); pg.keyboard.press('Tab'); pg.wait_for_timeout(700); bm=ev("PONTS.bom().lines.filter(l=>/coin/.test(l.item)).map(l=>[l.item,l.qty,l.kgEach])"); ok(bm and bm[0][1]==4 and bm[0][2]==9.5,'poids du coin saisi : repris dans la nomenclature pour les 4 coins',bm)
     # plan : clic sur le coin
     ev("PONTS.select(null);document.querySelector('#planBtn').click()"); pg.wait_for_timeout(600); ev("PLAN.fit();PLAN.draw()"); pg.wait_for_timeout(300)
     def P(x,z): return ev("([x,z])=>{const cv=document.querySelector('#plan2d'),r=cv.getBoundingClientRect(),P=PLAN.P;return [r.left+P.ox+x*P.s,r.top+P.oy+z*P.s]}",[x,z])
     ev("PONTS.pickNode&&0"); pg.mouse.click(5,5); pg.mouse.click(*P(nd['x'],nd['z'])); pg.wait_for_timeout(400); ok(ev("PONTS.node")==nd['k'],'clic sur le coin dans le plan : il est choisi',ev("PONTS.node"))
-    pg.mouse.click(*P(nd['x']+2,nd['z'])); pg.wait_for_timeout(400); ok(ev("!PONTS.node && !!PONTS.sel && !!PONTS.pc"),'clic sur le pont ensuite : le coin est lâché, la pièce est choisie',ev("[PONTS.node,PONTS.sel,JSON.stringify(PONTS.pc)]"))
+    for i,(dx,dz) in enumerate(mb):
+        ev('PONTS.select(null)'); pg.wait_for_timeout(150); pg.mouse.click(*P(nd['x']+dx*.4,nd['z']+dz*.4)); pg.wait_for_timeout(350); ok(ev('PONTS.node')==nd['k'],'plan : clic sur le bras %d du coin, le coin est choisi'%(i+1),ev('[PONTS.node,PONTS.sel]'))
+    pg.mouse.click(*P(nd['x']+mb[0][0]*2,nd['z']+mb[0][1]*2)); pg.wait_for_timeout(400); ok(ev("!PONTS.node && !!PONTS.sel && !!PONTS.pc"),'clic sur le pont ensuite : le coin est lâché, la pièce est choisie',ev("[PONTS.node,PONTS.sel,JSON.stringify(PONTS.pc)]"))
     e=[x for x in errs if 'favicon' not in x]; ok(not e,'aucune erreur dans la console',e[:3])
     b.close()
 print('fin', 'ECHECS: '+' | '.join(bad) if bad else 'tout passe')
