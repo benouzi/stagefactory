@@ -470,7 +470,7 @@ export async function initPonts(A, ST){
   } bindPlan();
 
   // ---------------------------------------------------------------- dessin dans le plan et la coupe
-  (window.PLANX || (window.PLANX = [])).push(({ c, X, Z, V, s: sc, K, cp, INK, BLUE, ACC, MID, PAPER, text, P: PP }) => {
+  const pontPlan = ({ c, X, Z, V, s: sc, K, cp, INK, BLUE, ACC, MID, PAPER, text, P: PP }) => {
     if (!layerOn()) return; const R = results();
     for (const s of sups()){ const sel = P.sel === s.id || inSt(s), r = s.kind === 'truss' ? R.get(s.id) : null, col = sel ? ACC : r && r.count && r.verdict === 'bad' ? ACC : INK, sec = sect(s);
       if (cp){ const hz = q => PP.face ? q.x / 1000 : -q.y / 1000; if (s.kind === 'point'){ if (!s.on && s.zMm){ c.strokeStyle = BLUE; c.lineWidth = 1.2 * K; c.beginPath(); c.arc(X(hz(s.a)), V(s.zMm / 1000), 3.5 * K, 0, 7); c.stroke(); } continue; }
@@ -506,7 +506,7 @@ export async function initPonts(A, ST){
     else if (t && !cp && t.cur){ const [cx, cz] = m2(t.cur); c.strokeStyle = ACC; c.fillStyle = ACC; c.lineWidth = 1.4 * K;
       if (t.first){ const [ax, az] = m2(t.first); c.setLineDash([6, 4]); c.beginPath(); c.moveTo(X(ax), Z(az)); c.lineTo(X(cx), Z(cz)); c.stroke(); c.setLineDash([]); c.beginPath(); c.arc(X(ax), Z(az), 4, 0, 7); c.fill(); if (t.info) text(t.info, cx, cz, { dy: -16, px: 10, col: ACC, bg: true, b: true }); }
       c.beginPath(); c.arc(X(cx), Z(cz), t.hover && !t.first || t.end && t.end.hit ? 7 : 4, 0, 7); c.stroke(); }
-  });
+  }; pontPlan.ly = 'ponts'; (window.PLANX || (window.PLANX = [])).push(pontPlan);
 
   // ---------------------------------------------------------------- structures toutes faites (structures.ts)
   let SP = null;

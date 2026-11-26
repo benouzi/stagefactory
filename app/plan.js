@@ -253,9 +253,15 @@ export function initPlan(A, ST){
     }
     c.restore();
   }
-  function objects(){
+  // Vue de dessus : tout est tracé calque par calque, du dessous vers le dessus — objets, ponts, formes dessinées et cotes s'entrelacent selon l'ordre du panneau « Calques ».
+  // Un tracé PLANX marqué .ly (un calque de métier) ou .lyEach (appelé pour chaque calque avec only) passe ici ; les autres restent dans extras(), par-dessus.
+  const xArgs = cp => ({ c, X, Z, V, s: P.s, K, cp, P, INK, BLUE, ACC, MID, PAPER, text });
+  function layered(){ if (!window.LAYERS){ objects(); return; } const by = new Map(), ord = LAYERS.order(); for (const o of ST.S.objs){ const id = LAYERS.ofObj(o), k = ord.includes(id) ? id : ord[0]; (by.get(k) || by.set(k, []).get(k)).push(o); }
+    for (const id of ord){ if (by.has(id)) objects(by.get(id)); const cl = LAYERS.col(id); for (const f of (window.PLANX || [])){ if (f.ly !== id && !f.lyEach) continue; if (f.ly && !LAYERS.planOn(id)) continue; try { c.save(); f({ ...xArgs(false), ...(f.ly && cl ? { INK: cl, BLUE: cl } : {}), only: id }); c.restore(); } catch (e){ c.restore(); console.error(e); } } }
+    for (const f of (window.PLANX || [])) if (f.lyEach) try { f({ ...xArgs(false), only: '__ov' }); } catch (e){ console.error(e); } }
+  function objects(list){
     const S = ST.S, sel = ST.UI.sel;
-    for (const o of (window.LAYERS ? LAYERS.sorted(S.objs) : S.objs)){          // dans l'ordre des calques : celui du haut est dessiné en dernier, donc par-dessus
+    for (const o of (list || S.objs)){          // dans l'ordre des calques : celui du haut est dessiné en dernier, donc par-dessus
       if (hidP(o)) continue;
       const t = ST.typeOf(o), isSel = sel.includes(o.id); symbol(o, t, isSel);
       if (!P.labels) continue;
@@ -333,7 +339,7 @@ export function initPlan(A, ST){
     LBOX.length = 0; const st = A.planState(), keep = { s: P.s, ox: P.ox, oy: P.oy, w: P.w, h: P.h, view: P.view, fitted: P.fitted }, off = document.createElement('canvas'); off.width = W; off.height = H;
     try { c = off.getContext('2d'); K = dpi / 96 * 1.15; P.view = view; P.w = W; P.h = H; fit();
       if (denom > 0){ const cx = (W / 2 - P.ox) / P.s, cy = (H / 2 - P.oy) / P.s; P.s = dpi / 25.4 * 1000 / denom; P.ox = W / 2 - cx * P.s; P.oy = H / 2 - cy * P.s; }
-      c.fillStyle = PAPER; c.fillRect(0, 0, W, H); const cp = view === 'coupe'; if (cp){ section(st); objectsC(); } else { room(st); objects(); } extras(cp); scaleBar(40 * K, H - 40 * K);
+      c.fillStyle = PAPER; c.fillRect(0, 0, W, H); const cp = view === 'coupe'; if (cp){ section(st); objectsC(); } else { room(st); layered(); } extras(cp); scaleBar(40 * K, H - 40 * K);
       return { canvas: off, denom: Math.round(dpi / 25.4 * 1000 / P.s) }; }
     finally { Object.assign(P, keep); c = ctx; K = 1; P.dirty = true; }
   }
@@ -343,12 +349,12 @@ export function initPlan(A, ST){
     c.strokeRect(x, y, w, 5 * K); c.fillRect(x, y, w / 2, 5 * K);
     c.font = `${9 * K}px ui-monospace,Menlo,Consolas,monospace`; c.textBaseline = 'top'; c.textAlign = 'left'; c.fillText('0', x - 2 * K, y + 8 * K); c.textAlign = 'right'; c.fillText(m + ' m', x + w + 6 * K, y + 8 * K);
   }
-  const extras = cp => { for (const f of (window.PLANX || [])) try { f({ c, X, Z, V, s: P.s, K, cp, P, INK, BLUE, ACC, MID, PAPER, text }); } catch (e){ console.error(e); } };
+  const extras = cp => { for (const f of (window.PLANX || [])){ if (!cp && window.LAYERS && (f.ly || f.lyEach)) continue; try { f(xArgs(cp)); } catch (e){ console.error(e); } } };
   function draw(){
     if (!P.on || !P.w) return; P.dirty = false; LBOX.length = 0;
     const st = A.planState(); c = ctx; K = 1;
     c.setTransform(P.d, 0, 0, P.d, 0, 0); c.fillStyle = PAPER; c.fillRect(0, 0, P.w, P.h);
-    const cp = P.view !== 'plan'; if (cp){ (P.face ? sectionF : section)(st); objectsC(); } else { room(st); objects(); } extras(cp);
+    const cp = P.view !== 'plan'; if (cp){ (P.face ? sectionF : section)(st); objectsC(); } else { room(st); layered(); } extras(cp);
     if (drag?.box){ let [a, b, c2, d] = drag.box; if (cp){ b = -b; d = -d; } c.setLineDash([4, 3]); c.lineWidth = 1; c.strokeStyle = BLUE; c.fillStyle = 'rgba(31,78,156,.08)'; c.fillRect(X(a), Z(b), (c2 - a) * P.s, (d - b) * P.s); c.strokeRect(X(a), Z(b), (c2 - a) * P.s, (d - b) * P.s); c.setLineDash([]); }
     if (!cp && drag?.ser?.moved && drag.ser.blk){ const q = drag.ser, k = ST.blkCells(q.blk, q.a, q.b); lw(1.2, ACC); for (const [px, pz] of k.pts) c.strokeRect(X(px - k.mw / 2), Z(pz - k.md / 2), k.mw * P.s, k.md * P.s); c.fillStyle = 'rgba(255,170,40,.14)'; c.fillRect(X(k.x0), Z(k.z0), k.w * P.s, k.d * P.s); text(ST.blkTip(k), k.x0 + k.w / 2, k.z0, { dy: -14, px: 10, col: ACC, bg: true, b: true }); }
     else if (!cp && drag?.ser?.moved){ const q = drag.ser, [a, b] = serAB(q), pts = ST.seriePts(a, b); lw(1.2, ACC); c.setLineDash([5, 4]); c.beginPath(); c.moveTo(X(a[0]), Z(a[1])); c.lineTo(X(b[0]), Z(b[1])); c.stroke(); c.setLineDash([]); c.fillStyle = ACC; for (const [px, pz] of pts){ c.beginPath(); c.arc(X(px), Z(pz), 4.5, 0, 7); c.fill(); }
@@ -371,7 +377,7 @@ export function initPlan(A, ST){
     const st = A.planState(), keep = { s: P.s, ox: P.ox, oy: P.oy, w: P.w, h: P.h }, dpi = 150, W = Math.round(297 / 25.4 * dpi), H = Math.round(420 / 25.4 * dpi);
     const off = document.createElement('canvas'); off.width = W; off.height = H; c = off.getContext('2d'); K = dpi / 96 * 1.15;
     P.s = dpi / 25.4 * 10; P.ox = W / 2; P.oy = 150 + (-st.Z0 + 1.9) * P.s; P.w = W; P.h = H;
-    c.fillStyle = PAPER; c.fillRect(0, 0, W, H); try { room(st); objects(); extras(false); cartouche(st, W - 400 * K - 40, H - 58 * K - 40, 400 * K); scaleBar(60, H - 70);
+    c.fillStyle = PAPER; c.fillRect(0, 0, W, H); try { room(st); layered(); extras(false); cartouche(st, W - 400 * K - 40, H - 58 * K - 40, 400 * K); scaleBar(60, H - 70);
       c.font = `${9 * K}px system-ui,sans-serif`; c.textAlign = 'left'; c.textBaseline = 'top'; c.fillStyle = INK; c.fillText('Échelle 1:100 sur A3', 60, H - 110); }
     finally { Object.assign(P, keep); c = ctx; K = 1; draw(); }
     const blob = await new Promise(r => off.toBlob(r, 'image/png'));

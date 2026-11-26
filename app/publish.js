@@ -27,7 +27,7 @@ export function initPublish(A, ST){
     cv.addEventListener('pointermove', e => { if (!P.tl) return; const [x, z] = PLAN.world(e); P.tl.cur = P.tl.b || e.altKey ? [x, z] : snapPt(x, z, Math.max(.15, 10 / PLAN.P.s)); PLAN.P.dirty = true; }, true);
   } bindPlan();
   addEventListener('keydown', e => { if (P.tl && e.code === 'Escape'){ e.stopPropagation(); if (P.tl.a){ P.tl = { k: 'dim', a: null, cur: null }; if (window.PLAN) PLAN.P.dirty = true; } else tool(null); } }, true);
-  (window.PLANX || (window.PLANX = [])).push(({ c, X, Z, s: sc, K, cp, INK, BLUE, ACC, PAPER }) => { if (cp || !on('cotes')) return;
+  const cotePlan = ({ c, X, Z, s: sc, K, cp, INK, BLUE, ACC, PAPER }) => { if (cp || !on('cotes')) return;
     const one = (a, b, off, col, live) => { const l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (l < .01) return; const ux = (b[0] - a[0]) / l, uz = (b[1] - a[1]) / l, nx = -uz, nz = ux, o = off || 0, sg = o < 0 ? -1 : 1, ex = .12 / Math.max(.02, sc / 60);
       const A1 = [a[0] + nx * o, a[1] + nz * o], B1 = [b[0] + nx * o, b[1] + nz * o]; c.strokeStyle = col; c.fillStyle = col; c.lineWidth = .8 * K; c.setLineDash([]);
       c.beginPath(); if (Math.abs(o) > .01){ c.moveTo(X(a[0]), Z(a[1])); c.lineTo(X(A1[0] + nx * sg * ex), Z(A1[1] + nz * sg * ex)); c.moveTo(X(b[0]), Z(b[1])); c.lineTo(X(B1[0] + nx * sg * ex), Z(B1[1] + nz * sg * ex)); } c.moveTo(X(A1[0]), Z(A1[1])); c.lineTo(X(B1[0]), Z(B1[1])); c.stroke();
@@ -37,7 +37,7 @@ export function initPublish(A, ST){
     for (const d of dims()) one(d.a, d.b, d.off, BLUE);
     const t = P.tl; if (t && t.a && t.cur){ if (!t.b) one(t.a, t.cur, 0, ACC, true); else { const l = Math.hypot(t.b[0] - t.a[0], t.b[1] - t.a[1]), ux = (t.b[0] - t.a[0]) / l, uz = (t.b[1] - t.a[1]) / l; one(t.a, t.b, (t.cur[0] - t.a[0]) * -uz + (t.cur[1] - t.a[1]) * ux, ACC, true); } }
     else if (t && t.cur){ c.strokeStyle = ACC; c.lineWidth = 1.2 * K; c.beginPath(); c.arc(X(t.cur[0]), Z(t.cur[1]), 5 * K, 0, 7); c.stroke(); }
-  });
+  }; cotePlan.ly = 'cotes'; (window.PLANX || (window.PLANX = [])).push(cotePlan);
 
   // ---------------------------------------------------------------- volet Projet : calques, cartouche, publication
   const FORMATS = { A4: [210, 297], A3: [297, 420], A2: [420, 594], A1: [594, 841], A0: [841, 1189] };
