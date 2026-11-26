@@ -10,6 +10,7 @@ def ok(c,m,x=''):
 with sync_playwright() as p:
     b,pg,errs=open_app(p,1500,900); ev=pg.evaluate; pg.on('pageerror',lambda e:errs.append('pageerror '+str(e)[:300]))
     pg.wait_for_function("window.STAGE && window.PANELS && PANELS.ready && window.OBJLIST && window.LIBWIN && !!PLAN.world",timeout=90000); pg.wait_for_timeout(2500)
+    ev("(()=>{if(!PLAN.P.on)PLAN.toggle(true)})()"); pg.wait_for_timeout(900)          # selon l'ordre de chargement, le plan n'est pas toujours ouvert au départ
     RC="(i)=>{const r=PANELS.holder(i).getBoundingClientRect();return [Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]}"
     H=lambda i: ev(RC,i)
     has=lambda: ev("['v3d','plan','insp','objs','env','drawer','lib'].filter(i=>PANELS.has(i))")
@@ -32,8 +33,10 @@ with sync_playwright() as p:
     sp=ev("STAGE.S.sups.filter(s=>s.kind==='truss').map(s=>[s.a.x,s.b.x])"); ok(len(sp)==1 and abs(sp[0][0]+2000)<=300 and abs(sp[0][1]-2000)<=300,'outil « pont » : tracé à la souris dans la vue 3D',sp); ev("PONTS.select&&PONTS.select(null);document.querySelector('[data-dom=lum]').click()"); pg.wait_for_timeout(300)
     # onglets : le tiroir et la bibliothèque partagent leur zone
     pg.click('#dvRoot .dv-tab:has-text("Patch")'); pg.wait_for_timeout(500); ok(ev("document.querySelector('#drawer').getBoundingClientRect().height")>100 and ev("!!document.querySelector('#drawer .dr-tabs [data-dt=rig]') && !document.querySelector('#drawer .dr-tabs [data-dt=lib]')"),'onglet « Patch · Rigging · Console » : le tiroir, sans les onglets devenus des panneaux')
-    pg.click('#drawer .dr-tabs [data-dt=rig]'); pg.wait_for_timeout(400); ok(ev("DRAWER.is('rig')"),'ses onglets internes marchent')
-    pg.click('#dvRoot .dv-tab:has-text("Bibliothèque")'); pg.wait_for_timeout(400); ok(ev("document.querySelector('#libWin').getBoundingClientRect().height")>100,'retour à la bibliothèque')
+    top=ev("(()=>{const d=document.querySelector('#drawer').getBoundingClientRect(),e=document.elementFromPoint(d.left+d.width/2,d.top+14);return [!!(e&&e.closest('#drawer')),!!(e&&e.closest('#libWin')),getComputedStyle(document.querySelector('#libWin')).visibility]})()"); ok(top==[True,False,'hidden'],'c\'est bien le tiroir qui est affiché et cliquable, la bibliothèque est cachée derrière son onglet',top)
+    pg.click('#drawer .dr-tabs [data-dt=rig]'); pg.wait_for_timeout(400); ok(ev("DRAWER.is('rig')"),'ses onglets internes (Patch, Rigging et charges, Sécurité, Console, Avertissements) marchent')
+    pg.click('#drawer .dr-tabs [data-dt=patch]'); pg.wait_for_timeout(400); ok(ev("DRAWER.is('patch') && document.querySelector('#drBody').getBoundingClientRect().height>60"),'onglet Patch affiché')
+    pg.click('#dvRoot .dv-tab:has-text("Bibliothèque")'); pg.wait_for_timeout(400); ok(ev("document.querySelector('#libWin').getBoundingClientRect().height")>100,'retour à la bibliothèque'); ok(ev("[getComputedStyle(document.querySelector('#libWin')).visibility,getComputedStyle(document.querySelector('#drawer')).visibility]")==['visible','hidden'],'… et là c\'est le tiroir qui est caché')
     # fermer / rouvrir par le bouton ▦
     pg.click('#dvBtn'); pg.wait_for_timeout(300); pg.click('#dvPop [data-dp=objs]'); pg.wait_for_timeout(600); ok('objs' not in has() and not ev("OBJLIST.winOn"),'bouton ▦ : décocher « Objets » retire le panneau',has()); pg.keyboard.press('Escape'); pg.mouse.click(700,25)
     pg.keyboard.press('o'); pg.wait_for_timeout(700); ok('objs' in has(),'touche O : il revient')
