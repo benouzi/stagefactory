@@ -1266,7 +1266,7 @@ function objHtml(){
   return `<h2>Objets du projet (${S.objs.length})</h2><div class="olist">${rows || '<div>Aucun objet</div>'}</div>`;
 }
 function propHtml(){
-  const sel = selObjs(); if (!sel.length) return `<div class="info">Rien de sélectionné. Clique un objet dans la vue ou dans la liste. Maj + clic pour en sélectionner plusieurs.</div>` + objHtml();
+  const sel = selObjs(); if (!sel.length) return `<div class="info">Rien de sélectionné. Clique un objet dans la vue ou dans la liste. Maj + clic pour en sélectionner plusieurs.</div>` + (window.OBJLIST ? OBJLIST.mini() : objHtml());
   const o = sel[sel.length - 1], t = typeOf(o), same = sel.filter(x => typeOf(x).cat === t.cat), multi = sel.length > 1;
   let h = `<div class="btns"><button class="b" data-a="dup">Dupliquer</button><button class="b" data-a="array">Répéter en ligne…</button>${o.pan !== undefined ? `<button class="b ${UI.aiming ? 'on' : ''}" data-a="aim">Viser un point (V)</button>` : ''}<button class="b red" data-a="del">Supprimer</button></div>`;
   h += `<div class="info"><b>${multi ? sel.length + ' objets · ' : ''}${esc((t.brand ? t.brand + ' ' : '') + t.name)}</b><br>${t.w ? fmt(t.w, 1) + ' kg' : ''}${t.p ? ' · ' + t.p + ' W' : ''}${t.cat === 'lum' ? ' · ' + t.lumens.toLocaleString('fr') + ' lm' : ''}<span id="photo"></span></div>`;
@@ -1316,7 +1316,7 @@ function propHtml(){
     if (t.kind === 'rail') h += `<label>Longueur</label>${rng('len', .5, 4, .5, o.len || t.len, ' m')}`;
     if (t.kind === 'riser' && !t.shape) h += `</div><div class="btns"><button class="b on" data-a="dress">Habiller la scène (jupe, garde-corps, escalier)…</button></div><div class="pf">`;
   }
-  return h + '</div>' + objHtml();
+  return h + '</div>' + (window.OBJLIST ? OBJLIST.mini() : objHtml());
 }
 function photo(){
   const el = $('#photo'); if (!el) return; const o = selObjs().pop(); if (!o) return; const t = typeOf(o), r = RT.get(o.id); let s = '';
