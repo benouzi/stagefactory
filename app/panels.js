@@ -41,8 +41,9 @@ export function initPanels(A, ST){
     body.dv #olWin .ow-bar{cursor:default;justify-content:flex-end;padding:3px 10px}body.dv #drawer.min #drBody{display:block}
     body.dv.desk #dvRoot{bottom:calc(var(--dh,310px) + 30px)}
     body.dv #drawBar,body.dv #pontBar,body.dv #gzTip,body.dv #vpTip,body.dv #scTip{z-index:10}body.dv #drawBar,body.dv #pontBar{top:auto!important;bottom:calc(100vh - var(--vhh,100vh) + 8px)}          /* barres du dessin et des ponts : en bas de la zone 3D + plan (en haut elles couvriraient la rangée Plan / Coupe / Face) */
-    #dvBtn.on{color:var(--accent2,#f2a93b)}@media (max-width:1420px){body.dv #olBtn{display:none}}#dvPop{position:fixed;z-index:40;min-width:270px;background:var(--panel,#1d2027);border:1px solid var(--line);border-radius:8px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.55);display:none;flex-direction:column;font-size:12.5px;color:var(--ink)}
-    #dvPop b{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);padding:7px 8px 2px;font-weight:500}#dvPop button{all:unset;cursor:pointer;padding:4px 8px;border-radius:5px;display:flex;gap:8px;align-items:center}#dvPop button:hover{background:#262a33}#dvPop button.on{color:var(--accent2,#f2a93b)}#dvPop button i{margin-left:auto;font-style:normal;color:var(--mute);padding:0 4px}#dvPop button i:hover{color:#ff8f8f}`; document.head.appendChild(css);
+    #dvRoot .dvact{display:flex;align-items:center;height:100%;padding:0 6px}#dvRoot .dvact a{cursor:pointer;color:var(--mute,#a3abb8);font-size:12px;padding:2px 6px;border-radius:4px;white-space:nowrap}#dvRoot .dvact a:hover{color:var(--ink,#e9ebf0);background:rgba(255,255,255,.08)}#dvRoot .dvact a[data-dva=dock]{color:var(--accent2,#f2a93b)}
+    #dvBtn.on{color:var(--accent2,#f2a93b)}@media (max-width:1420px){body.dv #olBtn{display:none}}#dvPop,#dvPlace{position:fixed;z-index:40;min-width:230px;background:var(--panel,#1d2027);border:1px solid var(--line);border-radius:8px;padding:6px;box-shadow:0 12px 30px rgba(0,0,0,.55);display:none;flex-direction:column;font-size:12.5px;color:var(--ink)}
+    #dvPop b{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);padding:7px 8px 2px;font-weight:500}#dvPop button,#dvPlace button{all:unset;cursor:pointer;padding:4px 8px;border-radius:5px;display:flex;gap:8px;align-items:center}#dvPop button:hover,#dvPlace button:hover{background:#262a33}#dvPop button.on{color:var(--accent2,#f2a93b)}#dvPop button i{margin-left:auto;font-style:normal;color:var(--mute);padding:0 4px}#dvPop button i:hover{color:#ff8f8f}`; document.head.appendChild(css);
     const host = document.createElement('div'); host.id = 'dvRoot'; body.appendChild(host);
     const railRight = window.DOCK && DOCK.D && DOCK.D.rail === 'right'; host.style.left = railRight ? '4px' : '54px'; host.style.right = railRight ? '54px' : '4px';
     const EL = { insp: '#console', env: '#side', plan: '#planWin', drawer: '#drawer', lib: '#libWin', objs: '#olWin' }, TITLE = { v3d: 'Vue 3D', plan: 'Plan technique', insp: 'Inspecteur', env: 'Environnement', drawer: 'Patch · Rigging · Console', lib: 'Bibliothèque', objs: 'Objets' }, IDS = Object.keys(TITLE);
@@ -61,7 +62,13 @@ export function initPanels(A, ST){
     const mount = id => { const el = REF[id]; holder(id).dataset.p = id; if (el && el.parentNode !== holder(id)){ holder(id).appendChild(el); el.classList.add('dvin'); } };
     const unmount = id => { const el = REF[id]; if (el && (el.classList.contains('dvin') || !el.isConnected)){ el.classList.remove('dvin'); body.appendChild(el); } };
     let busy = 0, api = null;
-    api = DV.createDockview(host, { theme: DV.themeAbyss, floatingGroupBounds: 'boundedWithinViewport', singleTabMode: 'default',
+    // chaque groupe de panneaux a son bouton : ⇱ le faire flotter, ⇲ le remettre à sa place d'origine (toujours possible, même si on ne trouve pas où le lâcher)
+    const headBtn = group => { const el = document.createElement('div'); el.className = 'dvact'; let off = null;
+      const paint = () => { let fl = false; try { fl = group.api.location.type === 'floating'; } catch (_){ } el.innerHTML = `<a data-dva="${fl ? 'dock' : 'float'}" title="${fl ? 'Ancrer : remettre ce panneau à sa place dans la fenêtre' : 'Détacher : faire flotter ce panneau'}">${fl ? '⇲ Ancrer' : '⇱'}</a><a data-dva="menu" title="Placer ce panneau : en bas, à gauche, à droite, flottant, à sa place d'origine">▾</a>`; };
+      el.addEventListener('pointerdown', e => e.stopPropagation()); el.addEventListener('click', e => { const t = e.target.closest('[data-dva]'); if (!t) return; e.stopPropagation(); const ids = group.panels.map(q => q.id); if (t.dataset.dva === 'menu') return placeMenu(t, ids, group); if (t.dataset.dva === 'dock') home(ids); else { try { const r = group.element.getBoundingClientRect(); api.addFloatingGroup(group, { x: Math.max(60, Math.round(r.left + 30 - host.getBoundingClientRect().left)), y: Math.max(40, Math.round(r.top - 80 - host.getBoundingClientRect().top)), width: Math.max(360, Math.min(700, Math.round(r.width))), height: Math.max(260, Math.min(520, Math.round(r.height))) }); } catch (er){ console.error(er); } } later(); });
+      return { element: el, init(){ paint(); try { const d = group.api.onDidLocationChange(paint); off = () => d.dispose(); } catch (_){ } }, dispose(){ off && off(); } }; };
+    api = DV.createDockview(host, { theme: DV.themeAbyss, floatingGroupBounds: 'boundedWithinViewport', singleTabMode: 'default', createRightHeaderActionComponent: headBtn,
+      dndEdges: { size: { value: 120, type: 'pixels' }, activationSize: { value: 56, type: 'pixels' } },
       createComponent: o => ({ element: holder(o.id), init(){ mount(o.id); }, dispose(){ unmount(o.id); } }) });
     const has = id => api.getPanel(id);
     function add(id){ if (has(id)) return; const P = { id, component: id, title: TITLE[id], ...(id === 'v3d' ? {} : { renderer: 'always' }) };          /* 'always' : le contenu reste dans la page même quand son onglet est caché (le reste du logiciel y écrit par son identifiant) */ let pos = null, ex = {};
@@ -74,6 +81,14 @@ export function initPanels(A, ST){
       const w3 = id === 'plan' && has('v3d') ? holder('v3d').getBoundingClientRect().width : 0;
       busy++; try { api.addPanel({ ...P, ...(pos ? { position: pos } : {}), ...ex }); } catch (e){ console.error('panneau', id, e); try { api.addPanel(P); } catch (_){ } } busy--;
       if (w3 > 300){ try { has('plan').group.api.setSize({ width: Math.round(w3 * .42) }); has('v3d').group.api.setSize({ width: Math.round(w3 * .58) }); } catch (_){ } } }          /* le plan s'ouvre à côté de la 3D sans lui prendre la moitié */
+    /* placer un groupe de panneaux sur un bord de toute la fenêtre, sans avoir à viser une zone à la souris */
+    function place(ids, where){ ids = ids.filter(id => id !== 'v3d' && has(id)); if (!ids.length) return; const dir = { bas: 'below', gauche: 'left', droite: 'right' }[where]; busy++; try { for (const id of ids){ try { has(id).api.close(); } catch (_){ } unmount(id); }
+        ids.forEach((id, i) => { try { api.addPanel({ id, component: id, title: TITLE[id], renderer: 'always', position: i ? { referencePanel: ids[0] } : { direction: dir }, ...(i ? {} : where === 'bas' ? { initialHeight: 250 } : { initialWidth: 340 }) }); } catch (e){ console.error(e); } }); } finally { busy--; } for (const id of ids) mount(id); tag3d(); later(); }
+    const pm = document.createElement('div'); pm.id = 'dvPlace'; body.appendChild(pm); addEventListener('pointerdown', e => { if (pm.style.display === 'flex' && !pm.contains(e.target)) pm.style.display = 'none'; }, true);
+    function placeMenu(at, ids, group){ let fl = false; try { fl = group.api.location.type === 'floating'; } catch (_){ } pm.innerHTML = `<button data-pw="bas">▁ En bas, sur toute la largeur</button><button data-pw="gauche">▏ À gauche</button><button data-pw="droite">▕ À droite</button>${fl ? '' : '<button data-pw="float">⇱ Flottant</button>'}<button data-pw="home">↺ À sa place d'origine</button>`; pm.style.display = 'flex'; const r = at.getBoundingClientRect(); pm.style.top = (r.bottom + 4) + 'px'; pm.style.left = Math.max(6, Math.min(innerWidth - pm.offsetWidth - 6, r.right - pm.offsetWidth)) + 'px';
+      pm.onclick = e => { const b = e.target.closest('[data-pw]'); if (!b) return; pm.style.display = 'none'; const w = b.dataset.pw; if (w === 'home') home(ids); else if (w === 'float'){ try { api.addFloatingGroup(group, { x: 160, y: 110, width: 520, height: 400 }); } catch (er){ console.error(er); } later(); } else place(ids, w); }; }
+    /* retour à la place d'origine : les panneaux sont retirés puis reposés là où la disposition de départ les met */
+    function home(ids){ ids = ids.filter(id => id !== 'v3d'); busy++; try { for (const id of ids){ const p = has(id); if (p){ try { p.api.close(); } catch (_){ } } unmount(id); } } finally { busy--; } for (const id of ['plan', 'insp', 'objs', 'env', 'drawer', 'lib']) if (ids.includes(id) && STATE[id].get()) add(id); tag3d(); later(); }
     function close(id){ const p = has(id); if (!p) return; busy++; try { p.api.close(); } catch (_){ } busy--; unmount(id); }
     function tag3d(){ for (const g of host.querySelectorAll('.dv-groupview.dv3d')) g.classList.remove('dv3d'); const p = has('v3d'); if (!p) return; try { p.group.header.hidden = true; } catch (_){ } p.group.element.classList.add('dv3d'); }
     // l'état de l'application décide des panneaux présents
@@ -97,7 +112,8 @@ export function initPanels(A, ST){
     new ResizeObserver(() => { try { api.layout(host.clientWidth, host.clientHeight); } catch (_){ } later(); }).observe(host);
     // pendant qu'on tire un onglet ou une barre de titre, toute la surface accepte le dépôt (sinon la zone 3D laisse passer la souris)
     addEventListener('pointerdown', e => { if (e.target.closest && e.target.closest('#dvRoot .dv-tabs-and-actions-container, #dvRoot .dv-floating-titlebar')) body.classList.add('dvdrag'); }, true);
-    for (const ev of ['pointerup', 'pointercancel', 'dragend', 'drop']) addEventListener(ev, () => { if (body.classList.contains('dvdrag')) setTimeout(() => body.classList.remove('dvdrag'), 60); }, true);
+    for (const ev of ['pointerup', 'dragend', 'drop']) addEventListener(ev, () => { if (body.classList.contains('dvdrag')) setTimeout(() => body.classList.remove('dvdrag'), 80); }, true);
+    try { api.onWillDragPanel(() => body.classList.add('dvdrag')); api.onWillDragGroup(() => body.classList.add('dvdrag')); } catch (_){ }
 
     // ---- départ : disposition gardée, sinon celle d'origine
     function fresh(){ busy++; try { api.clear(); } catch (_){ } busy--; for (const id of IDS) unmount(id); add('v3d'); if (!LIBWIN.on) LIBWIN.toggle(true); if (!OBJLIST.winOn) OBJLIST.win(true); if (!STATE.insp.get()) A.toggleConsole(true); reconcile();
@@ -129,6 +145,6 @@ export function initPanels(A, ST){
       if (a === 'reset'){ fresh(); later(); openPop(false); return ST.toast('Disposition d\'origine.'); }
       if (a === 'legacy'){ if (confirm('Revenir aux anciennes fenêtres ? La page se recharge ; le projet est gardé.')){ A.store.set('dv', false); location.reload(); } } });
     Object.assign(window.PANELS, { ready: true, api, sync, reconcile, show, has: id => !!has(id), reset: () => { fresh(); later(); }, load, toJSON: () => api.toJSON(), holder, legacy(){ A.store.set('dv', false); location.reload(); },
-      save(n){ const L = LAY(); L[n] = api.toJSON(); A.store.set('dvLayouts', L); }, layouts: () => Object.keys(LAY()), float(id, box){ const p = has(id); if (p) api.addFloatingGroup(p, box || { x: 120, y: 90, width: 420, height: 380 }); } });
+      home, place, save(n){ const L = LAY(); L[n] = api.toJSON(); A.store.set('dvLayouts', L); }, layouts: () => Object.keys(LAY()), float(id, box){ const p = has(id); if (p) api.addFloatingGroup(p, box || { x: 120, y: 90, width: 420, height: 380 }); } });
   }
 }

@@ -50,6 +50,17 @@ with sync_playwright() as p:
     tb=pg.locator('#dvRoot .dv-resize-container .dv-tab:has-text("Objets")').bounding_box(); ins=H('insp')
     pg.mouse.move(tb['x']+20,tb['y']+10); pg.mouse.down(); pg.mouse.move(tb['x']+60,tb['y']+40,steps=4); pg.mouse.move(ins[0]+ins[2]//2,ins[1]+20,steps=12); pg.wait_for_timeout(300); pg.mouse.move(ins[0]+ins[2]//2,ins[1]+24,steps=2); pg.wait_for_timeout(200); pg.mouse.up(); pg.wait_for_timeout(900)
     loc=ev("PANELS.api.getPanel('objs').group.api.location.type"); o2=H('objs'); ok(loc=='grid','tiré par son onglet et lâché sur l\'inspecteur : il s\'aimante dans la grille',[loc,o2,H('insp')])
+    # sortir le panneau du bas puis le remettre : trois façons
+    loc=lambda i: ev("(i)=>{const p=PANELS.api.getPanel(i);return p?p.group.api.location.type:null}",i)
+    pg.click('#dvRoot .dv-tab:has-text("Bibliothèque")'); pg.wait_for_timeout(300); g=pg.locator('#dvRoot .dv-groupview:has(.dv-tab:has-text("Bibliothèque")) .dvact [data-dva=float]'); g.click(); pg.wait_for_timeout(800)
+    ok(loc('lib')=='floating' and loc('drawer')=='floating','bouton ⇱ du panneau du bas : il flotte (bibliothèque et tiroir ensemble)',[loc('lib'),loc('drawer')])
+    pg.click('#dvRoot .dvact [data-dva=dock]'); pg.wait_for_timeout(900); r=H('lib'); ok(loc('lib')=='grid' and loc('drawer')=='grid' and r[2]>1300 and r[1]>500,'bouton « ⇲ Ancrer » : il revient en bas, sur toute la largeur',r)
+    ev("PANELS.float('lib',{x:300,y:200,width:600,height:300})"); pg.wait_for_timeout(800); tb=pg.locator('#dvRoot .dv-resize-container .dv-tab:has-text("Bibliothèque")').bounding_box(); v3=H('v3d')
+    pg.mouse.move(tb['x']+20,tb['y']+10); pg.mouse.down(); pg.mouse.move(tb['x']+40,tb['y']+40,steps=4); pg.mouse.move(v3[0]+v3[2]//2,v3[1]+v3[3]-25,steps=14); pg.wait_for_timeout(500); pg.mouse.move(v3[0]+v3[2]//2+2,v3[1]+v3[3]-24,steps=2); pg.wait_for_timeout(200); pg.mouse.up(); pg.wait_for_timeout(900)
+    r=H('lib'); v4=H('v3d'); ok(loc('lib')=='grid' and r[1]>=v4[1]+v4[3]-2 and abs(r[0]-v4[0])<4 and v4[1]<=52,'tiré par son onglet et lâché en bas de la vue 3D : il s\'aimante sous la vue 3D, qui reste en haut',[r,v4])
+    ev("PANELS.float('drawer',{x:300,y:200,width:600,height:300})"); pg.wait_for_timeout(800); pg.click('#dvRoot .dv-resize-container .dvact [data-dva=menu]'); pg.wait_for_timeout(300); pg.click('#dvPlace [data-pw=droite]'); pg.wait_for_timeout(900)
+    r=H('drawer'); ok(loc('drawer')=='grid' and r[0]>1000,'menu ▾ → « À droite » : le panneau se range à droite sans viser',r)
+    ev("PANELS.reset()"); pg.wait_for_timeout(900); ev("(()=>{if(!PLAN.P.on)PLAN.toggle(true)})()"); pg.wait_for_timeout(700)
     # disposition gardée, nommée
     ev("PANELS.save('Essai')"); pg.wait_for_timeout(700); j=ev("JSON.parse(localStorage.getItem('onex.dvLayout')||'null')"); ok(j is not None and 'Essai' in ev("PANELS.layouts()"),'la disposition est gardée, et on peut en enregistrer une sous un nom')
     ev("PANELS.reset()"); pg.wait_for_timeout(900); v2=H('v3d'); ok(set(has())>={'v3d','plan','insp','objs','drawer','lib'} and v2[1]<=52,'« Disposition d\'origine » remet tout en place',has())
