@@ -158,6 +158,8 @@ export function initObjList(A, ST){
     if (!force && wbody.contains(a) && a.dataset.ws === 'q') return void softW();
     const narrow = (document.body.classList.contains('dv') && wel.clientWidth > 40 ? wel.clientWidth : WB.w) < 600, h = narrow ? mini(true) : html(true); if (h === wlast) return; const sc = wbody.querySelector('.olscroll') || wbody, st = sc.scrollTop; wbody.classList.toggle('narrow', narrow); wbody.innerHTML = h; wlast = h; (wbody.querySelector('.olscroll') || wbody).scrollTop = st; wel.querySelector('[data-ow=follow]').checked = !!O.follow; }
   const softW = () => { for (const b of wbody.querySelectorAll('tbody.olb')) b.innerHTML = body(b.dataset.mini === '1'); wlast = ''; };
+  /* bouton et touche O : en mode panneaux, montrer le panneau s'il est caché derrière un autre onglet, le fermer s'il est déjà devant */
+  const toggleWin = () => document.body.classList.contains('dv') && window.PANELS && PANELS.toggleShow ? PANELS.toggleShow('objs') : win();
   function win(v){ WB.on = v == null ? !WB.on : !!v; if (WB.on){ wfit(); wel.style.zIndex = 15; } wsave(); wrefresh(true); ST.render(); window.DRAWER?.refresh(); }
   document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-olw=back]')) win(false); });
   wel.addEventListener('click', e => { if (e.target.closest('[data-ow=x]')) win(false); });
@@ -171,8 +173,8 @@ export function initObjList(A, ST){
   { let t = 0; const later = () => { if (!WB.on || t) return; t = setTimeout(() => { t = 0; wrefresh(); }, 60); }; const r0 = ST.render; if (typeof r0 === 'function') ST.render = function(){ const x = r0.apply(this, arguments); later(); return x; }; setInterval(() => { if (WB.on) wrefresh(); }, 900); }
   // bouton permanent dans la barre du haut, à côté de l'Inspecteur
   css();
-  { const ib = $('#conBtn'); if (ib && !$('#olBtn')){ const b = document.createElement('button'); b.className = 'tool'; b.id = 'olBtn'; b.title = 'Objets du projet : la liste de tout ce qui est dans la scène, dans sa fenêtre (O)'; b.innerHTML = '<span>☰</span><span class="tx"> Objets</span>'; ib.parentNode.insertBefore(b, ib); b.addEventListener('click', () => win()); } }
-  window.OBJLIST = { win, refreshWin: () => wrefresh(), get winOn(){ return WB.on; }, html, mini, redraw, body, soft, setQ: v => { q = v; }, O, rows, drop, get shown(){ return flat(); } };
+  { const ib = $('#conBtn'); if (ib && !$('#olBtn')){ const b = document.createElement('button'); b.className = 'tool'; b.id = 'olBtn'; b.title = 'Objets du projet : la liste de tout ce qui est dans la scène, dans sa fenêtre (O)'; b.innerHTML = '<span>☰</span><span class="tx"> Objets</span>'; ib.parentNode.insertBefore(b, ib); b.addEventListener('click', () => toggleWin()); } }
+  window.OBJLIST = { win, toggleWin, refreshWin: () => wrefresh(), get winOn(){ return WB.on; }, html, mini, redraw, body, soft, setQ: v => { q = v; }, O, rows, drop, get shown(){ return flat(); } };
   if (window.DRAWER?.is('list')) DRAWER.refresh();
   if (WB.on){ wfit(); wrefresh(true); }
 }

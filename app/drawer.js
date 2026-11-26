@@ -22,6 +22,16 @@ export function initDrawer(A, ST){
   const body = el.querySelector('#drBody'), tabs = el.querySelector('.dr-tabs');
   A.bindPanel(body);
   const f = (v, d = 0) => (+v).toFixed(d).replace('.', ',');
+  // ---- mode panneaux (panels.js) : chaque onglet du tiroir est un panneau à part, avec son propre corps (.drp). Le tiroir d'origine (#drawer) n'est alors plus affiché.
+  const DT = ['patch', 'rig', 'secu', 'con', 'warn'], bodies = {}, PID = k => k === 'list' ? 'objs' : k;
+  const multi = () => document.body.classList.contains('dv') && !!(window.PANELS && PANELS.ready);
+  { const c2 = document.createElement('style'); c2.textContent = css.textContent.replace(/#drawer /g, '.drp ') + ' .drp{position:absolute;left:0;top:0;right:0;bottom:0;overflow:auto;padding:8px 12px 12px;font-size:12px;box-sizing:border-box} body.dv #drawer{display:none!important}'; document.head.appendChild(c2); }
+  const bodyOf = k => { if (!bodies[k]){ const b = document.createElement('div'); b.className = 'drp'; b.dataset.dt = k; A.bindPanel(b); bodies[k] = b; } return bodies[k]; };
+  function refreshMulti(only){ const w = warnings(), nb = w.filter(x => x[0] === 'bad').length; PANELS.title && PANELS.title('warn', 'Avertissements' + (w.length ? ' (' + (nb || w.length) + ')' : ''));
+    if (body.id) body.removeAttribute('id');
+    for (const k of DT){ const b = bodies[k]; if (!b) continue; b.id = k === D.tab ? 'drBody' : ''; if (!b.isConnected || !PANELS.visible(k) || (only && !only.includes(k))) continue;
+      const a = document.activeElement; if (b.contains(a) && a.tagName === 'INPUT' && /text|number|search/.test(a.type) && only) continue;
+      let h = ''; try { h = HTML[k](); } catch (e){ console.error(e); h = '<div class="info">Ce volet n\'a pas pu s\'afficher.</div>'; } if (b._h === h) continue; const st = b.scrollTop; b.innerHTML = h; b._h = h; b.scrollTop = st; } }
 
   // ---------------------------------------------------------------- Patch
   function patchHtml(){ const bad = ST.conflicts(), os = S.objs.filter(o => ST.typeOf(o).cat === 'lum').sort((a, b) => (a.uni - b.uni) || ((a.addr || 9999) - (b.addr || 9999)) || (a.n - b.n));
@@ -54,17 +64,17 @@ export function initDrawer(A, ST){
   const HTML = { patch: patchHtml, lib: () => window.LIBWIN && LIBWIN.on ? '<div class="info">La bibliothèque est détachée dans sa propre fenêtre. <button class="b" data-a="libwin" style="margin-left:8px">⇲ La remettre ici</button></div>' : A.panelHtml.lib(), list: () => window.WS ? WS.listHtml() : '', rig: () => window.PONTS ? PONTS.rigHtml() : '<div class="info">Chargement…</div>', secu: () => window.PONTS ? PONTS.secuHtml() : '<div class="info">Chargement…</div>', con: () => A.panelHtml.con(), warn: warnHtml };
   function drawTabs(){ const w = warnings(), nb = w.filter(x => x[0] === 'bad').length, nu = w.length - nb;
     const dv = document.body.classList.contains('dv'); tabs.innerHTML = TABS.filter(([k]) => !(dv && (k === 'lib' || k === 'list'))).map(([k, l]) => `<button data-dt="${k}" class="${D.open && D.tab === k ? 'on' : ''}">${l}${k === 'warn' && w.length ? `<span class="n${nb ? '' : ' u'}">${nb || nu}</span>` : ''}</button>`).join('') + `<span style="flex:1"></span><button data-dt="_" title="${D.open ? 'Replier le tiroir' : 'Ouvrir le tiroir'}">${D.open ? '▾' : '▴'}</button>`; }
-  function refresh(only){ window.LIBWIN?.refresh(); window.OBJLIST?.refreshWin(); drawTabs(); if (!D.open || (only && !only.includes(D.tab))) return; const a = document.activeElement; if (body.contains(a) && a.tagName === 'INPUT' && /text|number|search/.test(a.type) && only) return;
+  function refresh(only){ window.LIBWIN?.refresh(); window.OBJLIST?.refreshWin(); if (multi()) return refreshMulti(only); drawTabs(); if (!D.open || (only && !only.includes(D.tab))) return; const a = document.activeElement; if (body.contains(a) && a.tagName === 'INPUT' && /text|number|search/.test(a.type) && only) return;
     const st = body.scrollTop, keep = body.contains(a) && a.dataset ? [a.dataset.dp || a.dataset.sf || a.dataset.ws, a.dataset.id] : null; let h = ''; try { h = HTML[D.tab](); } catch (e){ console.error(e); h = '<div class="info">Ce volet n\'a pas pu s\'afficher.</div>'; }
     if (keep && keep[0] === 'q') { const b2 = body.querySelector('#olBody'); if (b2){ window.OBJLIST?.soft(); return; } } body.innerHTML = h; body.scrollTop = st; }
   const h = () => document.body.classList.contains('desk') ? 0 : D.open ? D.h : 30;
   function place(x, w){ el.style.left = x + 'px'; el.style.width = w + 'px'; el.style.height = h() + 'px'; el.classList.toggle('min', !D.open); root.style.setProperty('--drh', h() + 'px'); }
   const relayout = () => { window.DOCK ? DOCK.layout() : dispatchEvent(new Event('resize')); window.PLAN?.draw?.(); };
-  function show(t){ if (document.body.classList.contains('dv') && (t === 'lib' || t === 'list')){ window.PANELS && PANELS.show && PANELS.show(t === 'lib' ? 'lib' : 'objs'); return; } if (HTML[t]) D.tab = t; if (document.body.classList.contains('dv') && window.PANELS && PANELS.show) PANELS.show('drawer'); const was = D.open; D.open = true; save(); if (!was) relayout(); }
+  function show(t){ if (document.body.classList.contains('dv') && window.PANELS && PANELS.show){ if (DT.includes(t)){ D.tab = t; save(); } PANELS.show(PID(t)); return; } if (HTML[t]) D.tab = t; const was = D.open; D.open = true; save(); if (!was) relayout(); }
   function open(t){ show(t); refresh(); if (el.offsetHeight < 60) relayout(); }
   tabs.addEventListener('click', e => { const b = e.target.closest('[data-dt]'); if (!b) return; const k = b.dataset.dt; if (k === '_' || (D.open && k === D.tab)){ if (document.body.classList.contains('dv')) return; D.open = !D.open; save(); relayout(); refresh(); return; } open(k); });
   el.querySelector('#drGrip').addEventListener('pointerdown', e => { e.preventDefault(); const g = e.currentTarget; g.setPointerCapture(e.pointerId); const mv = ev => { D.h = Math.round(Math.max(120, Math.min(innerHeight - 160, innerHeight - 25 - ev.clientY))); D.open = true; relayout(); }, up = () => { g.removeEventListener('pointermove', mv); g.removeEventListener('pointerup', up); save(); refresh(); }; g.addEventListener('pointermove', mv); g.addEventListener('pointerup', up); });
-  window.DRAWER = { D, refresh, show, open, place, h, is: k => D.open && D.tab === k, warnings, get tab(){ return D.open ? D.tab : null; } };
+  window.DRAWER = { D, DT, bodyOf, refresh, show, open, place, h, setTab(k){ if (DT.includes(k) && D.tab !== k){ D.tab = k; save(); } }, is: k => multi() ? !!PANELS.visible(PID(k)) : D.open && D.tab === k, warnings, get tab(){ return multi() ? (PANELS.visible(D.tab) ? D.tab : null) : D.open ? D.tab : null; } };
   if (innerHeight < 640) D.open = false;
   relayout(); ST.render();
 }

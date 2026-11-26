@@ -1356,7 +1356,7 @@ function docHtml(){
   ${UI.spl && UI.splRange ? `<div class="legend"><span>${UI.splRange[0]} dB</span><i></i><span>${UI.splRange[1]} dB</span></div><div class="info">Médiane dans le public : <b>${fmt(UI.splRange[2], 0)} dB</b> (niveau maximal des enceintes actives, hors subs).</div><div class="info">Niveau maximal en champ direct à hauteur d'oreille, sans réflexions ni occultation : une estimation de couverture, pas une simulation acoustique.</div>` : ''}
   <h2>Matériel</h2><table class="t"><tr><th>Matériel</th><th>Qté</th><th>kg</th><th>W</th></tr>${gr.map(r => `<tr><td>${esc(r[1])}</td><td>${r[2]}</td><td>${r[4]}</td><td>${r[6]}</td></tr>`).join('')}</table>`;
 }
-const panelFocus = () => { const a = document.activeElement; return $('#console').contains(a) || !!document.querySelector('#drawer')?.contains(a); };
+const panelFocus = () => { const a = document.activeElement; return $('#console').contains(a) || !!document.querySelector('#drawer')?.contains(a) || !!(a && a.closest && a.closest('.drp')); };
 function render(){
   const DR = window.DRAWER; if (DR && (UI.tab === 'lib' || UI.tab === 'list' || UI.tab === 'con')){ DR.show(UI.tab); UI.tab = UI.sel.length || window.PONTS?.sel ? 'prop' : 'doc'; }
   const el = $('#console'), st = el.scrollTop, inner = [...el.querySelectorAll('.olist')].map(q => [q.id, q.scrollTop]), tabs = DR ? { prop: 'Réglages', doc: 'Projet' } : { lib: 'Biblio.', list: 'Objets', prop: 'Réglages', con: 'Console', doc: 'Projet' };
@@ -1608,7 +1608,7 @@ export function init(APP){
   for (const c of A.store.get('userCat') || []){ const t = c && refType(c, true); if (t && !LIB.some(x => x.id === t.id)) LIB.push(t); }          // les modèles de l'utilisateur, gardés d'un projet à l'autre
   { let qt = 0; document.addEventListener('input', e => { if (e.target.id !== 'libQ') return; UI.libQ = e.target.value; clearTimeout(qt); qt = setTimeout(() => { render(); const back = () => { const q = [...document.querySelectorAll('#libQ')].find(x => x.offsetParent); if (q && document.activeElement !== q){ q.focus(); const n = q.value.length; try { q.setSelectionRange(n, n); } catch (_){ } } }; back(); setTimeout(back, 60); setTimeout(back, 220); }, 160); }); }
   // après une saisie, le panneau est redessiné : le champ où l'on vient d'arriver (Tab, clic) garde la main
-  A.keepFocus = fn => setTimeout(() => { const a = document.activeElement, host = a && a.closest && a.closest('#console,#drawer'), d = a && a.dataset, sig = host && d && Object.keys(d).length ? a.tagName + Object.entries(d).map(([k, v]) => `[data-${k.replace(/[A-Z]/g, m => '-' + m.toLowerCase())}="${CSS.escape(v)}"]`).join('') : null;
+  A.keepFocus = fn => setTimeout(() => { const a = document.activeElement, host = a && a.closest && a.closest('#console,#drawer,.drp'), d = a && a.dataset, sig = host && d && Object.keys(d).length ? a.tagName + Object.entries(d).map(([k, v]) => `[data-${k.replace(/[A-Z]/g, m => '-' + m.toLowerCase())}="${CSS.escape(v)}"]`).join('') : null;
     fn(); if (sig && !document.contains(a)){ const el = host.querySelector(sig); if (el){ el.focus({ preventScroll: true }); if (el.select && /text|number|search/.test(el.type)) el.select(); } } }, 0);
   LEDW = createLed(A, new Proxy({}, { get: (_, k) => window.STAGE[k] }));
   gizmo = new TransformControls(A.camera, A.canvas); gizmo.setSize(.8); gizmo.setTranslationSnap(.05); gizmo.setRotationSnap(5 * D2R);
