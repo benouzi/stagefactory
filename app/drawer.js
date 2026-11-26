@@ -56,7 +56,7 @@ export function initDrawer(A, ST){
     tabs.innerHTML = TABS.map(([k, l]) => `<button data-dt="${k}" class="${D.open && D.tab === k ? 'on' : ''}">${l}${k === 'warn' && w.length ? `<span class="n${nb ? '' : ' u'}">${nb || nu}</span>` : ''}</button>`).join('') + `<span style="flex:1"></span><button data-dt="_" title="${D.open ? 'Replier le tiroir' : 'Ouvrir le tiroir'}">${D.open ? '▾' : '▴'}</button>`; }
   function refresh(only){ drawTabs(); if (!D.open || (only && !only.includes(D.tab))) return; const a = document.activeElement; if (body.contains(a) && a.tagName === 'INPUT' && /text|number|search/.test(a.type) && only) return;
     const st = body.scrollTop, keep = body.contains(a) && a.dataset ? [a.dataset.dp || a.dataset.sf || a.dataset.ws, a.dataset.id] : null; let h = ''; try { h = HTML[D.tab](); } catch (e){ console.error(e); h = '<div class="info">Ce volet n\'a pas pu s\'afficher.</div>'; }
-    if (keep && keep[0] === 'q') { const b2 = body.querySelector('#olBody'); if (b2) return; } body.innerHTML = h; body.scrollTop = st; }
+    if (keep && keep[0] === 'q') { const b2 = body.querySelector('#olBody'); if (b2){ window.OBJLIST?.soft(); return; } } body.innerHTML = h; body.scrollTop = st; }
   const h = () => document.body.classList.contains('desk') ? 0 : D.open ? D.h : 30;
   function place(x, w){ el.style.left = x + 'px'; el.style.width = w + 'px'; el.style.height = h() + 'px'; el.classList.toggle('min', !D.open); root.style.setProperty('--drh', h() + 'px'); }
   const relayout = () => { window.DOCK ? DOCK.layout() : dispatchEvent(new Event('resize')); window.PLAN?.draw?.(); };

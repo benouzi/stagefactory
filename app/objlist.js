@@ -1,0 +1,134 @@
+// Liste des objets (tiroir du bas, touche O) : un tableau de tout ce qui est dans la scène — objets, ponts, formes dessinées.
+// Groupes : par calque (défaut), par métier, par accroche, ou sans groupe. Colonnes : n°, nom, modèle, calque, accroche, hauteur, poids, DMX.
+// Une donnée inconnue reste VIDE (poids 0 = non relevé, pas d'adresse = pas patché) : rien n'est inventé ici.
+// Clic : choisir (Ctrl : ajouter / retirer, Maj : de… à…). Double-clic sur le nom ou le numéro : le modifier. Double-clic ailleurs : centrer la vue.
+// Clic droit : le menu de la vue 3D. Glisser une ligne sur un autre calque (groupes « par calque ») : l'y ranger.
+export function initObjList(A, ST){
+  const S = ST.S, UI = ST.UI, esc = ST.esc, $ = s => document.querySelector(s);
+  const O = Object.assign({ grp: 'calque', sk: 'n', sd: 1, merge: false, closed: {}, f: [] }, A.store.get('olist') || {}), save = () => A.store.set('olist', O);
+  let q = '', open = {}, lastRows = [], MG = new Map(), anchor = null, fromList = -1e9, selKey = '', edit = null;
+  const fr = (v, d = 2) => v.toLocaleString('fr-CH', { minimumFractionDigits: d, maximumFractionDigits: d }).replace('.', ',');
+  const LY = () => window.LAYERS, CATN = { lum: 'Lumière', vid: 'Vidéo', son: 'Son', str: 'Structure et scène', dec: 'Décor et personnages', ponts: 'Ponts et structures', dessin: 'Dessin' };
+  const catOf = o => { const t = ST.typeOf(o); return t.kind === 'sprop' ? 'dec' : t.cat; };
+  const hangOf = o => o.hang === 'perche' ? 'Perche ' + ((o.pi ?? 0) + 1) : o.hang === 'pont' ? (window.PONTS && PONTS.nameOf ? PONTS.nameOf(o.sid) : 'Pont') : o.hang === 'fixe' ? 'Accroche fixe' : 'Au sol';
+  // une ligne par élément ; les champs absents restent null (affichés vides)
+  function rows(){ const R = [];
+    for (const o of S.objs){ if (o.dress) continue; const t = ST.typeOf(o), w = ST.weightOf(o), ly = LY() ? LY().ofObj(o) : catOf(o);
+      R.push({ k: 'o', id: o.id, o, n: o.n ?? null, name: o.name || t.name, model: (t.brand ? t.brand + ' ' : '') + t.name, tid: t.id, cat: catOf(o), ly, hang: hangOf(o), y: ST.posOf(o).y, w: w > 0 ? w : null, addr: t.cat === 'lum' && o.addr ? ST.addrStr(o) : null, dmx: t.cat === 'lum', hid: !!o.hidden, lock: !!o.locked, grp: o.grp || '' }); }
+    for (const s of (S.sups || [])){ if (s.kind !== 'truss') continue; R.push({ k: 'p', id: s.id, n: null, name: window.PONTS && PONTS.nameOf ? PONTS.nameOf(s.id) : 'Pont', model: 'Pont', tid: 'pont', cat: 'ponts', ly: 'ponts', hang: '', y: s.zMm != null ? s.zMm / 1000 : null, w: null, addr: null, grp: '' }); }
+    for (const s of (S.shapes || [])) R.push({ k: 's', id: s.id, s, n: null, name: s.name || 'Forme', model: 'Forme dessinée', tid: 'forme', cat: 'dessin', ly: LY() ? LY().ofShape(s) : 'dessin', hang: '', y: null, w: null, addr: null, grp: '' });
+    return R; }
+  const isSel = r => r.k === 'o' ? UI.sel.includes(r.id) : r.k === 'p' ? !!(window.PONTS && PONTS.sel === r.id) : !!(window.DRAW && (DRAW.sels || []).includes(r.id));
+  const FILT = { sel: ['Sélection', r => isSel(r)], hid: ['Masqués', r => r.hid], lock: ['Verrouillés', r => r.lock], noaddr: ['Sans adresse DMX', r => r.dmx && !r.addr], now: ['Sans poids connu', r => r.k === 'o' && r.w == null] };
+  const match = r => { const s = q.trim().toLowerCase(); if (s && !(r.name.toLowerCase().includes(s) || String(r.n ?? '').includes(s) || r.model.toLowerCase().includes(s) || r.grp.toLowerCase().includes(s) || r.hang.toLowerCase().includes(s))) return false; return O.f.every(k => FILT[k] && FILT[k][1](r)); };
+  const lyName = id => LY() ? LY().name(id) : CATN[id] || id;
+  const cmp = (a, b) => { const k = O.sk, va = k === 'ly' ? lyName(a.ly) : a[k], vb = k === 'ly' ? lyName(b.ly) : b[k]; if (va == null && vb == null) return 0; if (va == null) return 1; if (vb == null) return -1; return (typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'fr', { numeric: true })) * O.sd; };
+  function groups(R){ const G = new Map(), put = (id, label, r, col) => { if (!G.has(id)) G.set(id, { id, label, col, rows: [] }); G.get(id).rows.push(r); };
+    if (O.grp === 'calque'){ const ord = LY() ? [...LY().order()].reverse() : Object.keys(CATN); for (const id of ord) G.set(id, { id, label: lyName(id), col: LY() ? LY().col(id) : null, rows: [], drop: true }); for (const r of R) (G.get(r.ly) || G.values().next().value).rows.push(r); }
+    else if (O.grp === 'metier'){ for (const id of Object.keys(CATN)) G.set(id, { id, label: CATN[id], rows: [] }); for (const r of R) put(r.cat, CATN[r.cat] || r.cat, r); }
+    else if (O.grp === 'accroche'){ for (const r of R) r.k === 'o' ? put('h:' + r.hang, r.hang, r) : put(r.cat, CATN[r.cat], r); }
+    else G.set('all', { id: 'all', label: '', rows: R });
+    return [...G.values()].filter(g => g.rows.length || (g.drop && !q && !O.f.length && LY() && !LY().isAuto(g.id))); }          /* un calque à soi encore vide reste affiché : on peut y glisser des lignes */
+  const COLS = [['n', 'N°', 'num'], ['name', 'Nom', ''], ['model', 'Modèle', ''], ['ly', 'Calque', ''], ['hang', 'Accroche', ''], ['y', 'Haut. (m)', 'num'], ['w', 'Poids (kg)', 'num'], ['addr', 'DMX', 'num']];
+  function rowHtml(r, ind){ const on = isSel(r), o = r.o, e = edit && edit.id === r.id ? edit.k : null, lyC = LY() && r.k !== 'p' ? LY().col(r.ly) : null, own = o && o.planCol;
+    const nm = e === 'name' ? `<input class="oled" data-oled="name" value="${esc(r.k === 'o' ? (o.name || '') : r.name)}" placeholder="${esc(r.model)}">` : `<span data-olc="${r.k === 'p' ? '' : 'name'}">${esc(r.name)}</span>`;
+    const nn = e === 'n' ? `<input class="oled" data-oled="n" type="number" min="0" step="1" value="${r.n ?? ''}">` : `<span data-olc="${r.k === 'o' ? 'n' : ''}">${r.n ?? ''}</span>`;
+    const ly = r.k === 'p' ? esc(lyName(r.ly)) : e === 'ly' && LY() ? `<select class="oled" data-oled="ly">${[...LY().order()].reverse().filter(id => !LY().isAuto(id) || id === (r.k === 'o' ? catOf(o) : 'dessin')).map(id => `<option value="${id}"${id === r.ly ? ' selected' : ''}>${esc(lyName(id))}${LY().isAuto(id) ? ' (par défaut)' : ''}</option>`).join('')}</select>` : `<span data-olc="ly" title="Clic : changer de calque">${esc(lyName(r.ly))}</span>`;
+    return `<tr class="olr${on ? ' on' : ''}${r.hid ? ' hid' : ''}" data-olr="${r.k}:${r.id}" draggable="${r.k === 'p' || edit ? 'false' : 'true'}"><td class="num">${nn}</td><td class="nm"${ind ? ' style="padding-left:22px"' : ''}>${nm}</td><td class="mu">${esc(r.model)}</td>
+      <td>${r.k === 'o' ? `<input type="color" class="olcol${own ? ' own' : ''}" data-olk="col" value="${own || lyC || '#8a93a6'}" title="Couleur sur le plan${own ? ' (propre à cet objet — clic droit : reprendre celle du calque)' : ' : celle du calque'}">` : `<i class="olsw" style="background:${lyC || 'transparent'}"></i>`}${ly}</td>
+      <td class="mu">${esc(r.hang)}</td><td class="num">${r.y == null ? '' : fr(r.y)}</td><td class="num"${r.k === 'o' && r.w == null ? ' title="Poids inconnu / non relevé"' : ''}>${r.w == null ? '' : fr(r.w, 1)}</td><td class="num mono">${r.addr || ''}</td>
+      <td class="ic">${r.k === 'o' ? `<i data-olk="hide" class="${r.hid ? 'act' : ''}" title="Masquer / afficher">${r.hid ? '◌' : '●'}</i><i data-olk="lock" class="${r.lock ? 'act' : ''}" title="Verrouiller / déverrouiller">${r.lock ? '🔒' : '🔓'}</i>` : ''}</td></tr>`; }
+  function body(){ const R = rows().filter(match), G = groups(R); lastRows = []; MG = new Map(); let h = '';
+    for (const g of G){ const cl = !!O.closed[O.grp + ':' + g.id];
+      if (g.label) h += `<tr class="olg${g.drop ? ' drop' : ''}" data-olg="${g.id}"><td colspan="9"><span data-olk="fold">${cl ? '▸' : '▾'}</span> ${g.col ? `<i class="olsw" style="background:${g.col}"></i>` : ''}<b data-olk="fold">${esc(g.label)}</b> <span class="mu">${g.rows.length}</span><span class="mu olall" data-olk="all" title="Choisir tout le groupe">tout choisir</span></td></tr>`;
+      if (cl && g.label) continue; g.rows.sort(cmp);
+      if (!O.merge){ for (const r of g.rows){ lastRows.push(r); h += rowHtml(r); } continue; }
+      const M = new Map(); for (const r of g.rows){ const k = r.k + r.tid + '|' + r.hang; (M.get(k) || M.set(k, []).get(k)).push(r); }
+      for (const [k, L] of M){ if (L.length < 2){ lastRows.push(L[0]); h += rowHtml(L[0]); continue; } const key = g.id + '|' + k; MG.set(key, L); const op = !!open[key], ns = L.map(r => r.n).filter(n => n != null).sort((a, b) => a - b), ws = L.every(r => r.w != null) ? L.reduce((s, r) => s + r.w, 0) : null, all = L.every(isSel);
+        h += `<tr class="olr olm${all ? ' on' : ''}" data-olm="${esc(key)}"><td class="num mu">${ns.length ? (ns[0] === ns[ns.length - 1] ? ns[0] : ns[0] + '–' + ns[ns.length - 1]) : ''}</td><td class="nm"><span data-olk="open">${op ? '▾' : '▸'}</span> <b>${L.length} ×</b> ${esc(L[0].model)}</td><td class="mu"></td><td>${esc(lyName(L[0].ly))}</td><td class="mu">${esc(L[0].hang)}</td><td></td><td class="num" title="${ws == null ? 'Au moins un poids inconnu : pas de total' : 'Total des ' + L.length}">${ws == null ? '' : fr(ws, 1)}</td><td></td><td></td></tr>`;
+        if (op) for (const r of L){ lastRows.push(r); h += rowHtml(r, true); } else lastRows.push({ merged: L, key }); } }
+    return h || `<tr><td colspan="9" class="mu" style="padding:14px 8px">${S.objs.length || (S.sups || []).length || (S.shapes || []).length ? 'Rien ne correspond à la recherche ou aux filtres.' : 'La scène est vide. Pose du matériel depuis la bibliothèque.'}</td></tr>`; }
+  function bulk(){ const n = UI.sel.length, dis = n ? '' : ' disabled'; /* toujours affichée, grisée sans sélection : la liste ne saute pas d'une ligne quand on choisit */ const s = ST.selObjs(), hid = s.every(o => o.hidden), lk = s.every(o => o.locked);
+    return `<div class="olbulk${n ? '' : ' off'}" id="olBulk"><b>${n ? n + ' choisi' + (n > 1 ? 's' : '') : 'Aucun choisi'}</b><button class="b" data-olb="hide"${dis}>${n && hid ? 'Afficher' : 'Masquer'}</button><button class="b" data-olb="lock"${dis}>${n && lk ? 'Déverrouiller' : 'Verrouiller'}</button>${LY() ? `<select class="inp" data-olb="ly" style="width:auto"${dis}><option value="">Ranger dans le calque…</option><option value="__def">Calque par défaut (son métier)</option>${LY().order().filter(id => !LY().isAuto(id)).map(id => `<option value="${id}">${esc(lyName(id))}</option>`).join('')}</select>` : ''}<button class="b" data-olb="renum"${dis} title="Renuméroter la sélection, par métier, dans l'ordre de jardin à cour">Renuméroter</button><button class="b" data-olb="focus"${dis}>Centrer la vue</button><button class="b" data-olb="del"${dis} style="color:#ff8f8f">Supprimer</button></div>`; }
+  function html(){ css(); const all = rows(), nO = S.objs.filter(o => !o.dress).length;
+    const key = UI.sel.join(','); if (key !== selKey){ selKey = key; if (!(performance.now() - fromList < 400) && UI.sel.length) reveal(); }
+    return `<div id="olx"><div class="oltop"><input type="search" data-ws="q" placeholder="Rechercher : nom, numéro, modèle, groupe, accroche…" value="${esc(q)}">
+      <label>Grouper <select class="inp" data-olo="grp">${[['calque', 'par calque'], ['metier', 'par métier'], ['accroche', 'par accroche'], ['aucun', 'sans groupe']].map(([k, l]) => `<option value="${k}"${O.grp === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+      <label title="12 projecteurs du même modèle sur la même accroche deviennent une ligne « 12 × … » qu'on déplie"><input type="checkbox" data-olo="merge"${O.merge ? ' checked' : ''}> Regrouper les identiques</label>
+      <span class="olchips">${Object.entries(FILT).map(([k, [l]]) => `<button class="olchip${O.f.includes(k) ? ' on' : ''}" data-olf="${k}">${l}</button>`).join('')}</span></div>
+      <div class="sub" style="margin:0 0 4px">${nO} objet${nO > 1 ? 's' : ''} · ${all.filter(r => r.k === 'p').length} pont(s) · ${all.filter(r => r.k === 's').length} forme(s) dessinée(s). Double-clic sur un nom ou un numéro : le modifier · double-clic ailleurs : centrer la vue · clic droit : menu${O.grp === 'calque' ? ' · glisser une ligne sur un calque : l\'y ranger' : ''}.</div>${bulk()}
+      <table class="olt"><thead><tr>${COLS.map(([k, l, c]) => `<th class="${c}" data-ols="${k}" title="Trier">${l}${O.sk === k ? (O.sd > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}<th></th></tr></thead><tbody id="olBody">${body()}</tbody></table></div>`; }
+  // la ligne de ce qui vient d'être choisi dans la vue : son groupe se rouvre et elle défile à l'écran
+  function reveal(){ const o = ST.byId(UI.sel[0]); if (o){ const g = O.grp === 'calque' ? (LY() ? LY().ofObj(o) : catOf(o)) : O.grp === 'metier' ? catOf(o) : O.grp === 'accroche' ? 'h:' + hangOf(o) : null; if (g) delete O.closed[O.grp + ':' + g]; }
+    requestAnimationFrame(() => { let el = document.querySelector('#olx tr.olr.on'); if (!el && O.merge && o){ const r = [...MG].find(([, L]) => L.some(y => y.id === o.id)); if (r){ open[r[0]] = true; redraw(); el = document.querySelector('#olx tr.olr.on'); } } el && el.scrollIntoView({ block: 'nearest' }); }); }
+  const redraw = () => { const b = $('#olBody'); if (b) b.innerHTML = body(); };
+  /* mise à jour sans toucher au champ de recherche (pendant qu'on y tape) */
+  const soft = () => { const key = UI.sel.join(','), ch = key !== selKey; selKey = key; redraw(); const k = $('#olBulk'); if (k) k.outerHTML = bulk(); if (ch && !(performance.now() - fromList < 400) && UI.sel.length) reveal(); };
+  const full = () => { fromList = performance.now(); ST.render(); window.DRAWER?.refresh(); };
+  let cssDone = false; function css(){ if (cssDone) return; cssDone = true; const st = document.createElement('style'); st.textContent = `
+    #olx .oltop{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:2px 0 6px}#olx .oltop input[type=search]{flex:1 1 220px;min-width:160px;padding:6px 8px;background:var(--bg,#15171c);border:1px solid var(--line);border-radius:7px;color:var(--ink);font:inherit}#olx .oltop label{display:flex;gap:5px;align-items:center;color:var(--mute);font-size:12px;white-space:nowrap}#olx .oltop select{padding:3px 6px}
+    #olx .olchips{display:flex;flex-wrap:wrap;gap:4px}#olx .olchip{background:none;border:1px solid var(--line);border-radius:12px;color:var(--mute);font:inherit;font-size:11.5px;padding:2px 9px;cursor:pointer}#olx .olchip.on{background:var(--accent2,#f2a93b);border-color:var(--accent2,#f2a93b);color:#14161a;font-weight:600}
+    #olx .olbulk{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 6px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:rgba(242,169,59,.07);font-size:12px}#olx .olbulk .b{padding:3px 9px}#olx .olbulk.off{background:none;color:var(--mute)}#olx .olbulk [disabled]{opacity:.4;pointer-events:none}
+    #olx .olt{width:100%;border-collapse:collapse;font-size:12px}#olx .olt th{position:sticky;top:0;z-index:1;background:var(--panel,#1d2027);text-align:left;color:var(--mute);font-weight:500;padding:4px 7px;cursor:pointer;white-space:nowrap;border-bottom:1px solid var(--line)}#olx .olt th:hover{color:var(--ink)}
+    #olx .olt td{padding:3px 7px;border-top:1px solid rgba(255,255,255,.04);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}#olx .olt .num{text-align:right}#olx .olt .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px}#olx .mu{color:var(--mute)}
+    #olx tr.olr{cursor:pointer}#olx tr.olr:hover{background:#262a33}#olx tr.olr.on{background:rgba(242,169,59,.16);color:#fff}#olx tr.olr.hid td{opacity:.45}#olx tr.olr.hid td.ic{opacity:1}
+    #olx tr.olg td{padding:8px 7px 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);cursor:pointer;border-top:0}#olx tr.olg b{color:var(--ink);font-weight:600}#olx tr.olg .olall{float:right;text-transform:none;letter-spacing:0;text-decoration:underline}#olx tr.olg.over td,#olx tr.olr.over{outline:1px dashed var(--accent2,#f2a93b);outline-offset:-1px;background:rgba(242,169,59,.12)}
+    #olx .olsw{display:inline-block;width:10px;height:10px;border-radius:2px;border:1px solid var(--line);vertical-align:middle;margin-right:5px}#olx .olcol{width:14px;height:14px;padding:0;border:1px solid var(--line);border-radius:3px;background:none;vertical-align:middle;margin-right:5px;cursor:pointer;opacity:.55}#olx .olcol.own{opacity:1;border-color:var(--ink)}
+    #olx td.ic i{font-style:normal;display:inline-block;width:18px;text-align:center;opacity:.35;cursor:pointer}#olx td.ic i.act{opacity:1;color:var(--accent2)}#olx td.ic i:hover{opacity:1}
+    #olx .oled{width:100%;min-width:60px;box-sizing:border-box;background:var(--bg,#15171c);border:1px solid var(--accent2,#f2a93b);border-radius:4px;color:var(--ink);font:inherit;padding:1px 4px}#olx td.num .oled{width:56px;text-align:right}`; document.head.appendChild(st); }
+  // ---------------------------------------------------------------- gestes
+  const rowOf = el => { const tr = el.closest('[data-olr]'); if (!tr) return null; const [k, id] = tr.dataset.olr.split(':'); return lastRows.find(r => !r.merged && r.k === k && r.id === id) || null; };
+  const flat = () => lastRows.flatMap(r => r.merged ? r.merged : [r]);
+  function pick(r, e){ fromList = performance.now();
+    if (r.k === 'p'){ ST.select([]); window.PONTS && PONTS.select(r.id); return full(); }
+    if (r.k === 's'){ ST.select([]); window.DRAW && DRAW.select(r.id, e.ctrlKey || e.metaKey); return full(); }
+    let ids; if (e.shiftKey && anchor){ const F = flat().filter(x => x.k === 'o'), a = F.findIndex(x => x.id === anchor), b = F.findIndex(x => x.id === r.id); ids = a < 0 || b < 0 ? [r.id] : [...new Set([...(e.ctrlKey ? UI.sel : []), ...F.slice(Math.min(a, b), Math.max(a, b) + 1).map(x => x.id)])]; }
+    else if (e.ctrlKey || e.metaKey){ ids = UI.sel.includes(r.id) ? UI.sel.filter(i => i !== r.id) : [...UI.sel, r.id]; anchor = r.id; } else { ids = [r.id]; anchor = r.id; }
+    selKey = ids.join(','); ST.select(ids); window.DRAWER?.refresh(); }
+  function commit(inp){ if (!edit) return; const { id, k } = edit, kd = edit.kd; edit = null; const v = inp.value;
+    if (kd === 'o'){ const o = ST.byId(id); if (!o) return full();
+      if (k === 'name'){ const nv = v.trim(); if (nv !== (o.name || '')){ ST.pushUndo(0, 'Renommer'); if (nv) o.name = nv; else delete o.name; ST.touch(); } }
+      else if (k === 'n'){ const nv = Math.round(+v); if (v !== '' && isFinite(nv) && nv >= 0 && nv !== o.n){ const dup = S.objs.find(x => x !== o && x.n === nv && ST.typeOf(x).cat === ST.typeOf(o).cat); ST.pushUndo(0, 'Changer le numéro'); o.n = nv; ST.touch(); if (dup) ST.toast(`Le numéro ${nv} est aussi celui de « ${dup.name || ST.typeOf(dup).name} ».`, true); } }
+      else if (k === 'ly' && LY()){ ST.select([id]); LY().assign(LY().isAuto(v) ? null : v); } }
+    else if (kd === 's' && window.DRAW){ const s = DRAW.byId(id); if (s){ if (k === 'name'){ const nv = v.trim(); if (nv && nv !== s.name){ ST.pushUndo(0, 'Renommer'); s.name = nv; ST.touch(); } } else if (k === 'ly' && LY()){ ST.select([]); DRAW.select(id); LY().assign(LY().isAuto(v) ? null : v); } } }
+    full(); }
+  const within = e => e.target.closest && e.target.closest('#olx');
+  document.addEventListener('click', e => { if (!within(e)) return; const t = e.target;
+    if (t.closest('.oled')) return;
+    const s = t.closest('[data-ols]'); if (s){ const k = s.dataset.ols; if (O.sk === k) O.sd = -O.sd; else { O.sk = k; O.sd = 1; } save(); return full(); }
+    const f = t.closest('[data-olf]'); if (f){ const k = f.dataset.olf; O.f = O.f.includes(k) ? O.f.filter(x => x !== k) : [...O.f, k]; save(); return full(); }
+    const b = t.closest('button[data-olb]'); if (b){ const a = b.dataset.olb, sl = ST.selObjs(); fromList = performance.now(); if (a === 'hide') window.WS.setFlag('hidden', !sl.every(o => o.hidden), sl); else if (a === 'lock') window.WS.setFlag('locked', !sl.every(o => o.locked), sl); else if (a === 'renum') window.WS.run('renum'); else if (a === 'focus') window.WS.run('focus'); else if (a === 'del') ST.removeSel(); return full(); }
+    const g = t.closest('[data-olg]'); if (g){ const id = g.dataset.olg; if (t.closest('[data-olk=all]')){ const ids = rows().filter(match).filter(r => r.k === 'o' && !r.hid && !r.lock && (O.grp === 'calque' ? r.ly : O.grp === 'metier' ? r.cat : 'h:' + r.hang) === id).map(r => r.id); fromList = performance.now(); ST.select(ids); return full(); } const k = O.grp + ':' + id; O.closed[k] ? delete O.closed[k] : O.closed[k] = true; save(); return full(); }
+    const m = t.closest('[data-olm]'); if (m){ const key = m.dataset.olm, L = MG.get(key); if (t.closest('[data-olk=open]') || !L){ open[key] = !open[key]; return redraw(); } const ids = L.filter(x => x.k === 'o').map(x => x.id); fromList = performance.now(); ST.select(e.ctrlKey || e.metaKey ? [...new Set([...UI.sel, ...ids])] : ids); return full(); }
+    const r = rowOf(t); if (!r) return;
+    const k = t.closest('[data-olk]')?.dataset.olk; if (k === 'hide'){ window.WS.setFlag('hidden', !r.o.hidden, [r.o]); return full(); } if (k === 'lock'){ window.WS.setFlag('locked', !r.o.locked, [r.o]); return full(); } if (k === 'col') return;
+    if (t.closest('[data-olc=ly]') && LY() && isSel(r) && UI.sel.length <= 1 && e.detail === 1 && !e.ctrlKey && !e.shiftKey){ edit = { id: r.id, k: 'ly', kd: r.k }; redraw(); const el = $('#olx .oled'); el && el.focus(); return; }
+    if (e.detail >= 2) return dbl(r, e); pick(r, e); });
+  /* le double-clic est lu sur le 2e clic (e.detail) : le 1er redessine la liste, l'évènement dblclick du navigateur n'est donc pas fiable ici */
+  function dbl(r, e){ const c = e.target.closest('[data-olc]')?.dataset.olc;
+    if (c === 'name' || c === 'n'){ edit = { id: r.id, k: c, kd: r.k }; redraw(); const el = $('#olx .oled'); if (el){ el.focus(); el.select && el.select(); } return; }
+    if (r.k === 'o'){ fromList = performance.now(); if (!UI.sel.includes(r.id)) ST.select([r.id]); window.WS.run('focus'); } }
+  document.addEventListener('keydown', e => { const t = e.target; if (!t.classList || !t.classList.contains('oled')) return; e.stopPropagation(); if (e.key === 'Enter'){ e.preventDefault(); commit(t); } else if (e.key === 'Escape'){ edit = null; redraw(); } }, true);
+  document.addEventListener('change', e => { if (!within(e)) return; const t = e.target;
+    if (t.dataset.oled === 'ly') return commit(t);
+    if (t.dataset.olo === 'grp'){ O.grp = t.value; save(); return full(); } if (t.dataset.olo === 'merge'){ O.merge = t.checked; save(); return full(); }
+    if (t.dataset.olb === 'ly' && t.value && LY()){ fromList = performance.now(); LY().assign(t.value === '__def' ? null : t.value); return full(); }
+    if (t.dataset.olk === 'col'){ const r = rowOf(t); if (r && r.o){ ST.pushUndo(0, 'Couleur sur le plan'); r.o.planCol = t.value; ST.touch(); if (window.PLAN) PLAN.P.dirty = true; full(); } } });
+  document.addEventListener('focusout', e => { const t = e.target; if (t.classList && t.classList.contains('oled') && edit && t.dataset.oled !== 'ly') commit(t); else if (t.dataset && t.dataset.oled === 'ly' && edit){ edit = null; setTimeout(redraw, 0); } });
+  document.addEventListener('contextmenu', e => { if (!within(e)) return; const r = rowOf(e.target); if (!r || r.k !== 'o') return; e.preventDefault(); e.stopPropagation();
+    if (e.target.closest('[data-olk=col]')){ if (r.o.planCol){ ST.pushUndo(0, 'Couleur sur le plan'); delete r.o.planCol; ST.touch(); if (window.PLAN) PLAN.P.dirty = true; full(); } return; }
+    fromList = performance.now(); if (!UI.sel.includes(r.id)){ ST.select([r.id]); window.DRAWER?.refresh(); } window.WS.ctx(e.clientX, e.clientY); }, true);
+  // glisser une ligne (ou toute la sélection si elle en fait partie) sur un calque
+  let drag = null; const tgt = e => { if (O.grp !== 'calque' || !drag) return null; const g = e.target.closest && e.target.closest('#olx [data-olg]'); if (g) return [g, g.dataset.olg]; const tr = e.target.closest && e.target.closest('#olx [data-olr]'); if (tr){ const [k, id] = tr.dataset.olr.split(':'), r = lastRows.find(x => !x.merged && x.k === k && x.id === id); if (r) return [tr, r.ly]; } return null; };
+  const clearOver = () => document.querySelectorAll('#olx .over').forEach(x => x.classList.remove('over'));
+  document.addEventListener('dragstart', e => { if (!within(e)) return; const r = rowOf(e.target); if (!r || r.k === 'p'){ e.preventDefault(); return; } drag = r.k === 'o' ? { k: 'o', ids: UI.sel.includes(r.id) ? [...UI.sel] : [r.id] } : { k: 's', ids: [r.id] }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', r.name); } catch (_){ } });
+  document.addEventListener('dragover', e => { const t = tgt(e); clearOver(); if (!t) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; t[0].classList.add('over'); });
+  document.addEventListener('dragend', () => { drag = null; clearOver(); });
+  document.addEventListener('drop', e => { const t = tgt(e); clearOver(); if (!t || !drag) return; e.preventDefault(); const d = drag; drag = null; drop(d, t[1]); });
+  function drop(d, ly){ const L = LY(); if (!L) return; fromList = performance.now();
+    if (L.isAuto(ly)){ const ok = d.k === 'o' ? d.ids.every(id => catOf(ST.byId(id)) === ly) : ly === 'dessin'; if (!ok){ ST.toast(`« ${lyName(ly)} » est un calque de métier : il ne reçoit que son propre matériel. Crée un calque à toi (☰ Calques) pour mélanger.`, true); return; } }
+    if (d.k === 'o') ST.select(d.ids); else { ST.select([]); window.DRAW && DRAW.select(d.ids[0]); }
+    L.assign(L.isAuto(ly) ? null : ly); full(); }
+  window.OBJLIST = { html, body, soft, setQ: v => { q = v; }, O, rows, drop, get shown(){ return flat(); } };
+  if (window.DRAWER?.is('list')) DRAWER.refresh();
+}

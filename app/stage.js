@@ -1638,6 +1638,7 @@ export function init(APP){
   import('./video.js').then(m => m.initVideo(A, window.STAGE)).catch(e => console.error(e));
   import('./import3d.js').then(m => m.initImport3d(A, window.STAGE)).catch(e => console.error(e));
   import('./layers.js').then(m => m.initLayers(A, window.STAGE)).catch(e => console.error(e));
+  import('./objlist.js').then(m => m.initObjList(A, window.STAGE)).catch(e => console.error(e));
   import('./decor.js').then(m => m.initDecor(A, window.STAGE)).catch(e => console.error(e));
   import('./linearray.js').then(m => m.initLineArray(A, window.STAGE)).catch(e => console.error(e));
   import('./publish.js').then(m => m.initPublish(A, window.STAGE)).catch(e => console.error(e));
