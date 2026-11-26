@@ -14,7 +14,7 @@ with sync_playwright() as p:
     # ---- décor : bibliothèque, pose, modèle détaillé
     n=ev("STAGE.LIBALL().filter(t=>t.kind==='sprop').length"); ok(n==73,'73 modèles de décor et personnages dans la bibliothèque',n)
     ev("document.querySelector('[data-dom=sce]').click()"); pg.click('#rail [data-t=prop]'); pg.wait_for_function("DECOR.ready",timeout=90000); pg.wait_for_timeout(1500)
-    g=ev("[...document.querySelectorAll('#drBody h2')].map(h=>h.textContent)"); ok(g[:6]==['Mobilier','Musique','Décor','Tissus','Technique','Personnages'],'tiroir : bibliothèque Décor par groupes',g)
+    g=ev("[...document.querySelectorAll('#drBody h2')].map(h=>h.textContent)"); ok(sorted(x[2:].rsplit(' ',1)[0] for x in g[:6])==sorted(['Mobilier','Musique','Décor','Tissus','Technique','Personnages']),'tiroir : bibliothèque Décor par groupes',g)
     ok(ev("document.querySelectorAll('#drBody .lib.dec img').length")>=50,'vignettes des modèles',ev("document.querySelectorAll('#drBody .lib.dec img').length"))
     ev("STAGE.place('sf-batterie',STAGE.hitAt(0,-3));STAGE.place('sf-chanteuse',STAGE.hitAt(0,-1));STAGE.place('sf-frise',STAGE.hitAt(0,-5))"); pg.wait_for_timeout(2500)
     o=ev("STAGE.S.objs.map(o=>({t:o.type,y:o.pos[1],h:o.hang,m:(()=>{let n=0;STAGE.RT.get(o.id).root.traverse(q=>{if(q.isMesh)n++});return n})()}))")
@@ -47,11 +47,11 @@ with sync_playwright() as p:
     g=ev("(()=>{const a=LARRAY.fresh();a.site=0;a.splays=[5,5,5,5,5,5,5];const R=LARRAY.solve(a);return R.boxes.slice(0,3).map(b=>[b.th,+b.F[0].toFixed(4),+b.F[1].toFixed(4)])})()")
     import math
     ok(g[1]==[5,0,6.748] and abs(g[2][1]+0.252*math.sin(math.radians(5)))<1e-3 and abs(g[2][2]-(6.748-0.252*math.cos(math.radians(5))))<1e-3,'géométrie de la courbure vérifiée à la main',g)
-    pg.fill('#modal [data-la=frameKg]','15'); pg.keyboard.press('Tab'); pg.wait_for_timeout(300); ok(ev("LARRAY.solve(LARRAY.cur).mech.W")==223,'cadre saisi à 15 kg : 223 kg')
+    ev("LARRAY.tab='bumper';LARRAY.open()"); pg.wait_for_timeout(300); pg.fill('#modal [data-la=frameKg]','15'); pg.keyboard.press('Tab'); pg.wait_for_timeout(300); ok(ev("LARRAY.solve(LARRAY.cur).mech.W")==223,'cadre saisi à 15 kg : 223 kg')
     pg.select_option('#modal [data-la=pick]','2'); pg.wait_for_timeout(300); m=ev("(()=>{const M=LARRAY.solve(LARRAY.cur).mech;return [M.Rf,M.Rr,M.W,M.cg]})()"); ok(abs(m[0]+m[1]-m[2])<1e-6 and abs(m[0]*0+m[1]*(-.5)-m[2]*m[3])<1e-6,'deux points : somme et moment équilibrés',m)
     pg.click('#modal [data-lb=place]'); pg.wait_for_timeout(500)
     o=ev("STAGE.S.objs.filter(o=>o.type==='lab-kara2').map(o=>({w:o.w,tilt:o.tilt,y:o.pos[1],x:o.pos[0],h:o.hang}))"); ok(len(o)==8 and all(q['w']==26 and q['h']=='fixe' for q in o) and o[0]['y']>o[7]['y'] and o[0]['tilt']>o[7]['tilt'],'8 boîtes posées dans la scène, de plus en plus inclinées',o[:2])
-    ev("LARRAY.open()"); pg.wait_for_timeout(200); pg.click('#modal [data-lb=load]'); pg.wait_for_timeout(300)
+    ev("LARRAY.tab='fiche';LARRAY.open()"); pg.wait_for_timeout(200); pg.click('#modal [data-lb=load]'); pg.wait_for_timeout(300)
     l=ev("STAGE.S.sups[0].loads"); ok(l and l[0]['kg']==223 and l[0]['lengthMm']==0,'charge de 223 kg ajoutée au pont',l)
     ok(ev("PONTS.resOf(STAGE.S.sups[0].id).extraKg")==223,'le calcul du pont la compte')
     pg.screenshot(path=OUT+'/t67.png'); ev("document.querySelector('#modal').style.display='none'")

@@ -13,7 +13,7 @@ export function initLibWin(A, ST){
   .libx .lib .th{position:relative}.libx .lst{position:absolute;right:4px;top:2px;font-style:normal;font-size:14px;line-height:1;color:var(--mute);opacity:0;cursor:pointer;padding:2px}.libx .th:hover .lst,.libx .lst.on{opacity:1}.libx .lst.on{color:var(--accent2,#f2a93b)}
   .libx .lbd{position:absolute;right:6px;bottom:3px;font-style:normal;font-size:10px;color:#14161a;background:var(--accent2,#f2a93b);border-radius:8px;padding:0 6px;font-weight:600}
   .libx .lib.sm{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))!important;gap:4px}.libx .lib.sm .th{padding:4px 5px;font-size:11px}.libx .lib.sm .th img{width:30px;height:30px}
-  .libx .lib.dec2 .th img{object-fit:contain}
+  .libx .lib.dec button{position:relative}.libx .lib.dec button:hover .lst{opacity:1}
   .libx table.libt{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px}.libx .libt th{text-align:left;color:var(--mute);font-weight:500;padding:3px 7px;border-bottom:1px solid var(--line);white-space:nowrap}.libx .libt th[data-a]{cursor:pointer}.libx .libt th[data-a]:hover{color:var(--ink)}
   .libx .libt td{padding:3px 7px;border-top:1px solid rgba(255,255,255,.04);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}.libx .libt .r{text-align:right}.libx .libt .mu{color:var(--mute)}.libx .libt tr[data-a]{cursor:pointer}.libx .libt tr[data-a]:hover{background:#262a33}.libx .libt tr.on{background:rgba(242,169,59,.16);color:#fff}
   .libx .libt .lst{position:static;opacity:.45}.libx .libt tr:hover .lst,.libx .libt .lst.on{opacity:1}

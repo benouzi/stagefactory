@@ -264,7 +264,7 @@ export function initPlan(A, ST){
     for (const o of (list || S.objs)){          // dans l'ordre des calques : celui du haut est dessiné en dernier, donc par-dessus
       if (hidP(o)) continue;
       const t = ST.typeOf(o), isSel = sel.includes(o.id); symbol(o, t, isSel);
-      if (!P.labels) continue;
+      if (!P.labels || (o.la && !isSel)) continue;          /* boîtes d'un line array : une seule étiquette pour la ligne (linearray.js) */
       const k = SYM(), col = isSel ? ACC : (window.LAYERS && LAYERS.colObj(o)) || INK, hang = o.hang === 'perche' ? A.percheDeltaAt(o.pos[2]) : 0;
       const far = P.s < 26 && !isSel; if (far && t.cat === 'str') continue;
       const tag = t.cat === 'str' ? (o.name || t.name) : `${o.n ?? ''}${!far && t.cat === 'lum' && o.addr ? '  ' + ST.addrStr(o) : ''}`;
