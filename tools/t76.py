@@ -19,7 +19,7 @@ with sync_playwright() as p:
     im=ev("[...document.querySelectorAll('#drawer .lib img[data-th]')].map(i=>[i.dataset.th,(i.getAttribute('src')||'').length])"); ok(len(im)>=10 and all(x[1]>800 for x in im),'chaque tuile de l\'onglet Lumière a sa vignette 3D',im[:4])
     ok(len(set(ev("[...document.querySelectorAll('#drawer .lib img[data-th]')].map(i=>i.getAttribute('src'))")))>=6,'les vignettes sont différentes d\'un type à l\'autre')
     n0=ev("STAGE.S.objs.length+':'+STAGE.RT.size"); ok(n0=='0:0','aucun objet laissé dans la scène par les vignettes',n0)
-    pg.click('[data-a=libcat][data-id=cata]'); pg.wait_for_timeout(300); pg.click('#drawer [data-a=libbrand][data-id="Yamaha"]'); pg.wait_for_timeout(12000)
+    pg.select_option('#drBody [data-lv=cat]','cata'); pg.wait_for_timeout(300); pg.click('#drawer [data-a=libbrand][data-id="Yamaha"]'); pg.wait_for_timeout(12000)
     im=ev("[...document.querySelectorAll('#drawer .lib img[data-th]')].map(i=>(i.getAttribute('src')||'').length)"); ok(len(im)>=40 and sum(1 for x in im if x>800)>=len(im)-1,'catalogue Yamaha : vignettes des consoles et enceintes',[len(im),sum(1 for x in im if x>800)])
     pg.click('#drawer [data-a=pick] >> nth=0'); pg.wait_for_timeout(1500); big=ev("(i=>i?[i.naturalWidth,(i.getAttribute('src')||'').length]:null)(document.querySelector('#libFiche img.big'))"); ok(big and big[0]==380 and big[1]>3000,'grand aperçu 3D dans la fiche',big)
     pg.screenshot(path=OUT+'/t76-cata.png')
@@ -30,7 +30,7 @@ with sync_playwright() as p:
     tid=t[0][0]; ev("id=>{STAGE.place(id,STAGE.hitAt(0,0),true);STAGE.render()}",tid); pg.wait_for_timeout(1500)
     g=ev("(()=>{const o=STAGE.S.objs[0],r=STAGE.RT.get(o.id);let n=0;r.gdtf&&r.gdtf.traverse(m=>{if(m.isMesh)n++});return {g:!!r.gdtf,n,pan:!!r.gPan,tilt:!!r.gTilt,g3d:STAGE.typeOf(o).g3d}})()"); ok(g['g'] and g['n']==3 and g['pan'] and g['tilt'] and g['g3d']==True,'modèle 3D de la fiche dans la scène : 3 volumes, pivots pan et tilt',g)
     ev("(()=>{const o=STAGE.S.objs[0];o.pan=40;o.tilt=30;o.dim=1;STAGE.setLive(true);STAGE.render()})()"); pg.wait_for_timeout(900); rz=ev("(()=>{const r=STAGE.RT.get(STAGE.S.objs[0].id);return [Math.round(r.gPan.rotation.z*100)/100,Math.round(r.gTilt.rotation.x*100)/100]})()"); ok(abs(rz[0])>.1 and abs(rz[1])>.1,'la tête de la fiche suit pan et tilt',rz)
-    pg.click('[data-a=libcat][data-id=imp]'); pg.wait_for_timeout(1800); th=ev("(i=>i?(i.getAttribute('src')||'').length:0)(document.querySelector('#drawer .lib img[data-th]'))"); ok(th>800,'vignette de la fiche GDTF dans « Importés »',th)
+    pg.select_option('#drBody [data-lv=cat]','imp'); pg.wait_for_timeout(1800); th=ev("(i=>i?(i.getAttribute('src')||'').length:0)(document.querySelector('#drawer .lib img[data-th]'))"); ok(th>800,'vignette de la fiche GDTF dans « Importés »',th)
     ev("document.querySelector('#view3d')?.click();(()=>{APP.camera.position.set(2.2,1.4,2.6);APP.orbit.target.set(0,.4,0);APP.orbit.update()})()"); pg.wait_for_timeout(1300); pg.screenshot(path=OUT+'/t76-gdtf.png')
     # rechargement de la page : le fichier GDTF revient du stockage du navigateur, le modèle 3D et l'aperçu avec
     js=ev("STAGE.serialize()"); ev("j=>{STAGE.S.lib.forEach(t=>delete t.raw);STAGE.loadShow(JSON.parse(j))}",js); pg.wait_for_timeout(2500)

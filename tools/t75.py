@@ -11,8 +11,8 @@ with sync_playwright() as p:
     b,pg,errs=open_app(p,1500,900); ev=pg.evaluate
     pg.wait_for_function("window.STAGE && window.DRAWER && window.DOCK && window.PONTS",timeout=60000); pg.wait_for_timeout(1500)
     ev("DRAWER.open('lib')"); pg.wait_for_timeout(400)
-    ok(ev("!!document.querySelector('#libQ')") and ev("!!document.querySelector('[data-a=libcat][data-id=cata]')"),'champ de recherche et onglet Catalogue',ev("document.querySelector('[data-a=libcat][data-id=cata]')?.textContent"))
-    pg.click('[data-a=libcat][data-id=cata]'); pg.wait_for_timeout(300)
+    ok(ev("!!document.querySelector('#libQ')") and ev("!!document.querySelector('#drBody [data-lv=cat] option[value=cata]')"),'champ de recherche et onglet Catalogue',ev("document.querySelector('#drBody [data-lv=cat] option[value=cata]')?.textContent"))
+    pg.select_option('#drBody [data-lv=cat]','cata'); pg.wait_for_timeout(300)
     NC=ev("STAGE.LIBALL().filter(t=>t.catalog).length"); nb=ev("document.querySelectorAll('#drawer [data-a=libbrand]').length"); ok(NC>=1000 and nb>=50 and ev("document.querySelectorAll('#drawer [data-a=pick]').length")==0,'catalogue : choix par marque d\'abord',[NC,nb])
     pg.click('#drawer [data-a=libbrand][data-id="Robe"]'); pg.wait_for_timeout(300); n=ev("document.querySelectorAll('#drawer [data-a=pick]').length"); ok(n==59,'59 références Robe, rangées par famille',[n,ev("[...document.querySelectorAll('#drawer h2')].map(h=>h.textContent)")])
     pg.click('[data-a=pick][data-id="c-robe-megapointe"]'); pg.wait_for_timeout(300)
