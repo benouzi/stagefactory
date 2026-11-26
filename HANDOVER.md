@@ -629,3 +629,9 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
 
 80. **4.49.1 — Le bouton « Étiquettes » masque aussi les flèches de charge et la courbe du moment** (`ponts.js`, `view.js`)
     - Benjamin a pris la courbe du moment (ligne jaune sous le pont) pour des câbles et veut « un rendu propre sans les infos de sécurité » avec le même bouton. Le groupe `loadsG` de `loads3d()` porte `userData.infoG` et suit `A.infoOff` ; `applyInfo()` (view.js) le bascule. `t118` le contrôle.
+
+81. **4.49.2 — Rendu IA : résiste à la surcharge de Google, messages d'erreur qui disent quoi faire** (`local/serveur.js` route `/api/img/gen`, `app/render.js`)
+    - Benjamin : « le rendu IA ne marche pas ». Pas de message d'erreur transmis ; le même jour l'API Gemini répondait 503 « high demand » à son connecteur vidéo. Les noms de modèles du logiciel (`gemini-3.1-flash-image`, `gemini-3-pro-image`, `gemini-3.1-flash-lite-image`) ont été revérifiés dans la documentation Google : ils sont à jour.
+    - Surcharge (503, 500, 529, « overloaded », « high demand ») : un second essai du même modèle après `IMG_WAIT` (2,5 s), puis les autres modèles de `IMG_MODELS` ; la réponse dit quel modèle a fait l'image (`model`, `fallback`) et l'application l'annonce. Si tout est surchargé : code `busy`, message clair.
+    - Messages distincts : pas de quota sur l'offre gratuite (429 avec « limit: 0 » / free tier → activer la facturation dans Google AI Studio), quota dépassé, clé refusée (400 « API key not valid », 401, 403), modèle inconnu (404), réseau, image non renvoyée (avec la raison d'arrêt).
+    - Essai manuel : `tools/img-fake.js` (faux serveur Google, modes ok / once / first / all / free / key / 404) avec `IMG_BASE=http://127.0.0.1:9911/m/ IMG_WAIT=100 node serveur.js --no-open`. Les 7 cas passent. **Jamais essayé contre le vrai Google** (pas de clé ici).

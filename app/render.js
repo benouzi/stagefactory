@@ -52,7 +52,7 @@ export function initRender(A, ST){
   async function saveKey(){ const k = R.key.trim(); if (k.length < 20) return; try { const j = await api('/api/img/key', { key: k }); if (!j.ok){ R.err = j.error || 'Clé refusée.'; return render(); } R.key = ''; R.err = ''; await status(); } catch (_){ R.err = 'Passerelle locale injoignable.'; render(); } }
   async function run(from, prompt, label){ R.busy = true; R.err = ''; render();
     try { const j = await api('/api/img/gen', { image: from.split(',')[1], mime: from.slice(5, from.indexOf(';')), prompt, model: R.model.trim() });
-      if (j.error) R.err = j.error; else { R.outs.push({ url: 'data:' + (j.mime || 'image/png') + ';base64,' + j.image, label }); R.cur = R.outs.length - 1; } }
+      if (j.error) R.err = j.error; else { R.outs.push({ url: 'data:' + (j.mime || 'image/png') + ';base64,' + j.image, label: label + (j.fallback ? ' · ' + j.model : '') }); R.cur = R.outs.length - 1; if (j.fallback) ST.toast(`« ${j.fallback} » était surchargé chez Google : le rendu a été fait par « ${j.model} ».`, true); } }
     catch (e){ R.err = 'Passerelle locale injoignable.'; } R.busy = false; render(); }
   async function generate(){ let from; try { from = await forAI(); } catch (e){ R.err = 'La vue 3D n\'est pas affichée : ouvre-la, cadre-la, puis recommence.'; return render(); } R.src = from; const s = STYLES.find(x => x[0] === R.style) || STYLES[0]; run(from, [s[2], R.more.trim() ? 'Précisions : ' + R.more.trim() : '', KEEP].filter(Boolean).join('\n\n'), s[1]); }
   function refine(){ const o = R.outs[R.cur]; if (!o || !R.more.trim()) return; run(o.url, 'Modifie cette image ainsi, sans rien changer d\'autre : ' + R.more.trim() + '\n\n' + KEEP, 'Retouche'); }
