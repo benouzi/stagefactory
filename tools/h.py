@@ -19,6 +19,7 @@ def open_app(p, w=900, h=560, quality='basse'):
     pg=b.new_page(viewport={'width':w,'height':h}); errs=[]
     pg.on('console',lambda m: m.type in ('error',) and errs.append(m.text)); pg.on('pageerror',lambda e: errs.append('PAGEERROR '+str(e)))
     pg.route('**/*',route); pg.set_default_timeout(240000);
+    if not os.environ.get('SF_DV'): pg.add_init_script("try{if(localStorage.getItem('onex.dv')===null)localStorage.setItem('onex.dv','false')}catch(e){}")          # les anciens essais tournent avec les anciennes fenêtres ; SF_DV=1 : panneaux Dockview
     if os.environ.get('SF_INIT'): pg.add_init_script(os.environ['SF_INIT'])
     pg.goto(BASE+'index.html'+('' if os.environ.get('SF_BLANK') else '?demo'))
     pg.wait_for_function("window.STAGE && document.querySelector('#loader').style.display==='none'",timeout=240000)

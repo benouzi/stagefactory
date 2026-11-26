@@ -1664,6 +1664,7 @@ export function init(APP){
   import('./layers.js').then(m => m.initLayers(A, window.STAGE)).catch(e => console.error(e));
   import('./objlist.js').then(m => m.initObjList(A, window.STAGE)).catch(e => console.error(e));
   import('./libwin.js').then(m => m.initLibWin(A, window.STAGE)).catch(e => console.error(e));
+  import('./panels.js').then(m => m.initPanels(A, window.STAGE)).catch(e => console.error(e));
   import('./decor.js').then(m => m.initDecor(A, window.STAGE)).catch(e => console.error(e));
   import('./linearray.js').then(m => m.initLineArray(A, window.STAGE)).catch(e => console.error(e));
   import('./publish.js').then(m => m.initPublish(A, window.STAGE)).catch(e => console.error(e));

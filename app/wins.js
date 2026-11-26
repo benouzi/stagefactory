@@ -3,7 +3,7 @@
 // Les panneaux réécrivent souvent leur contenu : la barre de titre et la poignée sont donc des éléments à part, posés par-dessus.
 export function initWins(A, ST){
   const $ = s => document.querySelector(s), root = document.documentElement;
-  const LIST = [['side', 'Environnement'], ['console', 'Inspecteur'], ['planWin', 'Plan technique'], ['desk', 'Pupitre'], ['aiPanel', 'Assistant'], ['audPanel', 'Musique'], ['ledPanel', 'Mur LED'], ['libPanel', 'Bibliothèques'], ['hud', 'Position'], ['help', 'Aide']];
+  const LIST = [['side', 'Environnement'], ['console', 'Inspecteur'], ['planWin', 'Plan technique'], ['desk', 'Pupitre'], ['aiPanel', 'Assistant'], ['audPanel', 'Musique'], ['ledPanel', 'Mur LED'], ['libPanel', 'Bibliothèques'], ['hud', 'Position'], ['help', 'Aide']].filter(([id]) => !(A.store.get('dv', true) !== false && ['side', 'console', 'planWin'].includes(id)));          /* ces trois-là sont des panneaux Dockview (panels.js) */
   const saved = A.store.get('wins', {}), W = new Map(); let zTop = 13, drag = null;
   const css = document.createElement('style'); css.textContent = `
   .fl{left:var(--fx)!important;top:var(--fy)!important;width:var(--fw)!important;height:var(--fh)!important;right:auto!important;bottom:auto!important;transform:none!important;max-width:none!important;max-height:none!important;min-width:0!important;z-index:var(--fz,13)!important;box-shadow:0 14px 40px rgba(0,0,0,.6);border-radius:0 0 10px 10px!important}

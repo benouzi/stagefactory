@@ -101,6 +101,7 @@ export function initDock(A, ST){
   function swap(k){ D[k] = D[k] === 'left' ? 'right' : 'left'; save(); layout(); window.PLAN?.draw(); ST.toast({ rail: 'Outils', atelier: 'Inspecteur', env: 'Environnement', plan: 'Plan technique' }[k] + ' : à ' + (D[k] === 'left' ? 'gauche' : 'droite') + '.'); }
   function layout(){
     const b = document.body, W = innerWidth, P = window.PLAN && PLAN.P; if (b.classList.contains('cine') || b.classList.contains('ext3d')) return;
+    if (b.classList.contains('dv')){ if (window.PANELS && PANELS.sync) PANELS.sync(); return; }          /* panneaux Dockview (panels.js) : ce sont eux qui placent tout */
     const cw = parseFloat(getComputedStyle(root).getPropertyValue('--cw')) || 340, conOn = b.classList.contains('con') && !con.classList.contains('fl') && !con.classList.contains('hide'), sideOn = !side.classList.contains('hide') && !side.classList.contains('fl');
     let L = 6, R = 6; const put = (el, where, w) => { el.style.left = where === 'left' ? L + 'px' : 'auto'; el.style.right = where === 'right' ? R + 'px' : 'auto'; if (where === 'left') L += w + 6; else R += w + 6; };
     put(rail, D.rail, 44);

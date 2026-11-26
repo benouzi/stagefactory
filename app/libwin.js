@@ -32,7 +32,7 @@ export function initLibWin(A, ST){
   function toggle(v){ box.on = v == null ? !box.on : !!v; if (box.on) fit(); save(); refresh(); window.DRAWER?.refresh(); ST.render(); }
   win.querySelector('[data-lw=dock]').addEventListener('click', () => toggle(false));
   for (const [sel, kind] of [['.lw-bar', 'move'], ['.lw-rs', 'size']]){ const h = win.querySelector(sel); let d = null;
-    h.addEventListener('pointerdown', e => { if (e.button !== 0 || e.target.closest('[data-lw]')) return; e.preventDefault(); d = { x: e.clientX, y: e.clientY, b: { ...box } }; h.setPointerCapture(e.pointerId); });
+    h.addEventListener('pointerdown', e => { if (e.button !== 0 || e.target.closest('[data-lw]') || document.body.classList.contains('dv')) return; e.preventDefault(); d = { x: e.clientX, y: e.clientY, b: { ...box } }; h.setPointerCapture(e.pointerId); });
     h.addEventListener('pointermove', e => { if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (kind === 'move'){ box.x = d.b.x + dx; box.y = d.b.y + dy; } else { box.w = d.b.w + dx; box.h = d.b.h + dy; } fit(); });
     const end = () => { if (d){ d = null; save(); } }; h.addEventListener('pointerup', end); h.addEventListener('pointercancel', end); }
   win.addEventListener('pointerdown', () => { win.style.zIndex = 15; }, true);
