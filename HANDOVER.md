@@ -650,3 +650,10 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
     - Tenue à jour : `DRAWER.refresh()` appelle `OBJLIST.refreshWin()`, plus une minuterie de 900 ms ; rien n'est redessiné pendant une saisie dans une ligne (`edit` + champ actif). **Piège rencontré** : après un clic, la ligne cliquée est déjà remplacée — lire `e.target.closest(...)` AVANT `ST.select()`.
     - Essai `t125` (16 contrôles) ; `t124` adapté (« dans sa fenêtre »).
     - Limites : fenêtre flottante dans l'application (pas ancrable sur un bord, pas sur un second écran) ; elle recouvre ce qui est dessous.
+
+84. **4.50.1 — Plan 2D : un pont se prend au clic même au-dessus de praticables, et le cadre de sélection prend les ponts** (`ponts.js`, `plan.js`)
+    - Capture de Benjamin : un pont au-dessus de praticables n'était pas cliquable (l'objet dessous gagnait toujours, `PLAN.hit` passait avant) et le cadre de sélection ignorait les ponts.
+    - `objOver(x, z)` (ponts.js) remplace `PLAN.hit` dans le clic du plan : l'objet sous le pointeur ne passe devant le pont que si son calque est AU-DESSUS de celui des ponts (`LAYERS.rank`). Par défaut : praticables et décor dessous → le pont est pris ; projecteur, enceinte ou VP posé sur le pont → l'appareil est pris. L'ordre suit le panneau « Calques ».
+    - `PONTS.selectBox(x0, x1, z0, z1, add)`, appelé par le cadre de `plan.js` (vue de dessus) : ponts dont les deux bouts sont dans le cadre. Structure complète → `selStruct` ; un pont → `select` ; plusieurs → toutes leurs pièces (`togglePiece`). Respecte calque masqué / verrouillé.
+    - La sélection des ponts et celle des objets s'excluent (c'était déjà le cas) : si le cadre contient les deux, les ponts passent avant et un message le dit. Essai `t126`.
+    - Limites : pas de cadre sur les ponts en coupe / face ni en 3D ; un pont à moitié dans le cadre n'est pas pris.
