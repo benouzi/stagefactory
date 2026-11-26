@@ -13,9 +13,12 @@
 export function initPanels(A, ST){
   const $ = s => document.querySelector(s), body = document.body, root = document.documentElement, UI = ST.UI;
   const ON = A.store.get('dv', true) !== false;
-  if (!ON){ window.PANELS = { on: false, enable(){ A.store.set('dv', true); location.reload(); } }; return; }
+  /* anciennes fenêtres : un bouton « ▦ Panneaux » reste dans la barre du haut pour revenir aux panneaux ancrables (sinon on ne pouvait plus les réactiver) */
+  const backBtn = why => { const put = n => { const sb = $('#status'); if (!sb){ if (n < 60) setTimeout(() => put(n + 1), 200); return; } if ($('#dvBack')) return; const b = document.createElement('span'); b.id = 'dvBack'; b.textContent = '▦ Panneaux ancrables'; b.style.cssText = 'cursor:pointer;text-decoration:underline;color:var(--accent2,#f2a93b);margin-left:10px;white-space:nowrap'; b.title = why ? 'Panneaux ancrables indisponibles ici : ' + why : 'Activer les panneaux ancrables (onglets détachables, aimant, dispositions). La page se recharge, le projet est gardé.'; sb.appendChild(b);
+      b.addEventListener('click', () => { if (why) return ST.toast('Panneaux ancrables indisponibles ici : ' + why + '. Ils existent dans la version installée.', true); A.store.set('dv', true); location.reload(); }); }; put(0); };          /* dans la barre d'état : la barre du haut n'a plus de place à 1366 px */
+  if (!ON){ window.PANELS = { on: false, why: 'désactivés (anciennes fenêtres choisies)', enable(){ A.store.set('dv', true); location.reload(); } }; backBtn(''); return; }
   body.classList.add('dv');
-  const sc = document.createElement('script'); sc.src = './vendor/dockview-core.min.js'; const fallback = why => { body.classList.remove('dv'); window.PANELS = { on: false, why }; console.warn('Panneaux : ' + why + ' — anciennes fenêtres.'); window.DOCK && DOCK.layout(); dispatchEvent(new Event('resize')); };
+  const sc = document.createElement('script'); sc.src = './vendor/dockview-core.min.js'; const fallback = why => { body.classList.remove('dv'); window.PANELS = { on: false, why }; console.warn('Panneaux : ' + why + ' — anciennes fenêtres.'); window.DOCK && DOCK.layout(); dispatchEvent(new Event('resize')); backBtn(why); };
   sc.onload = () => window['dockview-core'] ? wait(0) : fallback('bibliothèque Dockview absente'); sc.onerror = () => fallback('bibliothèque Dockview absente'); document.head.appendChild(sc);
   const ready = () => window['dockview-core'] && window.DOCK && window.DRAWER && window.PLAN && PLAN.P && window.LIBWIN && window.OBJLIST && $('#libWin') && $('#olWin') && $('#drawer') && $('#v3Bar');
   function wait(n){ if (ready()) return start(); if (n > 200) return fallback('modules manquants'); setTimeout(() => wait(n + 1), 100); }
