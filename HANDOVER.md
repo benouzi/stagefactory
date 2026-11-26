@@ -566,3 +566,8 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
     - Demande de Benjamin : « ajouter des points dans la forme libre avec Alt ». Dans le pointerdown du plan (les trois vues) : Alt + clic sur un TRAIT d’un tracé ou d’un polygone → un point inséré à la projection du clic sur ce trait, et le geste continue en glisser de ce point (`D.drag` avec `done: true`) ; Alt + clic sur un POINT → il est retiré (minimum 3 points pour une forme fermée, 2 pour un tracé, avec message). Marche sur la forme choisie, ou sur la forme sous le clic (elle est alors choisie). Un rectangle perd son statut de rectangle (`rect`) et devient un polygone libre. Pas sur les arcs ni les cercles.
     - Zones : un point se prend à `tol()` (7 px), un trait à 1,6 × `tol()`. Un pas d’annulation par ajout ou retrait. L’aide de la barre du dessin le dit.
     - Essai `t116` (vraie souris, plan et coupe). `t113`, `t114` repassent.
+
+72. **4.44.1 — La salle d’Onex n’apparaît plus une fraction de seconde à l’ouverture** (`index.html`)
+    - Cause : `load()` (index.html) construit la salle d’origine (Onex) puis retirait l’écran de chargement ; le projet vierge dans un espace vide n’est appliqué qu’après, quand `stage.js` est chargé et `init` a tourné. Entre les deux, la salle était visible.
+    - Correction : `load()` ne retire plus `#loader` ; il est retiré à la fin de la chaîne, après `m.init(APP)` et deux images dessinées.
+    - Essai `t117` (un observateur note l’état au moment exact où l’écran de chargement disparaît). tools/h.py : `SF_INIT` (script injecté avant le chargement).

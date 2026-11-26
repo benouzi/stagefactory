@@ -18,7 +18,9 @@ def open_app(p, w=900, h=560, quality='basse'):
     b=p.chromium.launch(args=['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']+os.environ.get('SF_ARGS','').split())
     pg=b.new_page(viewport={'width':w,'height':h}); errs=[]
     pg.on('console',lambda m: m.type in ('error',) and errs.append(m.text)); pg.on('pageerror',lambda e: errs.append('PAGEERROR '+str(e)))
-    pg.route('**/*',route); pg.set_default_timeout(240000); pg.goto(BASE+'index.html'+('' if os.environ.get('SF_BLANK') else '?demo'))
+    pg.route('**/*',route); pg.set_default_timeout(240000);
+    if os.environ.get('SF_INIT'): pg.add_init_script(os.environ['SF_INIT'])
+    pg.goto(BASE+'index.html'+('' if os.environ.get('SF_BLANK') else '?demo'))
     pg.wait_for_function("window.STAGE && document.querySelector('#loader').style.display==='none'",timeout=240000)
     pg.evaluate(f"(()=>{{const e=document.querySelector('#qual');e.value='{quality}';e.dispatchEvent(new Event('change'))}})()")
     return b,pg,errs

@@ -696,7 +696,8 @@ async function load(){
   buildLayerUI();
   for (const g of Object.values(groups)) setGroupVisible(g, !g.hidden);
   setConfig('oneman', true);
-  $('#loader').style.display = 'none';
+  // l'écran de chargement n'est PAS retiré ici : la salle d'origine vient d'être construite, mais le projet (vierge, dans un espace vide) n'est appliqué
+  // qu'une fois stage.js chargé. Le retirer ici laissait voir la salle d'Onex une fraction de seconde à chaque ouverture.
   setPreset('ensemble');
 }
 
@@ -1591,6 +1592,7 @@ Object.assign(APP, { THREE, scene, renderer, canvas, persp, ortho, orbit, orthoC
 for (const [k, f] of Object.entries({ camera: () => camera, mode: () => mode, quality: () => quality, percheDelta: () => 0,
   config: () => cfgId, measuring: () => $('#measureOn').checked })) Object.defineProperty(APP, k, { get: f });
 load().then(() => { venueInit(); return import('./stage.js'); }).then(m => m.init(APP))
+  .then(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))).then(() => { $('#loader').style.display = 'none'; })          // le projet est en place et dessiné : on montre
   .catch(err => { console.error(err); $('#loader').style.display = 'flex'; $('#lt').textContent = 'Erreur de chargement : ' + err.message; });
 </script>
 </body>
