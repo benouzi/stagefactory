@@ -1603,10 +1603,10 @@ export function init(APP){
   // anneau de rotation, affiché en même temps que les flèches : il tourne l'objet (structures) ou son pan (projecteurs, enceintes, vidéoprojecteurs)
   gizmoR = new TransformControls(A.camera, A.canvas); gizmoR.setMode('rotate'); gizmoR.showX = gizmoR.showZ = false; gizmoR.setSize(1.0); gizmoR.setRotationSnap(5 * D2R);
   { const hR = gizmoR.getHelper ? gizmoR.getHelper() : gizmoR; hR.userData.noAO = true; scene.add(hR); }
-  let rs0 = null; const wrap = v => Math.round(((v + 540) % 360 + 360) % 360 - 180);
-  gizmoR.addEventListener('dragging-changed', e => { A.orbit.enabled = !e.value && A.mode === 'orbit'; A.orthoCtl.enabled = !e.value && (A.mode === 'top' || A.mode === 'side');
+  let rs0 = null, rSkipS = false; const wrap = v => Math.round(((v + 540) % 360 + 360) % 360 - 180);
+  gizmoR.addEventListener('dragging-changed', e => { if (e.value && gizmo.dragging){ rSkipS = true; return; } if (rSkipS){ if (!e.value) rSkipS = false; return; }          /* une flèche déjà tirée a la priorité sur l'anneau qui passe derrière elle */ A.orbit.enabled = !e.value && A.mode === 'orbit'; A.orthoCtl.enabled = !e.value && (A.mode === 'top' || A.mode === 'side');
     if (e.value){ pushUndo(0, 'Rotation'); rs0 = Object.fromEntries(selObjs().filter(o => !o.locked).map(o => [o.id, o.yaw !== undefined ? o.yaw || 0 : o.pan || 0])); } else { if (gizmoR.object) gizmoR.object.quaternion.identity(); touch(); refreshProps(); } });
-  gizmoR.addEventListener('objectChange', () => { const root = gizmoR.object; if (!root || !rs0) return; const dy = 2 * Math.atan2(root.quaternion.y, root.quaternion.w) * R2D; root.quaternion.identity();
+  gizmoR.addEventListener('objectChange', () => { const root = gizmoR.object; if (rSkipS){ if (root) root.quaternion.identity(); return; } if (!root || !rs0) return; const dy = 2 * Math.atan2(root.quaternion.y, root.quaternion.w) * R2D; root.quaternion.identity();
     for (const o of selObjs()){ if (rs0[o.id] === undefined) continue; if (o.yaw !== undefined) o.yaw = wrap(rs0[o.id] + dy); else if (o.pan !== undefined) o.pan = wrap(rs0[o.id] + dy); const r = RT.get(o.id); if (r) r.dirty = true; } });
   A.hooks.update.push(() => { if (gizmoR.object !== gizmo.object){ if (gizmo.object) gizmoR.attach(gizmo.object); else gizmoR.detach(); } gizmoR.camera = gizmo.camera; if (!gizmoR.dragging) gizmoR.enabled = !gizmo.dragging && !gizmo.axis; if (!gizmo.dragging) gizmo.enabled = !gizmoR.dragging; });
   A.hooks.update.push(update);
