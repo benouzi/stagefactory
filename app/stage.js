@@ -96,7 +96,7 @@ const RT = new Map();          // id -> objets three
 const MEDIA = new Map();       // id d'objet -> { el, kind } (image / vidéo choisie par l'utilisateur)
 const UI = { tab: 'lib', libCat: 'lum', sel: [], placing: null, serie: 1, serieStep: 0, serieSym: false, blkCols: 2, blkRows: 2, blkH: .4, blkRot: false, aiming: false, labels: false, spl: false, cov: false, gizmo: 'translate', t: 0, fade: null, cue: -1 };
 const undoStack = [], redoStack = [];
-const layHid = o => { const L = S.layers; if (!L) return false; const t = typeOf(o); return L[t.kind === 'sprop' ? 'dec' : t.cat] === false; };
+const layHid = o => { const L = S.layers; if (!L) return false; const c = L._c; if (o.ly && c && Array.isArray(c.custom) && c.custom.some(x => x.id === o.ly)) return !!(c.vis && c.vis[o.ly] === false);   /* rangé dans un calque à soi (layers.js) */ const t = typeOf(o); return L[t.kind === 'sprop' ? 'dec' : t.cat] === false; };
 // ---- catalogue de références réelles (catalog.js) et modèles de l'utilisateur : une référence = un modèle générique + ses valeurs lues sur une fiche
 const FAM = new Map(FAMILIES.map(f => [f[0], f])), refKey = (b, m) => (String(b || '') + ' ' + String(m || '')).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 function refType(c, user){ const fam = FAM.get(c.fam), b = fam && LIB.find(t => t.id === (c.fam === 'micro' && c.mic === 'grave' ? 'mic-bas' : fam[2])); if (!b) return null;
@@ -803,7 +803,7 @@ function setGizmoMode(){
 }
 function pickObj(ev){
   const m = new THREE.Vector2((ev.clientX - VX()) / VW() * 2 - 1, -(ev.clientY / VH()) * 2 + 1); rc.setFromCamera(m, A.camera); rc.far = 500; rc.near = 0;
-  const list = []; for (const r of RT.values()) if (!r.o.hidden && !layHid(r.o) && !r.o.locked) r.root.traverse(o => { if (o.isMesh) list.push(o); });
+  const list = []; for (const r of RT.values()) if (!r.o.hidden && !layHid(r.o) && !r.o.locked && !(window.LAYERS && LAYERS.locked(r.o))) r.root.traverse(o => { if (o.isMesh) list.push(o); });
   const h = rc.intersectObjects(list, false).filter(x => !A.isClipped(x.point)); pickObj.d = h.length ? h[0].distance : Infinity; return h.length ? h[0].object.userData.oid : null;
 }
 function pickScene(ev, withObjs){
@@ -1249,7 +1249,7 @@ function propHtml(){
   h += `<div class="pf">${multi ? '' : `<label>Nom</label><input type="text" data-k="name" value="${esc(o.name)}"><label>Numéro</label><input type="number" data-k="n" value="${o.n}">`}
     <label>Position</label><div class="tri">${[0, 1, 2].map(i => `<input type="number" step="0.05" data-pos="${i}" value="${o.pos[i]}" title="${['X : jardin − / cour +', 'Y : hauteur', 'Z : distance au nez de scène'][i]}">`).join('')}</div>
     <label>Poids (kg)</label><input type="number" class="inp" data-k="w" min="0" step="0.1" value="${weightOf(o)}" title="Poids utilisé par le plan de charge. Valeur du modèle : ${fmt(t.w || 0, 1)} kg">
-    <label>Accroche</label><select class="inp" data-k="hang"><option value="">Posé au sol</option><option value="fixe" ${o.hang === 'fixe' ? 'selected' : ''}>Accroche fixe</option><option value="perche" ${o.hang === 'perche' ? 'selected' : ''}>Sur perche (suit la hauteur)</option>${window.PONTS && (S.sups || []).some(q => q.kind === 'truss') ? `<option value="pont" ${o.hang === 'pont' ? 'selected' : ''}>Sur pont${o.hang === 'pont' ? ' : ' + esc(PONTS.nameOf(o.sid)) : ' (le plus proche)'}</option>` : ''}</select>`;
+    <label>Accroche</label><select class="inp" data-k="hang"><option value="">Posé au sol</option><option value="fixe" ${o.hang === 'fixe' ? 'selected' : ''}>Accroche fixe</option><option value="perche" ${o.hang === 'perche' ? 'selected' : ''}>Sur perche (suit la hauteur)</option>${window.PONTS && (S.sups || []).some(q => q.kind === 'truss') ? `<option value="pont" ${o.hang === 'pont' ? 'selected' : ''}>Sur pont${o.hang === 'pont' ? ' : ' + esc(PONTS.nameOf(o.sid)) : ' (le plus proche)'}</option>` : ''}</select>${window.LAYERS ? LAYERS.fiche(o) : ''}`;
     if (o.hang === 'perche' && !multi){ const sm = window.RIG ? RIG.sum(o.pi ?? 0) : null; h += `<label>Perche</label><select class="inp" data-k="pi">${A.PERCHES.map((P, i) => P.off ? '' : `<option value="${i}"${i === o.pi ? ' selected' : ''}>P${i + 1} — à ${fmt(P.z, 2)} m</option>`).join('')}</select>${sm ? `<div class="info" style="margin-top:6px;border:1px solid ${sm.col}">Perche ${o.pi + 1} : <b>${fmt(sm.kg, 0)} kg</b> utiles, taux <b>${fmt(sm.util * 100, 0)} %</b> · <a data-a="rig" style="cursor:pointer;text-decoration:underline">plan de charge</a></div>` : ''}`; }
   if (t.cat === 'lum'){
     h += `<label>Groupe</label><input type="text" data-k="grp" value="${esc(o.grp || '')}" list="grps"><datalist id="grps">${groups().map(g => `<option value="${esc(g)}">`).join('')}</datalist>
@@ -1637,6 +1637,7 @@ export function init(APP){
   import('./scenes.js').then(m => m.initScenes(A, window.STAGE)).catch(e => console.error(e));
   import('./video.js').then(m => m.initVideo(A, window.STAGE)).catch(e => console.error(e));
   import('./import3d.js').then(m => m.initImport3d(A, window.STAGE)).catch(e => console.error(e));
+  import('./layers.js').then(m => m.initLayers(A, window.STAGE)).catch(e => console.error(e));
   import('./decor.js').then(m => m.initDecor(A, window.STAGE)).catch(e => console.error(e));
   import('./linearray.js').then(m => m.initLineArray(A, window.STAGE)).catch(e => console.error(e));
   import('./publish.js').then(m => m.initPublish(A, window.STAGE)).catch(e => console.error(e));

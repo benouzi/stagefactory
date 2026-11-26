@@ -207,9 +207,12 @@ export function initPlan(A, ST){
 
   // ---------------------------------------------------------------- matériel de l'Atelier (symboles)
   const SYM = () => Math.max(.5, 9 / P.s);              // les symboles gardent une taille lisible en vue d'ensemble
-  function symbol(o, t, sel){
-    const k = SYM() * P.s, col = sel ? ACC : INK;
-    c.save(); c.translate(X(o.pos[0]), Z(o.pos[2])); c.rotate(-(t.cat === 'str' ? (o.yaw || 0) : (o.pan || 0)) * Math.PI / 180);
+  // masqué sur le plan (objet caché, calque éteint, ou calque éteint sur le plan seulement) ; verrouillé (objet ou calque)
+  const hidP = o => o.hidden || A.layHid(o) || !!(window.LAYERS && LAYERS.planHid(o)), lockP = o => o.locked || !!(window.LAYERS && LAYERS.locked(o));
+  // at = { px, py, k, col } : dessiner le symbole seul, à un endroit et une taille donnés de la feuille (légende)
+  function symbol(o, t, sel, at){
+    const k = at ? at.k : SYM() * P.s, col = at ? at.col : sel ? ACC : (window.LAYERS && LAYERS.colObj(o)) || INK;
+    c.save(); if (at) c.translate(at.px, at.py); else { c.translate(X(o.pos[0]), Z(o.pos[2])); c.rotate(-(t.cat === 'str' ? (o.yaw || 0) : (o.pan || 0)) * Math.PI / 180); }
     c.lineWidth = (sel ? 1.8 : 1.1) * K; c.strokeStyle = col; c.fillStyle = PAPER; c.setLineDash([]);
     const R = (x, y, w, h) => { c.fillRect(x, y, w, h); c.strokeRect(x, y, w, h); }, C = r => { c.beginPath(); c.arc(0, 0, r, 0, 7); c.fill(); c.stroke(); }, L = (...p) => { c.beginPath(); c.moveTo(p[0], p[1]); for (let i = 2; i < p.length; i += 2) c.lineTo(p[i], p[i + 1]); c.stroke(); };
     if (t.cat === 'lum'){
@@ -224,7 +227,7 @@ export function initPlan(A, ST){
       L(0, .36 * k, 0, .72 * k); L(-.1 * k, .58 * k, 0, .72 * k, .1 * k, .58 * k);                           // sens de tir
     } else if (t.cat === 'vid'){
       R(-.32 * k, -.3 * k, .64 * k, .6 * k); R(-.1 * k, .3 * k, .2 * k, .12 * k);
-      if (!(window.VIDEO && ST.RT.get(o.id)?.geom && o.on !== false)){ const d = Math.min(14, (o.throw || 1.5) * 4) * P.s, hw = d / (o.throw || 1.5) / 2; c.setLineDash([5 * K, 3 * K]); c.lineWidth = .7 * K; L(0, .42 * k, -hw, d); L(0, .42 * k, hw, d); L(-hw, d, hw, d); }
+      if (!at && !(window.VIDEO && ST.RT.get(o.id)?.geom && o.on !== false)){ const d = Math.min(14, (o.throw || 1.5) * 4) * P.s, hw = d / (o.throw || 1.5) / 2; c.setLineDash([5 * K, 3 * K]); c.lineWidth = .7 * K; L(0, .42 * k, -hw, d); L(0, .42 * k, hw, d); L(-hw, d, hw, d); }
     } else if (t.cat === 'son'){
       const kd = t.kind;
       if (kd === 'sub'){ R(-.4 * k, -.4 * k, .8 * k, .8 * k); L(-.4 * k, -.4 * k, .4 * k, .4 * k); L(.4 * k, -.4 * k, -.4 * k, .4 * k); }
@@ -252,11 +255,11 @@ export function initPlan(A, ST){
   }
   function objects(){
     const S = ST.S, sel = ST.UI.sel;
-    for (const o of S.objs){
-      if ((o.hidden || A.layHid(o))) continue;
+    for (const o of (window.LAYERS ? LAYERS.sorted(S.objs) : S.objs)){          // dans l'ordre des calques : celui du haut est dessiné en dernier, donc par-dessus
+      if (hidP(o)) continue;
       const t = ST.typeOf(o), isSel = sel.includes(o.id); symbol(o, t, isSel);
       if (!P.labels) continue;
-      const k = SYM(), col = isSel ? ACC : INK, hang = o.hang === 'perche' ? A.percheDeltaAt(o.pos[2]) : 0;
+      const k = SYM(), col = isSel ? ACC : (window.LAYERS && LAYERS.colObj(o)) || INK, hang = o.hang === 'perche' ? A.percheDeltaAt(o.pos[2]) : 0;
       const far = P.s < 26 && !isSel; if (far && t.cat === 'str') continue;
       const tag = t.cat === 'str' ? (o.name || t.name) : `${o.n ?? ''}${!far && t.cat === 'lum' && o.addr ? '  ' + ST.addrStr(o) : ''}`;
       text(tag, o.pos[0], o.pos[2] - k * .62, { px: far ? 7.5 : 8.5, b: true, col, bg: !far, bl: 'bottom', mono: t.cat !== 'str', dy: -1 });
@@ -310,12 +313,12 @@ export function initPlan(A, ST){
     const down = o.hang ? 1 : 0; c.fillRect(X(z - dep / 2), V(y + (down ? 0 : hgt)), dep * P.s, hgt * P.s); c.strokeRect(X(z - dep / 2), V(y + (down ? 0 : hgt)), dep * P.s, hgt * P.s);
   }
   function objectsC(){
-    const S = ST.S, sel = ST.UI.sel, list = S.objs.filter(o => !(o.hidden || A.layHid(o))).sort((a, b) => sel.includes(a.id) - sel.includes(b.id));
+    const S = ST.S, sel = ST.UI.sel, list = S.objs.filter(o => !hidP(o)).sort((a, b) => sel.includes(a.id) - sel.includes(b.id));
     for (const o of list){ const t = ST.typeOf(o), isSel = sel.includes(o.id); symbolC(o, t, isSel); if (!P.labels) continue; const far = P.s < 26 && !isSel; if (far && t.cat !== 'lum') continue;
       const y = objY(o); if (isSel) textC(`${t.cat === 'str' ? '' : (o.n ?? '') + ' · '}${o.name || t.name} · h ${f1(y)}`, U(o), y, { px: 8.5, col: ACC, bg: true, bl: 'bottom', dy: -13 });
       else if (!far) textC(t.cat === 'str' ? (o.name || t.name) : String(o.n ?? ''), U(o), y, { px: 7.5, b: true, mono: t.cat !== 'str', bl: 'bottom', dy: -11 }); }
   }
-  function hitC(z, y){ let best = null, bd = 1e9; const R = Math.max(.4, 11 / P.s); for (const o of ST.S.objs){ if ((o.hidden || A.layHid(o)) || o.locked) continue; const t = ST.typeOf(o), oy = objY(o), cy = t.cat === 'lum' ? oy - .18 : o.hang ? oy - .4 : oy + .5, d = Math.hypot(U(o) - z, (cy - y) * (t.cat === 'lum' ? 1 : .6)); if (d < R && d < bd){ bd = d; best = o; } } return best; }
+  function hitC(z, y){ let best = null, bd = 1e9; const R = Math.max(.4, 11 / P.s); for (const o of ST.S.objs){ if (hidP(o) || lockP(o)) continue; const t = ST.typeOf(o), oy = objY(o), cy = t.cat === 'lum' ? oy - .18 : o.hang ? oy - .4 : oy + .5, d = Math.hypot(U(o) - z, (cy - y) * (t.cat === 'lum' ? 1 : .6)); if (d < R && d < bd){ bd = d; best = o; } } return best; }
   function cartouche(st, x, y, w){
     const S = ST.S, n = cat => S.objs.filter(o => ST.typeOf(o).cat === cat).length, h = 58 * K;
     c.setLineDash([]); c.fillStyle = PAPER; c.fillRect(x, y, w, h); c.lineWidth = 1.2 * K; c.strokeStyle = INK; c.strokeRect(x, y, w, h);
@@ -382,7 +385,7 @@ export function initPlan(A, ST){
   function hit(x, z){
     if (CP()) return hitC(x, z);
     const objs = ST.S.objs, R = Math.max(.45, SYM() * .55); let best = null, bd = 1e9;
-    for (const o of objs){ if ((o.hidden || A.layHid(o)) || o.locked) continue; const t = ST.typeOf(o); let d = Math.hypot(o.pos[0] - x, o.pos[2] - z), r = R;
+    for (const o of objs){ if (hidP(o) || lockP(o)) continue; const t = ST.typeOf(o); let d = Math.hypot(o.pos[0] - x, o.pos[2] - z), r = R;
       if (t.cat === 'str' && t.fp){ d = Math.hypot(o.pos[0] - x, o.pos[2] - z); r = Math.max(.3, Math.min(t.fp[0], t.fp[1]) / 2); }
       if (t.kind === 'prim'){ const z2 = o.size || t.size; r = Math.max(.3, Math.min(z2[0], z2[1]) / 2); }
       else if (t.cat === 'str' && (o.size || o.len || t.kind === 'ledwall')){ const a = (o.yaw || 0) * Math.PI / 180, dx = x - o.pos[0], dz = z - o.pos[2], lx = dx * Math.cos(a) - dz * Math.sin(a), lz = dx * Math.sin(a) + dz * Math.cos(a), hw = (o.len || o.size[0]) / 2, hd = t.kind === 'screen' ? .25 : (o.size ? o.size[1] / 2 : .2); d = Math.max(Math.abs(lx) - hw, Math.abs(lz) - hd, 0); r = .15; }
@@ -432,7 +435,7 @@ export function initPlan(A, ST){
     if (drag.ser){ const q = drag.ser, [a, b] = serAB(q), id = ST.UI.placing; drag = null; cv.style.cursor = idle(); if (id && q.blk){ ST.placeBlock(id, q.moved ? ST.blkCells(q.blk, q.a, q.b) : ST.blkCells(q.blk, q.c)); if (!e.shiftKey) ST.UI.placing = null; ST.render(); } else if (id){ ST.placeSeries(id, q.moved ? ST.seriePts(a, b) : [q.a], q.pi); if (!e.shiftKey) ST.UI.placing = null; ST.render(); } draw(); return; }
     if (drag.box){ const [a, b, c2, d] = drag.box, x0 = Math.min(a, c2), x1 = Math.max(a, c2), z0 = Math.min(b, d), z1 = Math.max(b, d), small = Math.hypot(e.clientX - (drag.sx ?? e.clientX), e.clientY - (drag.sy ?? e.clientY)) < 5;
       if (small){ if (!drag.add && ST.UI.sel.length) ST.select([]); }          // simple clic dans le vide : tout désélectionner
-      else { const ids = ST.S.objs.filter(o => { if ((o.hidden || A.layHid(o)) || o.locked) return false; const u = CP() ? U(o) : o.pos[0], v = CP() ? objY(o) : o.pos[2]; return u >= x0 && u <= x1 && v >= z0 && v <= z1; }).map(o => o.id); ST.select(drag.add ? [...new Set([...ST.UI.sel, ...ids])] : ids);
+      else { const ids = ST.S.objs.filter(o => { if (hidP(o) || lockP(o)) return false; const u = CP() ? U(o) : o.pos[0], v = CP() ? objY(o) : o.pos[2]; return u >= x0 && u <= x1 && v >= z0 && v <= z1; }).map(o => o.id); ST.select(drag.add ? [...new Set([...ST.UI.sel, ...ids])] : ids);
         // les formes dessinées entièrement dans le cadre sont choisies aussi (celles tracées dans la vue affichée)
         if (window.DRAW && DRAW.selectMany){ try { const inb = s => { const P2 = s.k === 'circle' ? [[s.c[0] - s.r, s.c[1] - s.r], [s.c[0] + s.r, s.c[1] + s.r]] : s.k === 'text' ? [s.c] : s.p; return P2 && P2.length && P2.every(p => p[0] >= x0 && p[0] <= x1 && p[1] >= z0 && p[1] <= z1); }, sh = (DRAW.here ? DRAW.here() : DRAW.shapes() || []).filter(inb).map(s => s.id); if (sh.length || !drag.add) DRAW.selectMany(drag.add ? [...new Set([...(DRAW.sels || []), ...sh])] : sh); } catch (_){ } } } }
     else if (drag.start && drag.moved){ if (drag.mag) ST.magSay(drag.mag); ST.touch(); ST.refreshProps(); const g = ST.selObjs().pop(); if (g) ST.select(ST.UI.sel); }
@@ -464,5 +467,6 @@ export function initPlan(A, ST){
     pp.addEventListener('pointerdown', e => e.stopPropagation()); pp.addEventListener('keydown', e => e.stopPropagation());
     cv.addEventListener('pointerdown', () => { if (pp.style.display === 'block'){ pp.style.display = 'none'; ob.classList.remove('on'); } }, true);
     P.theme = TH; P.setTheme = o => { Object.assign(TH, o); set(); }; }
+  P.symbolAt = (t, px, py, k, col) => symbol({ pos: [0, 0, 0] }, t, false, { px, py, k, col });
   window.PLAN = { P, toggle, draw, fit, hit, layout, setView, pick, size, world, sheet };
 }
