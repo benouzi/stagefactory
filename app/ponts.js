@@ -115,6 +115,7 @@ export async function initPonts(A, ST){
       r.points.forEach(p => { const [x, z] = at(s, p.alongMm), sp = label3d(p.uplift ? 'détendu' : f(p.designKg, 0) + ' kg', p.over || p.uplift ? '#ff6b6b' : p.capacityKg == null ? '#f0a23c' : '#5fd08f'); sp.position.set(x, y0 + sec + .95, z); g.add(sp); });
       const bp = C.beamPlan(d, d.supports[s.id]), mm_ = Math.max(1e-6, ...bp.M.map(Math.abs)), pts = []; for (let i = 0; i < bp.xs.length; i += 4){ const [x, z] = at(s, bp.xs[i] * 1000); pts.push(V3(x, y0 - .1 - Math.abs(bp.M[i]) / mm_ * .9, z)); } if (pts.length > 1){ const ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), LM); ln.frustumCulled = false; g.add(ln); } }
     if (ya.length){ const m = tubes(ya, LY); m.castShadow = m.receiveShadow = false; g.add(m); } if (ba.length){ const m = tubes(ba, LB); m.castShadow = m.receiveShadow = false; g.add(m); }
+    g.userData.infoG = true; g.visible = !A.infoOff;          /* bouton « Étiquettes » de la vue 3D : flèches de charge, courbe du moment et poids disparaissent ensemble */
     loadsG = g; A.scene.add(g); }
 
   // ---------------------------------------------------------------- 3D

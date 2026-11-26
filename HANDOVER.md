@@ -626,3 +626,6 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
     - Mes modèles : `A.store 'laUser'` { boxes, bumps } ; un modèle `u:…` est recopié dans `free` pour que le projet reste lisible ailleurs. Un modèle saisi n'a PAS d'ouverture par défaut (`hd`, `vd` null → « inconnue », pas d'empreinte).
     - Essais : `t123` (27 contrôles), `t67` adapté (onglets).
     - Limites : couverture = géométrie nominale, ni niveau ni fréquence ; empreinte sur un plan d'écoute horizontal (la pente du public ne joue qu'en coupe) ; charge admissible du cadre, stabilité d'un empilage au sol et tenue d'un pied non calculées ; repères de levage approximatifs ; pas de dispersion asymétrique ni de plages 1/2/3 ; pas de pivot arrière ni de boîte couchée ; le pied n'a pas de modèle 3D ; réordonner par ▲▼ (pas au glisser) ; en 3D la pose se fait en un clic, face au public ; toujours 5 modèles fabricants ; l'assistant ne connaît pas l'outil.
+
+80. **4.49.1 — Le bouton « Étiquettes » masque aussi les flèches de charge et la courbe du moment** (`ponts.js`, `view.js`)
+    - Benjamin a pris la courbe du moment (ligne jaune sous le pont) pour des câbles et veut « un rendu propre sans les infos de sécurité » avec le même bouton. Le groupe `loadsG` de `loads3d()` porte `userData.infoG` et suit `A.infoOff` ; `applyInfo()` (view.js) le bascule. `t118` le contrôle.
