@@ -1426,7 +1426,7 @@ function openRename(){ if (!S.cues[UI.cue]) return; modal(`<h1>Renommer la mémo
 function reattach(){ for (const [id, r] of RT) r.boxh.visible = UI.sel.includes(id); const p = byId(UI.sel[UI.sel.length - 1]); if (p && A.mode !== 'walk'){ gizmo.attach(RT.get(p.id).root); setGizmoMode(); } }
 const labelEls = new Map();
 function drawLabels(){
-  const box = $('#labels'), show = (UI.labels || A.mode === 'top') && A.mode !== 'walk';
+  const box = $('#labels'), show = (UI.labels || A.mode === 'top') && A.mode !== 'walk' && !A.infoOff;
   if (!show){ if (labelEls.size){ box.innerHTML = ''; labelEls.clear(); } return; }
   const cam = A.camera, seen = new Set();
   for (const o of S.objs){ const t = typeOf(o); if (t.cat === 'str') continue; const r = RT.get(o.id); if (!r) continue;

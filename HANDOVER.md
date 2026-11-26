@@ -571,3 +571,8 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
     - Cause : `load()` (index.html) construit la salle d’origine (Onex) puis retirait l’écran de chargement ; le projet vierge dans un espace vide n’est appliqué qu’après, quand `stage.js` est chargé et `init` a tourné. Entre les deux, la salle était visible.
     - Correction : `load()` ne retire plus `#loader` ; il est retiré à la fin de la chaîne, après `m.init(APP)` et deux images dessinées.
     - Essai `t117` (un observateur note l’état au moment exact où l’écran de chargement disparaît). tools/h.py : `SF_INIT` (script injecté avant le chargement).
+
+73. **4.45.0 — Bouton « 🏷 Étiquettes » dans la barre de la vue 3D** (`view.js`, `ponts.js`, `stage.js`)
+    - Demande de Benjamin (capture d’un gril avec ses « 41 kg », « 27 kg ») : pouvoir masquer les infos de poids et étiquettes. `V.info` (réglage de la vue, gardé) → `A.infoOff` ; `applyInfo()` masque les sprites marqués `userData.info` (étiquettes de charge de `label3d` dans ponts.js, qui naissent masquées si le réglage est éteint) et `#labels` (numéros / adresses des appareils) n’est plus rempli.
+    - Au passage : dans `apply()` de view.js, `A.store.set('view3d', V)` était avalé par un commentaire de fin de ligne — les réglages de la vue 3D (fond, grille, axes…) n’étaient donc pas gardés d’une ouverture à l’autre. Remis sur sa ligne.
+    - Essai `t118`. Ne masque pas : les câbles jaunes, les bulles d’outil (cotes pendant un geste), les étiquettes du plan 2D (elles ont leur propre réglage).
