@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 /home/claude/local/build.sh >/dev/null
-SRC=/home/claude/local/dist/StageFactory; P=/home/claude/pack; OUT=$P/out; VER=4.46.0; rm -rf $OUT $P/win $P/mac; mkdir -p $OUT $P/win
+SRC=/home/claude/local/dist/StageFactory; P=/home/claude/pack; OUT=$P/out; VER=4.46.1; rm -rf $OUT $P/win $P/mac; mkdir -p $OUT $P/win
 # ---------------- récepteur NDI : koffi (appel de la bibliothèque NDI installée sur l'ordinateur) et son binaire par plateforme. pack/* n'est pas dans git : on les reprend de npm s'ils manquent.
 KS=$P/koffi-src; KV=3.3.8
 if [ ! -d $KS/node_modules/koffi ] || [ ! -d $KS/node_modules/@koromix/koffi-win32-x64 ] || [ ! -d $KS/node_modules/@koromix/koffi-darwin-arm64 ] || [ ! -d $KS/node_modules/@koromix/koffi-darwin-x64 ]; then mkdir -p $KS; (cd $KS && { [ -f package.json ] || npm init -y >/dev/null; } && npm i --no-save koffi@$KV >/dev/null && npm i --force --no-save @koromix/koffi-win32-x64@$KV @koromix/koffi-darwin-x64@$KV @koromix/koffi-darwin-arm64@$KV >/dev/null); fi
