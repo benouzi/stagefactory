@@ -9,7 +9,7 @@ def ok(c,m,x=''):
     if not c: bad.append(m)
 with sync_playwright() as p:
     b,pg,errs=open_app(p,1500,900); ev=pg.evaluate; pg.on('pageerror',lambda e:errs.append('pageerror '+str(e)[:300]))
-    pg.wait_for_function("window.STAGE && window.DOCK && window.PLAN && window.PONTS && window.LAYERS && window.OBJLIST && window.DRAWER && !!PLAN.world",timeout=60000); pg.wait_for_timeout(1500)
+    pg.wait_for_function("window.STAGE && window.DOCK && window.PLAN && window.PONTS && window.LAYERS && window.OBJLIST && window.DRAWER && !!PLAN.world",timeout=60000); pg.wait_for_timeout(1500); ev("window.OBJLIST&&OBJLIST.winOn&&OBJLIST.win(false)")
     I=ev("""(()=>{const T=APP.THREE,at=(x,z)=>({point:new T.Vector3(x,0,z),object:{userData:{}},face:null}),id=o=>(o&&o.id)||o;const r={};['par-zoom','par-zoom','par-zoom'].forEach((t,i)=>r['p'+i]=id(STAGE.place(t,at(-2+i*2,1),true,{})));r.dec=id(STAGE.place('decoupe',at(0,3),true,{}));r.cube=id(STAGE.place('prim-cube',at(3,-2),true,{}));STAGE.select([]);return r})()""")
     ev("document.querySelector('[data-dom=rig]').click();PONTS.O.series='prolyte-h30v';PONTS.O.corner='weld';PONTS.structOpen()"); pg.wait_for_timeout(400)
     ev("[...document.querySelectorAll('[data-pa=stype]')].find(b=>b.dataset.id==='gril').click()"); pg.wait_for_timeout(300); pg.click('[data-pa=sok]'); pg.wait_for_timeout(1200)

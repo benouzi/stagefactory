@@ -6,6 +6,7 @@
 export function initObjList(A, ST){
   const S = ST.S, UI = ST.UI, esc = ST.esc, $ = s => document.querySelector(s);
   const O = Object.assign({ grp: 'calque', sk: 'n', sd: 1, merge: false, closed: {}, f: [] }, A.store.get('olist') || {}), save = () => A.store.set('olist', O);
+  const WB = Object.assign({ on: false, x: 64, y: 96, w: 360, h: 470 }, A.store.get('olwin', null) || {}), wsave = () => A.store.set('olwin', WB);
   let q = '', open = {}, lastRows = [], MG = new Map(), anchor = null, fromList = -1e9, selKey = '', edit = null;
   const fr = (v, d = 2) => v.toLocaleString('fr-CH', { minimumFractionDigits: d, maximumFractionDigits: d }).replace('.', ',');
   const LY = () => window.LAYERS, CATN = { lum: 'Lumière', vid: 'Vidéo', son: 'Son', str: 'Structure et scène', dec: 'Décor et personnages', ponts: 'Ponts et structures', dessin: 'Dessin' };
@@ -52,7 +53,7 @@ export function initObjList(A, ST){
     return h || `<tr><td colspan="${CS}" class="mu" style="padding:14px 8px">${S.objs.length || (S.sups || []).length || (S.shapes || []).length ? 'Rien ne correspond à la recherche ou aux filtres.' : 'La scène est vide. Pose du matériel depuis la bibliothèque.'}</td></tr>`; }
   function bulk(){ const n = UI.sel.length, dis = n ? '' : ' disabled'; /* toujours affichée, grisée sans sélection : la liste ne saute pas d'une ligne quand on choisit */ const s = ST.selObjs(), hid = s.every(o => o.hidden), lk = s.every(o => o.locked);
     return `<div class="olbulk${n ? '' : ' off'}" id="olBulk"><b>${n ? n + ' choisi' + (n > 1 ? 's' : '') : 'Aucun choisi'}</b><button class="b" data-olb="hide"${dis}>${n && hid ? 'Afficher' : 'Masquer'}</button><button class="b" data-olb="lock"${dis}>${n && lk ? 'Déverrouiller' : 'Verrouiller'}</button>${LY() ? `<select class="inp" data-olb="ly" style="width:auto"${dis}><option value="">Ranger dans le calque…</option><option value="__def">Calque par défaut (son métier)</option>${LY().order().filter(id => !LY().isAuto(id)).map(id => `<option value="${id}">${esc(lyName(id))}</option>`).join('')}</select>` : ''}<button class="b" data-olb="renum"${dis} title="Renuméroter la sélection, par métier, dans l'ordre de jardin à cour">Renuméroter</button><button class="b" data-olb="focus"${dis}>Centrer la vue</button><button class="b" data-olb="del"${dis} style="color:#ff8f8f">Supprimer</button></div>`; }
-  function html(){ css(); const all = rows(), nO = S.objs.filter(o => !o.dress).length;
+  function html(inWin){ css(); if (WB.on && !inWin) return '<div class="info">La liste des objets est ouverte dans sa propre fenêtre. <button class="b" data-olw="back" style="margin-left:8px">La remettre ici</button></div>'; const all = rows(), nO = S.objs.filter(o => !o.dress).length;
     const key = UI.sel.join(','); if (key !== selKey){ selKey = key; if (!(performance.now() - fromList < 400) && UI.sel.length) reveal(); }
     return `<div id="olx" class="olxw"><div class="oltop"><input type="search" data-ws="q" placeholder="Rechercher : nom, numéro, modèle, groupe, accroche…" value="${esc(q)}">
       <label>Grouper <select class="inp" data-olo="grp">${[['calque', 'par calque'], ['metier', 'par métier'], ['accroche', 'par accroche'], ['aucun', 'sans groupe']].map(([k, l]) => `<option value="${k}"${O.grp === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -61,8 +62,8 @@ export function initObjList(A, ST){
       <div class="sub" style="margin:0 0 4px">${nO} objet${nO > 1 ? 's' : ''} · ${all.filter(r => r.k === 'p').length} pont(s) · ${all.filter(r => r.k === 's').length} forme(s) dessinée(s). Double-clic sur un nom ou un numéro : le modifier · double-clic ailleurs : centrer la vue · clic droit : menu${O.grp === 'calque' ? ' · glisser une ligne sur un calque : l\'y ranger' : ''}.</div>${bulk()}
       <table class="olt"><thead><tr>${COLS.map(([k, l, c]) => `<th class="${c}" data-ols="${k}" title="Trier">${l}${O.sk === k ? (O.sd > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}<th></th></tr></thead><tbody id="olBody" class="olb">${body()}</tbody></table></div>`; }
   // version étroite pour l'inspecteur : mêmes groupes, mêmes gestes, colonnes réduites (n°, nom, DMX)
-  function mini(){ css(); if (edit && edit.mini) requestAnimationFrame(refocus); const nO = S.objs.filter(o => !o.dress).length, key = UI.sel.join(','); if (key !== selKey){ selKey = key; if (!(performance.now() - fromList < 400) && UI.sel.length) reveal(); }
-    return `<h2 style="display:flex;align-items:baseline;gap:8px">Objets du projet (${nO})</h2><div class="olxw olmini"><div class="oltop"><input type="search" data-ws="q" placeholder="Rechercher…" value="${esc(q)}"><select class="inp" data-olo="grp" title="Grouper">${[['calque', 'par calque'], ['metier', 'par métier'], ['accroche', 'par accroche'], ['aucun', 'sans groupe']].map(([k, l]) => `<option value="${k}"${O.grp === k ? ' selected' : ''}>${l}</option>`).join('')}</select><a data-olk="full" class="mu" style="cursor:pointer;text-decoration:underline;font-size:11.5px;white-space:nowrap" title="Toutes les colonnes, les filtres et les actions groupées (touche O)">liste complète</a></div>
+  function mini(inWin){ css(); if (WB.on && !inWin) return ''; if (edit && edit.mini) requestAnimationFrame(refocus); const nO = S.objs.filter(o => !o.dress).length, key = UI.sel.join(','); if (key !== selKey){ selKey = key; if (!(performance.now() - fromList < 400) && UI.sel.length) reveal(); }
+    return `${inWin ? '' : `<h2>Objets du projet (${nO})</h2>`}<div class="olxw olmini"><div class="oltop"><input type="search" data-ws="q" placeholder="Rechercher…" value="${esc(q)}"><select class="inp" data-olo="grp" title="Grouper">${[['calque', 'par calque'], ['metier', 'par métier'], ['accroche', 'par accroche'], ['aucun', 'sans groupe']].map(([k, l]) => `<option value="${k}"${O.grp === k ? ' selected' : ''}>${l}</option>`).join('')}</select>${inWin ? `<label class="mu" style="font-size:11.5px;white-space:nowrap;display:flex;gap:4px;align-items:center" title="Même modèle sur la même accroche : une ligne « 12 × … »"><input type="checkbox" data-olo="merge"${O.merge ? ' checked' : ''}> identiques</label>` : `<a data-olk="full" class="mu" style="cursor:pointer;text-decoration:underline;font-size:11.5px;white-space:nowrap" title="Ouvre la liste dans sa propre fenêtre, toujours à portée (touche O)">dans sa fenêtre</a>`}</div>
       <div class="olscroll"><table class="olt"><tbody class="olb" data-mini="1">${body(true)}</tbody></table></div></div>`; }
   // la ligne de ce qui vient d'être choisi dans la vue : son groupe se rouvre et elle défile à l'écran
   function reveal(){ const o = ST.byId(UI.sel[0]); if (o){ const g = O.grp === 'calque' ? (LY() ? LY().ofObj(o) : catOf(o)) : O.grp === 'metier' ? catOf(o) : O.grp === 'accroche' ? 'h:' + hangOf(o) : null; if (g) delete O.closed[O.grp + ':' + g]; }
@@ -82,16 +83,21 @@ export function initObjList(A, ST){
     .olxw .olsw{display:inline-block;width:10px;height:10px;border-radius:2px;border:1px solid var(--line);vertical-align:middle;margin-right:5px}.olxw .olcol{width:14px;height:14px;padding:0;border:1px solid var(--line);border-radius:3px;background:none;vertical-align:middle;margin-right:5px;cursor:pointer;opacity:.55}.olxw .olcol.own{opacity:1;border-color:var(--ink)}
     .olxw td.ic i{font-style:normal;display:inline-block;width:18px;text-align:center;opacity:.35;cursor:pointer}.olxw td.ic i.act{opacity:1;color:var(--accent2)}.olxw td.ic i:hover{opacity:1}
     .olxw .oled{width:100%;min-width:60px;box-sizing:border-box;background:var(--bg,#15171c);border:1px solid var(--accent2,#f2a93b);border-radius:4px;color:var(--ink);font:inherit;padding:1px 4px}.olxw td.num .oled{width:56px;text-align:right}
-    .olmini .oltop{gap:5px;margin:0 0 5px}.olmini .oltop input[type=search]{flex:1 1 90px;min-width:70px;padding:4px 7px}.olmini .oltop select{width:auto;min-width:104px;padding:3px 4px}.olmini .olscroll{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:8px}.olmini .olt td{padding:3px 6px;max-width:170px}.olmini .olt td.nm{width:100%;max-width:0}.olmini tr.olg td{padding:7px 6px 3px}.olmini td.ic{white-space:nowrap}`; document.head.appendChild(st); }
+    .olmini .oltop{gap:5px;margin:0 0 5px}.olmini .oltop input[type=search]{flex:1 1 90px;min-width:70px;padding:4px 7px}.olmini .oltop select{width:auto;min-width:104px;padding:3px 4px}.olmini .olscroll{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:8px}.olmini .olt td{padding:3px 6px;max-width:170px}.olmini .olt td.nm{width:100%;max-width:0}.olmini tr.olg td{padding:7px 6px 3px}.olmini td.ic{white-space:nowrap}
+    #olWin{position:fixed;z-index:14;display:none;flex-direction:column;background:var(--panel,#1d2027);border:1px solid var(--line);border-radius:10px;box-shadow:0 14px 40px rgba(0,0,0,.6);color:var(--ink);font-size:12px}#olWin.on{display:flex}
+    #olWin .ow-bar{display:flex;align-items:center;gap:10px;padding:6px 10px;border-bottom:1px solid var(--line);cursor:move;user-select:none;font-weight:600}#olWin .ow-bar span{flex:1}#olWin .ow-bar label{font-weight:400;color:var(--mute);font-size:11.5px;display:flex;gap:4px;align-items:center;cursor:pointer}#olWin .ow-bar a{cursor:pointer;color:var(--mute);font-weight:400;padding:0 2px}#olWin .ow-bar a:hover{color:var(--ink)}
+    #olWin .ow-body{flex:1;min-height:0;overflow:auto;padding:8px 10px 14px}#olWin .ow-body.narrow{overflow:hidden;display:flex;flex-direction:column}#olWin .ow-body.narrow .olmini{flex:1;min-height:0;display:flex;flex-direction:column}#olWin .ow-body.narrow .olscroll{flex:1;min-height:0;max-height:none}
+    #olWin .ow-rs{position:absolute;right:0;bottom:0;width:16px;height:16px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 50%,var(--mute) 50%,var(--mute) 60%,transparent 60%,transparent 72%,var(--mute) 72%,var(--mute) 82%,transparent 82%)}
+    body.cine #olWin,body.ext3d #olWin{display:none!important}#olBtn.on{color:var(--accent2,#f2a93b)}@media (max-width:1460px){#olBtn .tx{display:none}#olBtn{padding-left:8px;padding-right:8px}}`; document.head.appendChild(st); }
   // ---------------------------------------------------------------- gestes
   const rowOf = el => { const tr = el.closest('[data-olr]'); if (!tr) return null; const [k, id] = tr.dataset.olr.split(':'); return lastRows.find(r => !r.merged && r.k === k && r.id === id) || null; };
   const flat = () => lastRows.flatMap(r => r.merged ? r.merged : [r]);
-  function pick(r, e){ fromList = performance.now();
+  function pick(r, e){ fromList = performance.now(); const inWin = !!(e.target.closest && e.target.closest('#olWin'));
     if (r.k === 'p'){ ST.select([]); window.PONTS && PONTS.select(r.id); return full(); }
     if (r.k === 's'){ ST.select([]); window.DRAW && DRAW.select(r.id, e.ctrlKey || e.metaKey); return full(); }
     let ids; if (e.shiftKey && anchor){ const F = flat().filter(x => x.k === 'o'), a = F.findIndex(x => x.id === anchor), b = F.findIndex(x => x.id === r.id); ids = a < 0 || b < 0 ? [r.id] : [...new Set([...(e.ctrlKey ? UI.sel : []), ...F.slice(Math.min(a, b), Math.max(a, b) + 1).map(x => x.id)])]; }
     else if (e.ctrlKey || e.metaKey){ ids = UI.sel.includes(r.id) ? UI.sel.filter(i => i !== r.id) : [...UI.sel, r.id]; anchor = r.id; } else { ids = [r.id]; anchor = r.id; }
-    selKey = ids.join(','); ST.select(ids); window.DRAWER?.refresh(); }
+    selKey = ids.join(','); ST.select(ids); window.DRAWER?.refresh(); if (O.follow && ids.length && inWin) window.WS.run('focus'); }
   function commit(inp){ if (!edit) return; const { id, k } = edit, kd = edit.kd; edit = null; const v = inp.value;
     if (kd === 'o'){ const o = ST.byId(id); if (!o) return full();
       if (k === 'name'){ const nv = v.trim(); if (nv !== (o.name || '')){ ST.pushUndo(0, 'Renommer'); if (nv) o.name = nv; else delete o.name; ST.touch(); } }
@@ -107,14 +113,14 @@ export function initObjList(A, ST){
     const b = t.closest('button[data-olb]'); if (b){ const a = b.dataset.olb, sl = ST.selObjs(); fromList = performance.now(); if (a === 'hide') window.WS.setFlag('hidden', !sl.every(o => o.hidden), sl); else if (a === 'lock') window.WS.setFlag('locked', !sl.every(o => o.locked), sl); else if (a === 'renum') window.WS.run('renum'); else if (a === 'focus') window.WS.run('focus'); else if (a === 'del') ST.removeSel(); return full(); }
     const g = t.closest('[data-olg]'); if (g){ const id = g.dataset.olg; if (t.closest('[data-olk=all]')){ const ids = rows().filter(match).filter(r => r.k === 'o' && !r.hid && !r.lock && (O.grp === 'calque' ? r.ly : O.grp === 'metier' ? r.cat : 'h:' + r.hang) === id).map(r => r.id); fromList = performance.now(); ST.select(ids); return full(); } const k = O.grp + ':' + id; O.closed[k] ? delete O.closed[k] : O.closed[k] = true; save(); return full(); }
     const m = t.closest('[data-olm]'); if (m){ const key = m.dataset.olm, L = MG.get(key); if (t.closest('[data-olk=open]') || !L){ open[key] = !open[key]; return redraw(); } const ids = L.filter(x => x.k === 'o').map(x => x.id); fromList = performance.now(); ST.select(e.ctrlKey || e.metaKey ? [...new Set([...UI.sel, ...ids])] : ids); return full(); }
-    if (t.closest('[data-olk=full]')) return void window.DRAWER?.open('list');
+    if (t.closest('[data-olk=full]')) return void win(true);
     const r = rowOf(t); if (!r) return;
     const k = t.closest('[data-olk]')?.dataset.olk; if (k === 'ren'){ edit = { id: r.id, k: 'name', kd: r.k, mini: true }; fromList = performance.now(); if (UI.sel.length === 1 && UI.sel[0] === r.id) redraw(); else ST.select([r.id]); requestAnimationFrame(refocus); return; } if (k === 'hide'){ window.WS.setFlag('hidden', !r.o.hidden, [r.o]); return full(); } if (k === 'lock'){ window.WS.setFlag('locked', !r.o.locked, [r.o]); return full(); } if (k === 'col') return;
     if (t.closest('[data-olc=ly]') && LY() && isSel(r) && UI.sel.length <= 1 && e.detail === 1 && !e.ctrlKey && !e.shiftKey){ edit = { id: r.id, k: 'ly', kd: r.k, mini: !!t.closest('.olmini') }; redraw(); const el = $('.olxw .oled'); el && el.focus(); return; }
     if (e.detail >= 2) return dbl(r, e); pick(r, e); });
   /* le double-clic est lu sur le 2e clic (e.detail) : le 1er redessine la liste, l'évènement dblclick du navigateur n'est donc pas fiable ici */
   function dbl(r, e){ const c = e.target.closest('[data-olc]')?.dataset.olc;
-    if ((c === 'name' || c === 'n') && !e.target.closest('.olmini')){ edit = { id: r.id, k: c, kd: r.k, mini: false }; redraw(); const el = $('.olxw .oled'); if (el){ el.focus(); el.select && el.select(); } return; }
+    if ((c === 'name' || c === 'n') && (!e.target.closest('.olmini') || e.target.closest('#olWin'))){ edit = { id: r.id, k: c, kd: r.k, mini: !!e.target.closest('.olmini') }; redraw(); const el = $('.olxw .oled'); if (el){ el.focus(); el.select && el.select(); } return; }
     if (r.k === 'o'){ fromList = performance.now(); if (!UI.sel.includes(r.id)) ST.select([r.id]); window.WS.run('focus'); } }
   document.addEventListener('keydown', e => { const t = e.target; if (!t.classList || !t.classList.contains('oled')) return; e.stopPropagation(); if (e.key === 'Enter'){ e.preventDefault(); commit(t); } else if (e.key === 'Escape'){ edit = null; redraw(); } }, true);
   document.addEventListener('change', e => { if (!within(e)) return; const t = e.target;
@@ -141,6 +147,32 @@ export function initObjList(A, ST){
     if (L.isAuto(ly)){ const ok = d.k === 'o' ? d.ids.every(id => catOf(ST.byId(id)) === ly) : ly === 'dessin'; if (!ok){ ST.toast(`« ${lyName(ly)} » est un calque de métier : il ne reçoit que son propre matériel. Crée un calque à toi (☰ Calques) pour mélanger.`, true); return; } }
     if (d.k === 'o') ST.select(d.ids); else { ST.select([]); window.DRAW && DRAW.select(d.ids[0]); }
     L.assign(L.isAuto(ly) ? null : ly); full(); }
-  window.OBJLIST = { html, mini, redraw, body, soft, setQ: v => { q = v; }, O, rows, drop, get shown(){ return flat(); } };
+
+  // ---------------------------------------------------------------- fenêtre « Objets » : la liste comme base pour se déplacer dans le projet
+  // Toujours à portée (bouton « Objets » de la barre du haut, touche O), flottante, à déplacer et redimensionner ; étroite, elle passe en version compacte.
+  const wel = document.createElement('div'); wel.id = 'olWin'; wel.innerHTML = '<div class="ow-bar"><span>Objets du projet</span><label title="Un clic sur une ligne centre aussi la vue 3D sur l\'objet"><input type="checkbox" data-ow="follow"> centrer au clic</label><a data-ow="x" title="Fermer (O)">✕</a></div><div class="ow-body"></div><div class="ow-rs" title="Redimensionner"></div>'; document.body.appendChild(wel);
+  const wbody = wel.querySelector('.ow-body'); let wlast = '';
+  const wfit = () => { WB.w = Math.max(250, Math.min(WB.w, innerWidth - 20)); WB.h = Math.max(180, Math.min(WB.h, innerHeight - 60)); WB.x = Math.max(0, Math.min(WB.x, innerWidth - 80)); WB.y = Math.max(40, Math.min(WB.y, innerHeight - 60)); Object.assign(wel.style, { left: WB.x + 'px', top: WB.y + 'px', width: WB.w + 'px', height: WB.h + 'px' }); };
+  function wrefresh(force){ wel.classList.toggle('on', WB.on); const bt = $('#olBtn'); if (bt) bt.classList.toggle('on', WB.on); if (!WB.on){ if (wlast){ wbody.innerHTML = ''; wlast = ''; } return; }
+    const a = document.activeElement; if (edit && wbody.contains(a) && a.classList.contains('oled')) return;          /* saisie en cours dans une ligne : on ne redessine pas dessous */
+    if (!force && wbody.contains(a) && a.dataset.ws === 'q') return void softW();
+    const narrow = WB.w < 600, h = narrow ? mini(true) : html(true); if (h === wlast) return; const sc = wbody.querySelector('.olscroll') || wbody, st = sc.scrollTop; wbody.classList.toggle('narrow', narrow); wbody.innerHTML = h; wlast = h; (wbody.querySelector('.olscroll') || wbody).scrollTop = st; wel.querySelector('[data-ow=follow]').checked = !!O.follow; }
+  const softW = () => { for (const b of wbody.querySelectorAll('tbody.olb')) b.innerHTML = body(b.dataset.mini === '1'); wlast = ''; };
+  function win(v){ WB.on = v == null ? !WB.on : !!v; if (WB.on){ wfit(); wel.style.zIndex = 15; } wsave(); wrefresh(true); ST.render(); window.DRAWER?.refresh(); }
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-olw=back]')) win(false); });
+  wel.addEventListener('click', e => { if (e.target.closest('[data-ow=x]')) win(false); });
+  wel.addEventListener('change', e => { if (e.target.dataset.ow === 'follow'){ O.follow = e.target.checked; save(); } });
+  for (const [sel, kind] of [['.ow-bar', 'move'], ['.ow-rs', 'size']]){ const hd = wel.querySelector(sel); let d = null;
+    hd.addEventListener('pointerdown', e => { if (e.button !== 0 || e.target.closest('[data-ow],label')) return; e.preventDefault(); d = { x: e.clientX, y: e.clientY, b: { ...WB } }; hd.setPointerCapture(e.pointerId); });
+    hd.addEventListener('pointermove', e => { if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (kind === 'move'){ WB.x = d.b.x + dx; WB.y = d.b.y + dy; } else { WB.w = d.b.w + dx; WB.h = d.b.h + dy; } wfit(); if (kind === 'size' && (WB.w < 600) !== wbody.classList.contains('narrow')) wrefresh(true); });
+    const end = () => { if (d){ d = null; wsave(); wrefresh(true); } }; hd.addEventListener('pointerup', end); hd.addEventListener('pointercancel', end); }
+  wel.addEventListener('pointerdown', () => { wel.style.zIndex = 15; }, true); addEventListener('resize', () => { if (WB.on) wfit(); });
+  // tenue à jour : à chaque rendu de l'application (sélection, ajout, suppression, annulation)
+  { let t = 0; const later = () => { if (!WB.on || t) return; t = setTimeout(() => { t = 0; wrefresh(); }, 60); }; const r0 = ST.render; if (typeof r0 === 'function') ST.render = function(){ const x = r0.apply(this, arguments); later(); return x; }; setInterval(() => { if (WB.on) wrefresh(); }, 900); }
+  // bouton permanent dans la barre du haut, à côté de l'Inspecteur
+  css();
+  { const ib = $('#conBtn'); if (ib && !$('#olBtn')){ const b = document.createElement('button'); b.className = 'tool'; b.id = 'olBtn'; b.title = 'Objets du projet : la liste de tout ce qui est dans la scène, dans sa fenêtre (O)'; b.innerHTML = '<span>☰</span><span class="tx"> Objets</span>'; ib.parentNode.insertBefore(b, ib); b.addEventListener('click', () => win()); } }
+  window.OBJLIST = { win, refreshWin: () => wrefresh(), get winOn(){ return WB.on; }, html, mini, redraw, body, soft, setQ: v => { q = v; }, O, rows, drop, get shown(){ return flat(); } };
   if (window.DRAWER?.is('list')) DRAWER.refresh();
+  if (WB.on){ wfit(); wrefresh(true); }
 }
