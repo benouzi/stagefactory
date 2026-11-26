@@ -15,9 +15,10 @@ export function initPanels(A, ST){
   const ON = A.store.get('dv', true) !== false;
   if (!ON){ window.PANELS = { on: false, enable(){ A.store.set('dv', true); location.reload(); } }; return; }
   body.classList.add('dv');
-  const sc = document.createElement('script'); sc.src = './vendor/dockview-core.min.js'; sc.onload = () => wait(0); sc.onerror = () => { body.classList.remove('dv'); console.error('Dockview introuvable : anciennes fenêtres.'); window.DOCK && DOCK.layout(); }; document.head.appendChild(sc);
+  const sc = document.createElement('script'); sc.src = './vendor/dockview-core.min.js'; const fallback = why => { body.classList.remove('dv'); window.PANELS = { on: false, why }; console.warn('Panneaux : ' + why + ' — anciennes fenêtres.'); window.DOCK && DOCK.layout(); dispatchEvent(new Event('resize')); };
+  sc.onload = () => window['dockview-core'] ? wait(0) : fallback('bibliothèque Dockview absente'); sc.onerror = () => fallback('bibliothèque Dockview absente'); document.head.appendChild(sc);
   const ready = () => window['dockview-core'] && window.DOCK && window.DRAWER && window.PLAN && PLAN.P && window.LIBWIN && window.OBJLIST && $('#libWin') && $('#olWin') && $('#drawer') && $('#v3Bar');
-  function wait(n){ if (ready()) return start(); if (n > 200){ body.classList.remove('dv'); console.error('Panneaux : modules manquants, anciennes fenêtres.'); window.DOCK && DOCK.layout(); return; } setTimeout(() => wait(n + 1), 100); }
+  function wait(n){ if (ready()) return start(); if (n > 200) return fallback('modules manquants'); setTimeout(() => wait(n + 1), 100); }
   window.PANELS = { on: true, ready: false };
 
   function start(){
