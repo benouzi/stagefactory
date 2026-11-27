@@ -4,7 +4,7 @@ os.environ['SF_DV']='1'; os.environ['SF_BLANK']='1'
 from h import *
 SEED=int(sys.argv[1]) if len(sys.argv)>1 else 1; N=int(sys.argv[2]) if len(sys.argv)>2 else 60
 random.seed(SEED)
-INV="""(()=>{const bad=[];const api=PANELS.api;if(DOCK.D.pfull)return bad;const ids=['plan','insp','env','patch','lib','objs','rig','secu','con','warn','desk','ai','aud','led','flib','help','hud'];const sel={insp:'#console',env:'#side',plan:'#planWin',lib:'#libWin',objs:'#olWin',desk:'#desk',ai:'#aiPanel',aud:'#audPanel',led:'#ledPanel',flib:'#libPanel',help:'#help',hud:'#hud'};
+INV="""(()=>{const bad=[];const api=PANELS.api;if(DOCK.D.pfull||PANELS.isSolo())return bad;const ids=['plan','insp','env','patch','lib','objs','rig','secu','con','warn','desk','ai','aud','led','flib','help','hud'];const sel={insp:'#console',env:'#side',plan:'#planWin',lib:'#libWin',objs:'#olWin',desk:'#desk',ai:'#aiPanel',aud:'#audPanel',led:'#ledPanel',flib:'#libPanel',help:'#help',hud:'#hud'};
  const vis=e=>{if(!e||!e.isConnected)return false;const cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden')return false;const r=e.getBoundingClientRect();return r.width>2&&r.height>2};
  for(const id of ids){const el=sel[id]?document.querySelector(sel[id]):document.querySelector('.drp[data-dt='+id+']');const p=api.getPanel(id);const inH=el&&el.closest('.dvp');
   if(!p&&vis(el))bad.push(id+' : contenu visible sans panneau ('+(inH?'dans un support':'hors support')+')');
@@ -29,7 +29,7 @@ with sync_playwright() as p:
         x,y=c; pg.mouse.move(x,y); pg.mouse.down(); pg.mouse.move(x+6,y-10,steps=3); pg.mouse.move(tx,ty,steps=10); pg.wait_for_timeout(250); pg.mouse.move(tx+1,ty+1); pg.wait_for_timeout(150); pg.mouse.up(); return 'ok'
     found={}; hist=[]
     for k in range(N):
-        op=random.choice(['close','show','show','float3d','dragtab','dragedge','home','place','dbl','detachbtn','view','toggleTop','reset' if random.random()<.15 else 'show','layoutsave','resize'])
+        op=random.choice(['close','show','show','float3d','dragtab','dragedge','home','place','dbl','detachbtn','view','toggleTop','reset' if random.random()<.15 else 'show','layoutsave','resize','solo','dom','domsave'])
         i=random.choice(ALL); d=''
         try:
             if op=='close':
@@ -57,6 +57,9 @@ with sync_playwright() as p:
             elif op=='toggleTop': w=random.choice(['#olBtn','#conBtn','#planBtn','#deskBtn','#helpBtn']); d=w; ev("(w)=>{const e=document.querySelector(w);e&&e.offsetParent&&e.click()}",w)
             elif op=='reset': ev("PANELS.reset()")
             elif op=='layoutsave': ev("PANELS.save('m');PANELS.load(JSON.parse(localStorage.getItem('onex.dvLayouts')).m)")
+            elif op=='solo': ev("PANELS.solo()"); pg.wait_for_timeout(500); ev("PANELS.solo(false)") if random.random()<.8 else None
+            elif op=='dom': w=random.choice(['des','sce','rig','lum','son','vid']); d=w; ev("(w)=>DOCK.setDomain(w)",w)
+            elif op=='domsave': ev("(()=>{const M=JSON.parse(localStorage.getItem('onex.dvDom')||'{}');M[DOCK.D.dom]=PANELS.toJSON();localStorage.setItem('onex.dvDom',JSON.stringify(M))})()")
             elif op=='resize': pg.set_viewport_size({'width':random.choice([1366,1600,1920]),'height':random.choice([768,900,1040])})
         except Exception as e: d+=' EXC '+str(e)[:120]
         pg.wait_for_timeout(650)
