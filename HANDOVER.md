@@ -692,3 +692,9 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
     - Benjamin : « tout est quasiment revenu comme avant », sans savoir s'il a une ancienne version. Deux causes possibles que je ne peux pas distinguer d'ici : le mode « Anciennes fenêtres » enregistré sur son poste (`onex.dv = false`, sans aucun moyen de revenir : c'était un vrai manque), ou une installation qui n'a pas remplacé l'ancienne. La reprise d'une disposition 4.51 a été rejouée : elle marche.
     - En ancien mode (choisi, ou repli faute de Dockview), la barre d'état du bas affiche « ▦ Panneaux ancrables » (`#dvBack`) : un clic réactive les panneaux et recharge ; en repli il explique pourquoi c'est indisponible. Mis dans la barre d'état car la barre du haut n'a plus de place à 1366 px.
     - Pour savoir où on en est : Aide → À propos donne la version ; en mode panneaux il y a un bouton « ▦ » en haut à droite et « ⇱ ▾ » à droite des onglets.
+
+## 90. Onglets détachables un par un (4.52.2)
+- Benjamin ne trouvait aucun bouton pour détacher un onglet du bas (le ⇱ de 4.52 était un petit signe gris tout à droite, et il détachait tout le groupe).
+- `app/panels.js` : onglet maison (`createTabComponent` → `tabComp`) avec `⇱` (détacher CET onglet), `⇲` quand il flotte (retour à sa place, `home([id])`), `×` ; double-clic sur l'onglet = même bascule (`swapOne`). `floatOne(id)` pose la fenêtre au-dessus de la rangée d'onglets, en cascade (64 px) pour ne pas recouvrir la précédente.
+- Bouton du groupe : « ⇱ Détacher » écrit en toutes lettres, n'agit que sur l'onglet affiché ; « ⇲ Ancrer tout » dans une fenêtre flottante ; le menu ▾ → « Flottant » garde le détachement de tout le groupe.
+- Essais : `tools/t128.py` (nouveau), `t127` adapté (40 contrôles). Toujours en rendu logiciel, pas dans la version installée.
