@@ -13,6 +13,13 @@ export function initLib(A, ST){
   async function addTitan(name){ try { let text; if (L.folder){ const f = L.folder.find(q => q.name === name); text = await f.text(); } else { const r = await fetch('/api/lib/titan/get?f=' + encodeURIComponent(name)); if (!r.ok) throw new Error('lecture impossible'); text = await r.text(); } await ST.importFiles([new File([text], name)]); } catch (e){ ST.toast('Import impossible : ' + e.message, true); } }
   async function addGdtf(rid){ const e = (L.gdtf || []).find(q => String(q.rid) === String(rid)); if (!e) return; ST.toast('Téléchargement de ' + e.f + '…'); try { const r = await fetch('/api/lib/gdtf/get?rid=' + e.rid); if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'refusé'); await ST.importFiles([new File([await r.arrayBuffer()], (e.m + '@' + e.f).replace(/[\\/:*?"<>|]/g, '_') + '.gdtf')]); } catch (x){ ST.toast('Téléchargement impossible : ' + x.message, true); } }
 
+  // chercher la fiche d'une référence du catalogue : mêmes mots que la marque et le modèle, la marque d'abord. Rien n'est attaché sans que l'utilisateur choisisse.
+  const norm = v => String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(), toks = v => norm(v).split(' ').filter(Boolean);
+  async function find(brand, model){ if (!LOCAL) return { msg: 'La recherche dans GDTF Share demande la version installée du logiciel. Tu peux télécharger la fiche sur gdtf-share.com et l\'attacher avec « Attacher un fichier .gdtf… ».', list: [] };
+    if (!L.gdtf){ await loadGdtf(); if (!L.gdtf){ toggle(true); L.tab = 'gdtf'; render(); return { msg: L.msg || 'Connecte-toi d\'abord à GDTF Share (fenêtre « Bibliothèques de projecteurs », ouverte à côté), puis relance la recherche.', list: [] }; } }
+    const bt = toks(brand), mt = toks(model), sc = e => { const em = norm(e.m), ef = ' ' + norm(e.f) + ' ', eft = toks(e.f); const b = bt.length && bt.some(k => em.includes(k)) ? 1 : 0, hit = mt.filter(k => ef.includes(' ' + k + ' ') || (k.length > 3 && ef.includes(k))).length, back = eft.filter(k => mt.includes(k)).length; return mt.length ? b * 2 + hit / mt.length + (eft.length ? back / eft.length : 0) * .5 : 0; };
+    const list = L.gdtf.map(e => [sc(e), e]).filter(q => q[0] >= 2.6).sort((p, q) => q[0] - p[0] || q[1].mod - p[1].mod).slice(0, 8).map(q => q[1]); return { list, total: L.gdtf.length }; }
+  async function fetchGdtf(rid){ const e = (L.gdtf || []).find(q => String(q.rid) === String(rid)); if (!e) return { msg: 'Fiche introuvable dans la liste.' }; try { const r = await fetch('/api/lib/gdtf/get?rid=' + e.rid); if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'refusé'); return { buf: await r.arrayBuffer(), name: (e.m + '@' + e.f).replace(/[\\/:*?"<>|]/g, '_') + '.gdtf' }; } catch (x){ return { msg: 'Téléchargement impossible : ' + x.message }; } }
   function rows(){
     const w = words(L.q), MAX = 150;
     if (L.tab === 'titan'){ const src = L.folder ? L.folder.map(f => f.name) : L.titan; if (!src) return LOCAL ? '<div class="info">Lecture du dossier Titan…</div>' : '';
@@ -46,5 +53,5 @@ export function initLib(A, ST){
   el.addEventListener('input', e => { if (e.target.id === 'libQ'){ L.q = e.target.value; const r = $('#libRows'); if (r) r.innerHTML = rows(); } });
   el.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.target.id === 'libP' || e.target.id === 'libU')) login(); e.stopPropagation(); });
   function toggle(f){ L.open = f ?? !L.open; el.style.display = L.open ? 'flex' : 'none'; if (L.open){ render(); if (LOCAL && !L.titan) loadTitan(); } }
-  window.FLIB = { toggle, isOpen: () => L.open, L, render };
+  window.FLIB = { toggle, isOpen: () => L.open, L, render, find, fetch: fetchGdtf };
 }

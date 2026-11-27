@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 /home/claude/local/build.sh >/dev/null
-SRC=/home/claude/local/dist/StageFactory; P=/home/claude/pack; OUT=$P/out; VER=4.64.0; rm -rf $OUT $P/win $P/mac; mkdir -p $OUT $P/win
+SRC=/home/claude/local/dist/StageFactory; P=/home/claude/pack; OUT=$P/out; VER=4.65.0; rm -rf $OUT $P/win $P/mac; mkdir -p $OUT $P/win
 # ---------------- récepteur NDI : koffi (appel de la bibliothèque NDI installée sur l'ordinateur) et son binaire par plateforme. pack/* n'est pas dans git : on les reprend de npm s'ils manquent.
 # (les quatre paquets en UNE commande : installés en deux fois, la seconde retirait koffi)
 KS=$P/koffi-src; KV=3.3.8
