@@ -651,7 +651,7 @@ function drawContent(r){
   g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#000'; g.fillRect(0, 0, Sz, Sz);
   if (o.map && window.VIDEO && r.geom && VIDEO.mapDraw(r, g, px, op, sh)){ r.tex.needsUpdate = true; return; }          // mapping sur un volume (video.js)
   const q = op.quad.map(px), TL = q[3], TR = q[2], BR = q[1], BL = q[0];
-  if (!op.warp) g.drawImage(r.src, TL[0], TL[1], BR[0] - TL[0], BR[1] - TL[1]);
+  if (!op.warp && !o.portrait) g.drawImage(r.src, TL[0], TL[1], BR[0] - TL[0], BR[1] - TL[1]);
   else { const f = quadMap([TL, TR, BR, BL]), N = 16, w = 1024, h = sh; for (let j = 0; j < N; j++) for (let i = 0; i < N; i++){ const u0 = i / N, u1 = (i + 1) / N, v0 = j / N, v1 = (j + 1) / N, a = f(u0, v0), b = f(u1, v0), cc = f(u1, v1), d = f(u0, v1), sa = [u0 * w, v0 * h], sb = [u1 * w, v0 * h], sc = [u1 * w, v1 * h], sd = [u0 * w, v1 * h]; triDraw(g, r.src, sa, sb, sc, a, b, cc); triDraw(g, r.src, sa, sc, sd, a, cc, d); } }
   r.tex.needsUpdate = true;
 }
@@ -668,7 +668,8 @@ function vpShift(o, t){ const l = vpLens(o, t); if (!l) return null; const s = l
   return o.hang ? { ...s, v: [-s.v[1], -s.v[0]], hung: true } : s; }          // suspendu, le projecteur est tête en bas : la plage verticale se retourne          // bas-gauche, bas-droite, haut-droite, haut-gauche
 function vpOptics(o, t){
   const TR = vpThrow(o, t), SH = vpShift(o, t), th = clamp(o.throw ?? TR[0], TR[0], TR[1]), a = .5 / th, b = a * t.res[1] / t.res[0], lsh = SH ? clamp(o.lsh || 0, SH.h[0], SH.h[1]) : o.lsh || 0, lsv = SH ? clamp(o.lsv || 0, SH.v[0], SH.v[1]) : o.lsv || 0, cx = lsh / 100 * 2 * a, cy = lsv / 100 * 2 * b;
-  const at = ([u, v]) => [cx + (u - .5) * 2 * a, cy + (v - .5) * 2 * b], warp = Array.isArray(o.warp) && o.warp.length === 4 && o.warp.some((c, i) => Math.abs(c[0] - VPC[i][0]) > 1e-4 || Math.abs(c[1] - VPC[i][1]) > 1e-4);
+  const P = !!o.portrait, at = P ? ([u, v]) => [-cy - (v - .5) * 2 * b, cx + (u - .5) * 2 * a] : ([u, v]) => [cx + (u - .5) * 2 * a, cy + (v - .5) * 2 * b], warp =          /* portrait : l'appareil est couché sur le côté, la matrice (et le décalage d'optique avec elle) tourne d'un quart de tour */
+  Array.isArray(o.warp) && o.warp.length === 4 && o.warp.some((c, i) => Math.abs(c[0] - VPC[i][0]) > 1e-4 || Math.abs(c[1] - VPC[i][1]) > 1e-4);
   const pan = VPC.map(at), quad = warp ? o.warp.map(c => at([clamp(c[0], 0, 1), clamp(c[1], 0, 1)])) : pan;
   let used = 1; if (warp){ const w = o.warp; used = 0; for (let i = 0; i < 4; i++){ const p = w[i], q = w[(i + 1) % 4]; used += p[0] * q[1] - q[0] * p[1]; } used = Math.abs(used) / 2; }
   return { th, a, b, cx, cy, lsh, lsv, pan, quad, warp, used, T: Math.max(...pan.map(p => Math.hypot(p[0], p[1]))) };
@@ -889,7 +890,7 @@ function update(dt){
       const want = live && o.on !== false; if (want){ if (r.vpI == null && VPFREE.length){ r.vpI = VPFREE.pop(); r.vpBl = true; r.vpOK = false; } nvp++; } else if (r.vpI != null) vpFree(r); const on = want && r.vpI != null;          /* une couche et une case par projecteur allumé, 16 au plus */
       const md = MEDIA.get(o.id);
       if (r.dirty || (on && (o.content === 'video' || o.content === 'cam' || o.content === 'ecran' || o.content === 'ndi') && md?.el && !md.el.paused)){
-        dirOf(o.pan, o.tilt, _d); r.head.getWorldPosition(_v); r.head.lookAt(_v2.copy(_v).add(_d));
+        dirOf(o.pan, o.tilt, _d); r.head.getWorldPosition(_v); r.head.lookAt(_v2.copy(_v).add(_d)); if (o.portrait) r.head.rotateZ(Math.PI / 2);          /* portrait : l'appareil est couché sur le côté */
         if (r.dirty){
           const G = r.geom = vpGeom(o, ty, r), hd = G.op.T;
           r.light.position.copy(G.src).addScaledVector(G.d, .3); r.light.target.position.copy(G.src).addScaledVector(G.d, 10); r.light.target.updateMatrixWorld();
