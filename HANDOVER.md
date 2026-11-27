@@ -738,3 +738,4 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
 - `tools/h.py` : les anciens essais posent aussi `onex.dvMig = 453` (sinon la migration 4.53.1 les repassait en panneaux).
 - Essais : `t133` (18 contrôles, vraie souris) ; `t131` étendu aux outils (graines 11 à 14, 70 opérations, 0 défaut) ; t127 à t130, t132 ; en anciennes fenêtres a3, t40 (pupitre, 35), t55, t125.
 - Limites : le Pupitre dans une fenêtre étroite passe ses colonnes à la ligne et défile ; un outil rangé SEUL dans la grille (sans voisin) puis fermé rouvre à sa place par défaut ; la musique, le mur LED, les bibliothèques n'ont pas été essayés avec de vrais fichiers dans leur panneau (seulement ouverts) ; rien sous Windows.
+- Le groupe du bas, agrandi pour le Pupitre, reprend sa hauteur quand le Pupitre se ferme (`EXT.desk.back`, `shrinkBack`), sauf si on l'a retaillé entre-temps.

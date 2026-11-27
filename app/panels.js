@@ -136,7 +136,7 @@ export function initPanels(A, ST){
         else { const b = E.box, w = Math.min(b.w, hr.width - 16), h = Math.min(b.h, Math.max(160, vr.height - 70)), x = b.ax === 'r' ? vr.right - hr.left - w - 14 : b.ax === 'l' ? vr.left - hr.left + 14 : vr.left - hr.left + (vr.width - w) / 2, y = b.ay === 'b' ? vr.bottom - hr.top - h - 14 : vr.top - hr.top + 52; ex = { floating: { x: Math.round(Math.max(8, x)), y: Math.round(Math.max(8, y)), width: Math.round(w), height: Math.round(h) } }; } }
       const w3 = id === 'plan' && has('v3d') ? holder('v3d').getBoundingClientRect().width : 0;
       busy++; try { api.addPanel({ ...P, ...(pos ? { position: pos } : {}), ...ex }); } catch (e){ console.error('panneau', id, e); try { api.addPanel(P); } catch (_){ } } busy--;
-      if (EXT[id] && EXT[id].h && has(id)){ try { const g = has(id).group; if (g.api.location.type === 'grid' && g.element.getBoundingClientRect().height < EXT[id].h) g.api.setSize({ height: EXT[id].h }); } catch (_){ } }
+      if (EXT[id] && EXT[id].h && has(id)){ try { const g = has(id).group; const h0 = g.element.getBoundingClientRect().height; if (g.api.location.type === 'grid' && h0 < EXT[id].h){ EXT[id].back = { gid: g.id, h: Math.round(h0) }; g.api.setSize({ height: EXT[id].h }); } } catch (_){ } }
       if (w3 > 300){ try { has('plan').group.api.setSize({ width: Math.round(w3 * .42) }); has('v3d').group.api.setSize({ width: Math.round(w3 * .58) }); } catch (_){ } } }          /* le plan s'ouvre à côté de la 3D sans lui prendre la moitié */
     /* placer un groupe de panneaux sur un bord de toute la fenêtre, sans avoir à viser une zone à la souris */
     function place(ids, where){ ids = ids.filter(id => id !== 'v3d' && has(id)); if (!ids.length) return; const dir = { bas: 'below', gauche: 'left', droite: 'right' }[where]; busy++; try { for (const id of ids){ try { has(id).api.close(); } catch (_){ } unmount(id); }
@@ -157,7 +157,8 @@ export function initPanels(A, ST){
     // l'état de l'application décide des panneaux présents
     const ORDER = ['plan', 'insp', 'env', ...BOT, ...XID];
     function reconcile(){ if (busy) return; if (!has('v3d')) add('v3d'); for (const id of ORDER){ const want = STATE[id].get(), p = has(id); if (want && !p){ if (EXT[id] && !$(EXT[id].sel)) continue; add(id); } else if (!want && p) close(id); else if (want && p && EXT[id] && !REF[id]) mount(id); } tag3d(); }
-    api.onDidRemovePanel(p => { const id = p.id; unmount(id); if (busy) return; if (id === 'v3d') return void setTimeout(reconcile, 0); if (STATE[id] && STATE[id].get()){ busy++; try { STATE[id].set(false); } finally { busy--; } } });
+    const shrinkBack = id => { const E = EXT[id], bk = E && E.back; if (!bk) return; E.back = null; setTimeout(() => { try { const g = api.groups.find(q => q.id === bk.gid); if (g && g.api.location.type === 'grid' && Math.abs(g.element.getBoundingClientRect().height - E.h) < 8) g.api.setSize({ height: bk.h }); } catch (_){ } later(); }, 0); };
+    api.onDidRemovePanel(p => { const id = p.id; unmount(id); shrinkBack(id); if (busy) return; if (id === 'v3d') return void setTimeout(reconcile, 0); if (STATE[id] && STATE[id].get()){ busy++; try { STATE[id].set(false); } finally { busy--; } } });
     // la vue 3D : en haut, seule, dans la grille. Sinon la disposition est refusée.
     let good = null, saveT = 0;
     const valid = () => { const p = has('v3d'); if (!p) return false; try { if (p.group.api.location.type !== 'grid') return false; if (p.group.panels.length !== 1) return false; } catch (_){ } if (api.hasMaximizedGroup && api.hasMaximizedGroup()) return true; const r = holder('v3d').getBoundingClientRect(), h = host.getBoundingClientRect(); return r.width > 120 && r.height > 120 && Math.abs(r.top - h.top) < 3; };
