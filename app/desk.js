@@ -90,7 +90,7 @@ export function initDesk(A, ST){
   // ---------------------------------------------------------------- affichage
   const el = document.createElement('div'); el.id = 'desk'; document.body.appendChild(el);
   addEventListener('wins', () => { const a = document.body.classList.contains('desk'), fl = document.getElementById('desk')?.classList.contains('fl'); if (a !== (D.open && !fl)) layout(); });
-  function layout(){ const fl = document.getElementById('desk')?.classList.contains('fl'); document.body.classList.toggle('desk', D.open && !fl); if (D.open && !fl) root.style.setProperty('--dh', D.h + 'px'), root.style.setProperty('--vhh', `calc(100vh - ${D.h + 24}px)`); else { root.style.removeProperty('--dh'); root.style.removeProperty('--vhh'); } dispatchEvent(new Event('resize')); }
+  function layout(){ const fl = document.getElementById('desk')?.classList.contains('fl') || document.body.classList.contains('dv');          /* en panneaux ancrables le pupitre est un panneau : il ne réserve plus le bas de l'écran */ document.body.classList.toggle('desk', D.open && !fl); if (D.open && !fl) root.style.setProperty('--dh', D.h + 'px'), root.style.setProperty('--vhh', `calc(100vh - ${D.h + 24}px)`); else { root.style.removeProperty('--dh'); root.style.removeProperty('--vhh'); } dispatchEvent(new Event('resize')); }
   function render(){
     if (!D.open) return; const P = pal(), s = sel(), ids = new Set(s.map(o => o.id)), gs = groups(), o = s[s.length - 1], t = o ? ST.typeOf(o) : null, anyMover = s.some(q => ST.typeOf(q).mover);
     const en = E(), qs = en.seqs(); if (en.sel >= qs.length) en.sel = 0; const si = en.sel, sq = qs[si], cur = en.cueOf(si), pc = en.progCount(), P0 = en.prog(), ap = a => (o && en.inProg(o.id, a) ? ' class="act"' : '');

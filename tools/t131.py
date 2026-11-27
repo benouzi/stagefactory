@@ -4,7 +4,7 @@ os.environ['SF_DV']='1'; os.environ['SF_BLANK']='1'
 from h import *
 SEED=int(sys.argv[1]) if len(sys.argv)>1 else 1; N=int(sys.argv[2]) if len(sys.argv)>2 else 60
 random.seed(SEED)
-INV="""(()=>{const bad=[];const api=PANELS.api;if(DOCK.D.pfull)return bad;const ids=['plan','insp','env','patch','lib','objs','rig','secu','con','warn'];const sel={insp:'#console',env:'#side',plan:'#planWin',lib:'#libWin',objs:'#olWin'};
+INV="""(()=>{const bad=[];const api=PANELS.api;if(DOCK.D.pfull)return bad;const ids=['plan','insp','env','patch','lib','objs','rig','secu','con','warn','desk','ai','aud','led','flib','help','hud'];const sel={insp:'#console',env:'#side',plan:'#planWin',lib:'#libWin',objs:'#olWin',desk:'#desk',ai:'#aiPanel',aud:'#audPanel',led:'#ledPanel',flib:'#libPanel',help:'#help',hud:'#hud'};
  const vis=e=>{if(!e||!e.isConnected)return false;const cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden')return false;const r=e.getBoundingClientRect();return r.width>2&&r.height>2};
  for(const id of ids){const el=sel[id]?document.querySelector(sel[id]):document.querySelector('.drp[data-dt='+id+']');const p=api.getPanel(id);const inH=el&&el.closest('.dvp');
   if(!p&&vis(el))bad.push(id+' : contenu visible sans panneau ('+(inH?'dans un support':'hors support')+')');
@@ -20,7 +20,7 @@ INV="""(()=>{const bad=[];const api=PANELS.api;if(DOCK.D.pfull)return bad;const 
 with sync_playwright() as p:
     b,pg,errs=open_app(p,1600,900); ev=pg.evaluate
     pg.wait_for_function("window.PANELS && PANELS.ready",timeout=90000); pg.wait_for_timeout(2000)
-    BOT=['patch','lib','objs','rig','secu','con','warn']; ALL=['plan','insp','env']+BOT
+    BOT=['patch','lib','objs','rig','secu','con','warn']; ALL=['plan','insp','env']+BOT+['desk','ai','aud','led','flib','help','hud']
     def tabc(i): return ev("(i)=>{const e=[...document.querySelectorAll('#dvRoot .dvtab')].find(e=>e.dataset.pid===i);if(!e)return null;const t=e.getBoundingClientRect();if(t.width<5)return null;const h=document.elementFromPoint(t.left+12,t.top+t.height/2);return h&&e.contains(h)?[t.left+12,t.top+t.height/2]:null}",i)
     def rect(i): return ev("(i)=>{const r=PANELS.holder(i).getBoundingClientRect();return [r.left,r.top,r.width,r.height]}",i)
     def drag(i,tx,ty):
@@ -54,7 +54,7 @@ with sync_playwright() as p:
                 x=ev("(i)=>{const p=PANELS.api.getPanel(i);if(!p)return null;const a=p.group.element.querySelector('[data-dva=float],[data-dva=dock]');if(!a)return null;const e=a.getBoundingClientRect();const h=document.elementFromPoint(e.left+e.width/2,e.top+e.height/2);return h===a?[e.left+e.width/2,e.top+e.height/2]:null}",i)
                 if x: pg.mouse.click(*x)
             elif op=='view': w=random.choice(['3d','split','plan']); d=w; ev("(w)=>DOCK.view(w)",w)
-            elif op=='toggleTop': w=random.choice(['#olBtn','#conBtn','#planBtn']); d=w; ev("(w)=>{const e=document.querySelector(w);e&&e.offsetParent&&e.click()}",w)
+            elif op=='toggleTop': w=random.choice(['#olBtn','#conBtn','#planBtn','#deskBtn','#helpBtn']); d=w; ev("(w)=>{const e=document.querySelector(w);e&&e.offsetParent&&e.click()}",w)
             elif op=='reset': ev("PANELS.reset()")
             elif op=='layoutsave': ev("PANELS.save('m');PANELS.load(JSON.parse(localStorage.getItem('onex.dvLayouts')).m)")
             elif op=='resize': pg.set_viewport_size({'width':random.choice([1366,1600,1920]),'height':random.choice([768,900,1040])})

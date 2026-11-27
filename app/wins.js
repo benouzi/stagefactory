@@ -47,7 +47,7 @@ export function initWins(A, ST){
     w.bar.addEventListener('click', e => { if (e.target.closest('[data-w=dock]')) attach(w); }); w.bar.addEventListener('dblclick', () => attach(w));
     if (saved[id] && isFinite(saved[id].x)){ w.box = { ...saved[id] }; w.fl = true; apply(w); el.classList.add('fl'); front(w); }
   }
-  const scan = () => { for (const [id, name] of LIST) adopt(id, name); };
+  const dvOn = A.store.get('dv', true) !== false, scan = () => { if (dvOn && !(window.PANELS && PANELS.on === false)) return;          /* panneaux ancrables : ces fenêtres sont des panneaux (panels.js), pas d'ancienne languette ; on ne les adopte que si les panneaux ne démarrent pas */ for (const [id, name] of LIST) adopt(id, name); };
   scan(); relayout(); setInterval(() => { scan(); if (!drag) sync(); }, 200);
   addEventListener('resize', () => { for (const w of W.values()) if (w.fl) apply(w); sync(); });
   const dockAll = () => { for (const w of W.values()) attach(w); ST.toast('Toutes les fenêtres sont revenues à leur place.'); };
