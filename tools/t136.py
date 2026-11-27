@@ -34,12 +34,12 @@ with sync_playwright() as p:
     setv(gobo=3,gobos=.25); a=ev("STAGE.RT.get(STAGE.S.objs[0].id).bm.uniforms.fxG.value.y"); pg.wait_for_timeout(1500); b2=ev("STAGE.RT.get(STAGE.S.objs[0].id).bm.uniforms.fxG.value.y"); ok(b2>a+.1,'rotation continue : le gobo tourne dans le temps',(a,b2))
     # fumée : vue de face, couteau droit au centre
     setv(b2=.5); ev("STAGE.S.haze=.9;(()=>{APP.camera.position.set(0,3,12);APP.orbit.target.set(0,3,0);APP.orbit.update()})()"); im=shot('i-fumee',4000); Hz=[lum(im,[.45,3,0]),lum(im,[-.45,3,0]),lum(im,[2.5,3,0])]; ok(Hz[1]>Hz[0]+25 and Hz[0]<Hz[2]+14,'fumée : le faisceau est coupé du même côté que sur le sol',Hz)
-    u=ev("(()=>{const r=STAGE.RT.get(STAGE.S.objs[0].id);return [r.fxI,Math.round((r.light.decay-2)*1e5),r.light.castShadow,r.occI]})()"); ok(u[0] is not None and u[1]//100==u[0]+1,'le masque voyage avec le projecteur (ligne de la table)',u)
+    u=ev("(()=>{const r=STAGE.RT.get(STAGE.S.objs[0].id);return [r.fxI,Math.round((r.light.decay-2)*1e5),r.light.castShadow,r.occI]})()"); ok(u[0] is not None and u[1]//1000==u[0]+1,'le masque voyage avec le projecteur (ligne de la table)',u)
     # sans vraie ombre : 15 projecteurs forts au loin prennent les ombres du moteur
     ev("([PL])=>{const P=eval(PL);for(let i=0;i<15;i++){P('decoupe',30+i*1.5,-20);const o=STAGE.S.objs.at(-1);o.pos=[30+i*1.5,6,-20];o.hang='fixe';o.dim=1;o.pan=0;o.tilt=0;o.zoom=30}const me=STAGE.S.objs[0];me.dim=.7;STAGE.S.haze=0}",[PL])
     js=ev("STAGE.serialize()"); ev("j=>STAGE.loadShow(JSON.parse(j))",js); pg.wait_for_timeout(400); ev("STAGE.setLive(true);STAGE.select([]);(()=>{APP.camera.position.set(0.01,11,0.02);APP.orbit.target.set(0,0,0);APP.orbit.update()})()")
     im=shot('j-atlas',8000); u=ev("(()=>{const r=STAGE.RT.get(STAGE.S.objs[0].id);const t=Math.round((r.light.decay-2)*1e5);return [r.light.castShadow,r.occI,r.fxI,t]})()"); J=[lum(im,[1,0,0]),lum(im,[-1,0,0])]
-    ok(u[0] is False and u[1] is not None and u[3]==(u[2]+1)*100+u[1]+1 and J[0]<25 and J[1]>60,'projecteur sans vraie ombre : case d\'ombre et masque voyagent ensemble, le couteau coupe toujours',(u,J))
+    ok(u[0] is False and u[1] is not None and u[3]==(u[2]+1)*1000+u[1]+1 and J[0]<25 and J[1]>60,'projecteur sans vraie ombre : case d\'ombre et masque voyagent ensemble, le couteau coupe toujours',(u,J))
     # lyre : les couteaux tournent avec le pan
     ev("([PL])=>{STAGE.loadShow(JSON.parse('{}'));}",[PL]) if False else None
     ev("(()=>{for(const o of [...STAGE.S.objs])STAGE.unbuild&&0})()")

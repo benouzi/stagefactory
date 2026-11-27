@@ -370,7 +370,8 @@ const BEAMT = { value: 0 }, BEAMK = .26;       // BEAMK : réglage d'affichage d
 // le long de ce trajet : éclairement en 1/surface de la section (donc en 1/d²), bord adouci, diffusion vers l'avant (Henyey-Greenstein), volutes de brouillard.
 // Le cône est un volume fermé : la face avant porte la première moitié du trajet, la face arrière la seconde ; un objet dans le faisceau cache donc ce qui est derrière lui.
 const beamVS = `varying vec3 vP; varying vec3 vO; varying vec3 vW;
-void main(){ vP = position; vO = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
+uniform float a0;
+void main(){ vec3 pos = position; pos.xz *= mix(a0, 1.0, clamp(-position.y, 0.0, 1.0)); vP = pos; vO = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz; vec4 w = modelMatrix * vec4(pos, 1.0);          /* le volume d'appui épouse le tronc de cône : sinon, caméra dans le cylindre mais hors du faisceau, seule la moitié arrière était dessinée (coin sombre dans le faisceau, 4.60.0) */ vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
 const beamFS = `uniform vec3 color; uniform float amount; uniform float time; uniform float soft; uniform float fade; uniform vec2 scl; uniform float a0; uniform float lnH; uniform sampler2D shMap; uniform mat4 shMat; uniform float shOn; uniform vec4 shR;
 uniform float fxOn; uniform vec3 fxO; uniform vec3 fxDir; uniform vec3 fxRt; uniform float fxTan; uniform vec3 fxB1; uniform vec3 fxB2; uniform vec3 fxB3; uniform vec3 fxB4; uniform vec3 fxG; uniform vec3 fxP; uniform sampler2D fxGob;
 #include <packing>
@@ -762,15 +763,35 @@ const matTile = id => MATBY.get(id)?.tex ? MATBY.get(id).tile : 0;
 // Le moteur ne sait donner une vraie carte d'ombre qu'à quelques spots (une unité de texture chacun, voir shadowPick). Tous les autres projecteurs allumés reçoivent ici une case 256 px dans UN atlas (une seule unité de texture),
 // vue depuis leur lentille. Cet atlas sert deux fois : au faisceau dans la fumée (beamFS) et à l'éclairage des surfaces (morceau de shader ajouté à l'éclairage des spots, ci-dessous). Le numéro de case voyage dans
 // l'exposant d'atténuation du spot (decay = 2 + numéro × 1e-5, sans effet visible sur la lumière) : pas besoin de connaître l'ordre dans lequel le moteur range ses spots.
-const OCCN = 8, OCCT = 256, OCCQ = [], OCCCAM = new THREE.PerspectiveCamera(40, 1, .35, 20), OCCMAT = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide }), OCCBIAS = new THREE.Matrix4(), OCCFREE = Array.from({ length: OCCN * OCCN }, (_, i) => i).reverse(); OCCCAM.layers.set(1); let occLT = -1e9, OCCA = null; const _occC = new THREE.Color();
-const OCCDATA = new Float32Array(6 * OCCN * OCCN * 4), OCCD = new THREE.DataTexture(OCCDATA, 6, OCCN * OCCN, THREE.RGBAFormat, THREE.FloatType); OCCD.minFilter = OCCD.magFilter = THREE.NearestFilter; OCCD.needsUpdate = true;
+const OCCN = 12; let OCCT = 256; const OCCQ = [],          /* 144 cases d'ombre ; 256 px par case, 340 en qualité haute (choisi à la première lumière) */
+      OCCCAM = new THREE.PerspectiveCamera(40, 1, .35, 20), OCCMAT = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide }), OCCBIAS = new THREE.Matrix4(), OCCFREE = Array.from({ length: OCCN * OCCN }, (_, i) => i).reverse(); OCCCAM.layers.set(1); let occLT = -1e9, OCCA = null; const _occC = new THREE.Color();
+const OCCDATA = new Float32Array(7 * OCCN * OCCN * 4), OCCD = new THREE.DataTexture(OCCDATA, 7, OCCN * OCCN, THREE.RGBAFormat, THREE.FloatType); OCCD.minFilter = OCCD.magFilter = THREE.NearestFilter; OCCD.needsUpdate = true;
 const OCCU = { a: { value: null }, d: { value: OCCD } };
-function occInit(){ if (OCCA) return; OCCA = new THREE.WebGLRenderTarget(OCCN * OCCT, OCCN * OCCT, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter }); OCCA.scissorTest = true; OCCU.a.value = OCCA.texture;
+function occInit(){ if (OCCA) return; OCCT = A.quality === 'haute' ? 340 : 256; OCCA = new THREE.WebGLRenderTarget(OCCN * OCCT, OCCN * OCCT, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter }); OCCA.scissorTest = true; OCCU.a.value = OCCA.texture;
   // tous les matériaux éclairés reçoivent l'atlas et sa table ; le morceau de shader est ajouté une fois pour toutes à l'éclairage des spots
   goboAtlas(); THREE.Material.prototype.onBeforeCompile = function (sh){ sh.uniforms.sfOccA = OCCU.a; sh.uniforms.sfOccD = OCCU.d; sh.uniforms.sfFxD = FXU.d; sh.uniforms.sfGob = FXU.g; sh.uniforms.sfVpImg = VPU.img; sh.uniforms.sfVpSh = VPU.sh; };
-  const C = THREE.ShaderChunk; if (!C.lights_pars_begin.includes('sfOccA')){ C.lights_pars_begin += '\nuniform sampler2D sfOccA;\nuniform highp sampler2D sfOccD;\nuniform highp sampler2D sfFxD;\nuniform sampler2D sfGob;\nuniform mediump sampler2DArray sfVpImg;\nuniform sampler2D sfVpSh;\n' + SFMASK;
+  const C = THREE.ShaderChunk; if (!C.lights_pars_begin.includes('sfOccA')){ C.lights_pars_begin += '\nuniform sampler2D sfOccA;\nuniform highp sampler2D sfOccD;\nuniform highp sampler2D sfFxD;\nuniform sampler2D sfGob;\nuniform mediump sampler2DArray sfVpImg;\nuniform sampler2D sfVpSh;\n' + SFMASK + `/* source en ligne (barre de LED, blinder) : 7 lampes réparties sur la longueur, chacune avec son cône et son 1/d² ; l'incidence est prise depuis le centre */
+float sfLine( vec3 sfL, vec3 sfRt, vec3 sfDr, float sfH, float sfTn ) { float sfSum = 0.0;
+	for ( int sfK = 0; sfK < 7; sfK ++ ) { vec3 sfLi = sfL - sfRt * ( sfH * ( float( sfK ) / 3.0 - 1.0 ) ); float sfAi = dot( sfLi, sfDr ); if ( sfAi > 1e-3 ) sfSum += ( 1.0 - smoothstep( 0.5, 1.0, length( sfLi - sfAi * sfDr ) / ( sfAi * sfTn ) ) ) / max( dot( sfLi, sfLi ), 0.01 ); }
+	return sfSum / 7.0; }
+float sfShadow( int sfI, vec3 geometryPosition, vec3 geometryNormal ) { float sfOut = 1.0;
+				mat4 sfM = mat4( texelFetch( sfOccD, ivec2( 0, sfI ), 0 ), texelFetch( sfOccD, ivec2( 1, sfI ), 0 ), texelFetch( sfOccD, ivec2( 2, sfI ), 0 ), texelFetch( sfOccD, ivec2( 3, sfI ), 0 ) );
+				vec4 sfR = texelFetch( sfOccD, ivec2( 4, sfI ), 0 ), sfNF = texelFetch( sfOccD, ivec2( 5, sfI ), 0 ); mat3 sfV = transpose( mat3( viewMatrix ) );
+				vec4 sfC = sfM * vec4( sfV * ( geometryPosition - viewMatrix[ 3 ].xyz ) + sfV * geometryNormal * 0.035, 1.0 ); vec3 sfQ = sfC.xyz / sfC.w;
+				if ( sfC.w > 0.0 && sfQ.x > sfR.x && sfQ.x < sfR.z && sfQ.y > sfR.y && sfQ.y < sfR.w && sfQ.z < 1.0 && sfQ.z > 0.0 ) {
+					float sfZ = sfNF.x * sfNF.y / ( sfNF.y - sfQ.z * ( sfNF.y - sfNF.x ) ) - 0.05, sfL = 0.0, sfTx = 1.0 / ${OCCN * OCCT}.0;
+					if ( sfNF.z > 0.0 ) {          /* pénombre selon la taille de la source (sfNF.z = son rayon) : on cherche d'abord ce qui fait obstacle dans le disque que la source « voit », puis on adoucit le bord de (rayon source) × (distance obstacle → surface) / (distance source → obstacle) */
+						float sfAn = 6.2831853 * fract( 52.9829189 * fract( dot( gl_FragCoord.xy, vec2( 0.06711056, 0.00583715 ) ) ) ), sfCell = 1.0 / ( 2.0 * sfZ * sfNF.w * ${OCCN}.0 ), sfRs = clamp( sfNF.z * sfCell, 1.2 * sfTx, 16.0 * sfTx ), sfBl = 0.0, sfNb = 0.0; vec4 sfLn = texelFetch( sfOccD, ivec2( 6, sfI ), 0 ); vec2 sfAx = vec2( 0.0 ); float sfSt = 0.0;          /* source en ligne : la pénombre s'étire dans le sens de la ligne seulement */
+						if ( sfLn.w > 0.0 ) { sfAx = ( sfM * vec4( sfLn.xyz, 0.0 ) ).xy; sfAx = sfAx / max( length( sfAx ), 1e-6 ); sfSt = min( sfLn.w / sfNF.z, 16.0 * sfTx / sfRs - 1.0 ); }
+						for ( int sfK = 0; sfK < 6; sfK ++ ) { float sfA2 = sfAn + 2.3999632 * float( sfK ), sfR2 = sfRs * sqrt( ( float( sfK ) + 0.5 ) / 6.0 ); float sfD = unpackRGBAToDepth( texture2D( sfOccA, clamp( sfQ.xy + sfR2 * ( vec2( cos( sfA2 ), sin( sfA2 ) ) + sfAx * ( sfSt * dot( vec2( cos( sfA2 ), sin( sfA2 ) ), sfAx ) ) ), sfR.xy, sfR.zw ) ) ); float sfDl = sfNF.x * sfNF.y / ( sfNF.y - sfD * ( sfNF.y - sfNF.x ) ); if ( sfDl < sfZ ) { sfBl += sfDl; sfNb += 1.0; } }
+						if ( sfNb < 0.5 ) sfL = 1.0; else { sfBl /= sfNb; float sfW = clamp( sfNF.z * ( sfZ - sfBl ) / max( sfBl, 0.05 ) * sfCell, 0.7 * sfTx, 16.0 * sfTx );
+							for ( int sfK = 0; sfK < 12; sfK ++ ) { float sfA2 = sfAn + 1.0 + 2.3999632 * float( sfK ), sfR2 = sfW * sqrt( ( float( sfK ) + 0.5 ) / 12.0 ); float sfD = unpackRGBAToDepth( texture2D( sfOccA, clamp( sfQ.xy + sfR2 * ( vec2( cos( sfA2 ), sin( sfA2 ) ) + sfAx * ( sfSt * dot( vec2( cos( sfA2 ), sin( sfA2 ) ), sfAx ) ) ), sfR.xy, sfR.zw ) ) ); sfL += step( sfZ, sfNF.x * sfNF.y / ( sfNF.y - sfD * ( sfNF.y - sfNF.x ) ) ); } sfL /= 12.0; } }
+					else { for ( int sfK = 0; sfK < 4; sfK ++ ) { vec2 sfO = vec2( sfK == 0 || sfK == 3 ? -0.35 : 0.35, sfK < 2 ? -0.35 : 0.35 ) * sfTx; float sfD = unpackRGBAToDepth( texture2D( sfOccA, clamp( sfQ.xy + sfO, sfR.xy, sfR.zw ) ) ); sfL += step( sfZ, sfNF.x * sfNF.y / ( sfNF.y - sfD * ( sfNF.y - sfNF.x ) ) ); } sfL *= 0.25; }
+					sfOut = sfL; }
+	return sfOut; }
+`;          /* en fonctions : écrit une seule fois dans le shader, quel que soit le nombre de projecteurs */
     const key = 'spotLight = spotLights[ i ];', i0 = C.lights_fragment_begin.indexOf(key), i1 = C.lights_fragment_begin.indexOf('RE_Direct(', i0);
-    if (i0 > 0 && i1 > i0) C.lights_fragment_begin = C.lights_fragment_begin.slice(0, i1) + `{ int sfT = int( floor( ( spotLight.decay - 2.0 ) * 100000.0 + 0.5 ) ), sfS = sfT / 100, sfI = sfT - sfS * 100;          // deux numéros voyagent dans l'exposant d'atténuation : la case d'ombre (1 à 64) et la ligne du masque iris / couteaux / gobo (× 100)
+    if (i0 > 0 && i1 > i0) C.lights_fragment_begin = C.lights_fragment_begin.slice(0, i1) + `{ int sfT = int( floor( ( spotLight.decay - 2.0 ) * 100000.0 + 0.5 ) ), sfS = sfT / 1000, sfI = sfT - sfS * 1000;          // deux numéros voyagent dans l'exposant d'atténuation : la case d'ombre (1 à 64) et la ligne du masque iris / couteaux / gobo (× 100)
 			if ( sfT > 0 && directLight.visible ) directLight.color *= pow( max( length( spotLight.position - geometryPosition ), 0.1 ), spotLight.decay - 2.0 );          // on rend à l'atténuation son exposant exact (2)
 			if ( sfS > ${VPROW} && sfS <= ${FXN} && directLight.visible ) { sfS -= 1;          // vidéoprojecteur : son image (couche de la texture) et son ombre (case de l'atlas), par la même matrice
 				mat4 sfM = mat4( texelFetch( sfFxD, ivec2( 0, sfS ), 0 ), texelFetch( sfFxD, ivec2( 1, sfS ), 0 ), texelFetch( sfFxD, ivec2( 2, sfS ), 0 ), texelFetch( sfFxD, ivec2( 3, sfS ), 0 ) ); vec4 sfR = texelFetch( sfFxD, ivec2( 4, sfS ), 0 ), sfNF = texelFetch( sfFxD, ivec2( 5, sfS ), 0 ); mat3 sfV = transpose( mat3( viewMatrix ) );
@@ -782,18 +803,9 @@ function occInit(){ if (OCCA) return; OCCA = new THREE.WebGLRenderTarget(OCCN * 
 			else if ( sfS > 0 && sfS <= ${VPROW} && directLight.visible ) { sfS -= 1; vec4 sfA = texelFetch( sfFxD, ivec2( 0, sfS ), 0 ), sfB1 = texelFetch( sfFxD, ivec2( 1, sfS ), 0 ), sfB2 = texelFetch( sfFxD, ivec2( 2, sfS ), 0 ), sfB3 = texelFetch( sfFxD, ivec2( 3, sfS ), 0 ), sfB4 = texelFetch( sfFxD, ivec2( 4, sfS ), 0 );
 				vec3 sfDr = - spotLight.direction, sfRt = mat3( viewMatrix ) * sfA.xyz, sfL = geometryPosition - spotLight.position; float sfAl = max( dot( sfL, sfDr ), 1e-4 ); vec3 sfPr = sfL - sfAl * sfDr;
 				vec4 sfPz = texelFetch( sfFxD, ivec2( 5, sfS ), 0 );
-				if ( sfPz.w > 0.0 ) { float sfSum = 0.0;          /* source en ligne (barre de LED, blinder) : 7 lampes réparties sur la longueur, chacune avec son cône et son 1/d² ; l'incidence est prise depuis le centre */
-					for ( int sfK = 0; sfK < 7; sfK ++ ) { vec3 sfLi = sfL - sfRt * ( sfPz.w * ( float( sfK ) / 3.0 - 1.0 ) ); float sfAi = dot( sfLi, sfDr ); if ( sfAi > 1e-3 ) sfSum += ( 1.0 - smoothstep( 0.5, 1.0, length( sfLi - sfAi * sfDr ) / ( sfAi * sfA.w ) ) ) / max( dot( sfLi, sfLi ), 0.01 ); }
-					directLight.color = spotLight.color * ( sfSum / 7.0 ); }
+				if ( sfPz.w > 0.0 ) directLight.color = spotLight.color * sfLine( sfL, sfRt, sfDr, sfPz.w, sfA.w );
 				else directLight.color *= sfMask( vec2( dot( sfPr, sfRt ), dot( sfPr, cross( sfDr, sfRt ) ) ) / ( sfAl * sfA.w ), sfB1.xyz, sfB2.xyz, sfB3.xyz, sfB4.xyz, sfB1.w, sfB2.w, sfB3.w, sfGob, sfPz.xyz ); }
-			if ( sfI > 0 && sfI <= ${OCCN * OCCN} && directLight.visible ) { sfI -= 1;
-				mat4 sfM = mat4( texelFetch( sfOccD, ivec2( 0, sfI ), 0 ), texelFetch( sfOccD, ivec2( 1, sfI ), 0 ), texelFetch( sfOccD, ivec2( 2, sfI ), 0 ), texelFetch( sfOccD, ivec2( 3, sfI ), 0 ) );
-				vec4 sfR = texelFetch( sfOccD, ivec2( 4, sfI ), 0 ), sfNF = texelFetch( sfOccD, ivec2( 5, sfI ), 0 ); mat3 sfV = transpose( mat3( viewMatrix ) );
-				vec4 sfC = sfM * vec4( sfV * ( geometryPosition - viewMatrix[ 3 ].xyz ) + sfV * geometryNormal * 0.035, 1.0 ); vec3 sfQ = sfC.xyz / sfC.w;
-				if ( sfC.w > 0.0 && sfQ.x > sfR.x && sfQ.x < sfR.z && sfQ.y > sfR.y && sfQ.y < sfR.w && sfQ.z < 1.0 && sfQ.z > 0.0 ) {
-					float sfZ = sfNF.x * sfNF.y / ( sfNF.y - sfQ.z * ( sfNF.y - sfNF.x ) ) - 0.05, sfL = 0.0;
-					for ( int sfK = 0; sfK < 4; sfK ++ ) { vec2 sfO = vec2( sfK == 0 || sfK == 3 ? -0.35 : 0.35, sfK < 2 ? -0.35 : 0.35 ) / ${OCCN * OCCT}.0; float sfD = unpackRGBAToDepth( texture2D( sfOccA, clamp( sfQ.xy + sfO, sfR.xy, sfR.zw ) ) ); sfL += step( sfZ, sfNF.x * sfNF.y / ( sfNF.y - sfD * ( sfNF.y - sfNF.x ) ) ); }
-					directLight.color *= sfL * 0.25; } } }
+			if ( sfI > 0 && sfI <= ${OCCN * OCCN} && directLight.visible ) directLight.color *= sfShadow( sfI - 1, geometryPosition, geometryNormal ); }
 		` + C.lights_fragment_begin.slice(i1); }
   A.scene.traverse(m => { const mm = m.material; if (mm) for (const q of Array.isArray(mm) ? mm : [mm]) q.needsUpdate = true; }); }
 function occFree(r){ if (r.occI != null){ OCCFREE.push(r.occI); r.occI = null; } r.occOK = false; }
@@ -806,7 +818,7 @@ function occFlush(){ { const n = performance.now(); occMs = occMs * .8 + Math.mi
       OCCCAM.position.copy(v); OCCCAM.up.set(0, Math.abs(d.y) > .98 ? 0 : 1, Math.abs(d.y) > .98 ? 1 : 0); OCCCAM.lookAt(v.x + d.x, v.y + d.y, v.z + d.z); OCCCAM.fov = Math.min(160, ang * 2 * R2D * 1.12 + 2); OCCCAM.far = Math.max(2, L0 + 1); OCCCAM.updateProjectionMatrix(); OCCCAM.updateMatrixWorld(true);
       OCCBIAS.set(.5 * k, 0, 0, (.5 + tx) * k, 0, .5 * k, 0, (.5 + ty) * k, 0, 0, .5, .5, 0, 0, 0, 1); r.occM.copy(OCCBIAS).multiply(OCCCAM.projectionMatrix).multiply(OCCCAM.matrixWorldInverse); r.occR.set(tx * k + e, ty * k + e, (tx + 1) * k - e, (ty + 1) * k - e);
       OCCA.viewport.set(tx * OCCT, ty * OCCT, OCCT, OCCT); OCCA.scissor.set(tx * OCCT, ty * OCCT, OCCT, OCCT); R.setRenderTarget(OCCA); R.clear(); R.render(sc, OCCCAM);
-      const o = r.occI * 24; OCCDATA.set(r.occM.elements, o); OCCDATA[o + 16] = r.occR.x; OCCDATA[o + 17] = r.occR.y; OCCDATA[o + 18] = r.occR.z; OCCDATA[o + 19] = r.occR.w; OCCDATA[o + 20] = OCCCAM.near; OCCDATA[o + 21] = OCCCAM.far; ch = true; r.occOK = true; r.occT2 = UI.t; } } catch (e){ }
+      const o = r.occI * 28; OCCDATA.set(r.occM.elements, o); { const u = r.bm.uniforms.fxRt.value; OCCDATA[o + 24] = u.x; OCCDATA[o + 25] = u.y; OCCDATA[o + 26] = u.z; OCCDATA[o + 27] = r.lh || 0; } OCCDATA[o + 16] = r.occR.x; OCCDATA[o + 17] = r.occR.y; OCCDATA[o + 18] = r.occR.z; OCCDATA[o + 19] = r.occR.w; OCCDATA[o + 20] = OCCCAM.near; OCCDATA[o + 21] = OCCCAM.far; OCCDATA[o + 22] = A.quality === 'basse' && !window.SF_SOFT ? 0 : Math.max((r.srcR || 0) - (r.lh || 0), .02); OCCDATA[o + 23] = Math.tan(OCCCAM.fov * D2R / 2); ch = true; r.occOK = true; r.occT2 = UI.t; } } catch (e){ }
   if (ch) OCCD.needsUpdate = true; OCCQ.length = 0; sc.overrideMaterial = ov; sc.background = bg; R.setClearColor(_occC, ca); R.shadowMap.autoUpdate = au; R.xr.enabled = xr; R.setRenderTarget(rt0); }
 function shadowPick(){ const c = []; for (const [id, r] of RT){ if (!r.light || r.t.cat !== 'lum' || !r.light.visible || String(id).startsWith('__th')) continue; const d = r.cdim ?? r.o.dim ?? 0; if (d > .02) c.push([d * (r.t.lumens || 8000) * (r.light.castShadow ? 1.25 : 1), r]); }
   { SHK = Math.max(3, clamp((A.renderer.capabilities.maxTextures || 16) - 12, 3, 12)); }          // chaque ombre prend une unité de texture ; on en garde 8 pour les matières
@@ -863,7 +875,7 @@ function update(dt){
         if (r.occN === undefined) r.occN = Math.random() * 20 | 0; const due = s => { if (!(UI.t - (r.occT || 0) < s + r.occN * .004)){ r.occT = UI.t; return true; } return false; }, moved = r.occK !== ok_ + '|' + (ang * 500 | 0), shd = r.light.castShadow; r.occK = ok_ + '|' + (ang * 500 | 0);
         // ombre réelle (surfaces et fumée) pour les projecteurs qui en portent une : la carte n'est recalculée que si l'appareil bouge, et de temps en temps pour suivre le décor
         if (shd){ if (moved || !r.light.shadow.map || due(.13)) r.light.shadow.needsUpdate = true; r.occD = null; if (r.occI != null) occFree(r); if (lr + lh > 0 && (moved || !(UI.t - r.hitT < .3))){ r.hitT = UI.t; const h = hitAlong(_v, _d, L0); r.hitD = h ? h.distance : L0; } } else { if (moved || due(.33)){ const h = hitAlong(_v, _d, L0); r.occD = h ? h.distance : null; r.hitD = h ? h.distance : L0; } if (dim > .002 && (moved || !r.occOK || UI.t - (r.occT2 || 0) > .5 + r.occN * .01 || UI.t < (r.occT2 || 0))) OCCQ.push([!r.occOK ? -2 : moved ? -1 : r.occT2, r, _v.clone(), _d.clone(), ang, L0]); }
-        const own = !UI.noOcc && !shd && r.occOK && r.occI != null; r.light.decay = 2 + ((r.fxI != null ? (r.fxI + 1) * 100 : 0) + (own ? r.occI + 1 : 0)) * 1e-5;
+        const own = !UI.noOcc && !shd && r.occOK && r.occI != null; r.srcR = lr + lh; r.light.decay = 2 + ((r.fxI != null ? (r.fxI + 1) * 1000 : 0) + (own ? r.occI + 1 : 0)) * 1e-5;
         { const u = r.bm.uniforms, mp = shd && r.light.shadow.map; u.shOn.value = mp || own ? 1 : 0; if (mp){ u.shMap.value = mp.texture; u.shMat.value.copy(r.light.shadow.matrix); u.shR.value.set(0, 0, 1, 1); } else if (own){ u.shMap.value = OCCA.texture; u.shMat.value.copy(r.occM); u.shR.value.copy(r.occR); } }
         const cut = !shd && r.occD != null && r.occD < L0 - .05, L = cut && !own ? r.occD + .03 : L0, R = lr + lh + tT * L; r.bm.uniforms.fade.value = cut && !own ? 0 : 1; r.light.distance = cut && !own ? r.occD * 1.6 + .5 : 0;
         r.beam.position.copy(_v); r.beam.quaternion.setFromUnitVectors(DOWN, _d); r.beam.scale.set(R, L, R);
@@ -891,7 +903,7 @@ function update(dt){
         const dg = r.dirty; drawContent(r); r.dirty = false; if (on){ r.vpBl = true; if (dg) r.vpOK = false; }
       }
       if (on){ if (r.vpBl || r.tex.version !== r.vpTv){ r.vpTv = r.tex.version; vpBlit(r); } if (!r.vpOK || !(UI.t - (r.vpT || 0) < .4) || UI.t < (r.vpT || 0)){ if (!VPQ.includes(r)) VPQ.push(r); } }
-      r.light.visible = on && r.vpOK; r.light.castShadow = false; r.light.map = null; r.light.decay = on ? 2 + (VPROW + r.vpI + 1) * 100 * 1e-5 : 2;
+      r.light.visible = on && r.vpOK; r.light.castShadow = false; r.light.map = null; r.light.decay = on ? 2 + (VPROW + r.vpI + 1) * 1000 * 1e-5 : 2;
       r.lensMat.color.set(on ? '#dfe8ff' : '#000'); r.frust.visible = UI.sel.includes(o.id) || (UI.cov && o.on !== false);
     } else if (ty.cat === 'son'){
       if (r.dirty){
