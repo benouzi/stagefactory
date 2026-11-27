@@ -16,7 +16,7 @@ export function initDock(A, ST){
   #doms{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-left:10px;flex:none} #doms button{all:unset;cursor:pointer;padding:5px 11px;color:var(--mute);font-weight:500;border-radius:0!important;border-right:1px solid var(--line)} #doms button:last-child{border-right:0}
   #doms button:hover{color:var(--ink)} #doms button.on{background:var(--accsoft)!important;color:var(--accent)!important;box-shadow:inset 0 0 0 1px var(--accent)!important}
   .dockSw{all:unset;cursor:pointer;color:var(--mute);padding:2px 6px;border-radius:4px;font-size:13px} .dockSw:hover{color:var(--ink);background:var(--raised)}
-  #toolHint{position:fixed;top:46px;height:24px;z-index:4;display:flex;align-items:center;gap:8px;padding:0 10px;font-size:12px;color:var(--mute);pointer-events:none;white-space:nowrap;overflow:hidden} #toolHint b{color:var(--ink);font-weight:600}
+  #toolHint{position:fixed;top:94px;left:calc(var(--vx,0px) + 8px)!important;width:calc(var(--vw,100vw) - 16px)!important;box-sizing:border-box;text-shadow:0 1px 3px rgba(0,0,0,.9);height:24px;z-index:4;display:flex;align-items:center;gap:8px;padding:0 10px;font-size:12px;color:var(--mute);pointer-events:none;white-space:nowrap;overflow:hidden} #toolHint b{color:var(--ink);font-weight:600} #toolHint b{flex:none} #toolHint span{min-width:0;overflow:hidden;text-overflow:ellipsis}
   #vwBtn{left:calc(var(--vx,0px) + 12px)!important} #vwPop{left:calc(var(--vx,0px) + 12px)!important}
   #top{gap:2px} #top button.nav{margin-left:4px;padding:6px 10px} #top #liveBtn{margin-left:8px;padding:6px 10px} #top .mn{padding:6px 8px}
   #side > .dockSwW{margin-right:0}

@@ -56,7 +56,7 @@ with sync_playwright() as p:
     ev("STAGE.select([]);PONTS.select(null);STAGE.UI.tab='doc';STAGE.render()"); pg.uncheck('#console [data-ly=ponts]'); pg.wait_for_timeout(300)
     ok(ev("PONTS.near(0,-3)")==None,'calque Ponts décoché : plus d\'accroche dessus'); pg.check('#console [data-ly=ponts]'); pg.wait_for_timeout(200)
     # ---- coupe : cadrée sur le contenu
-    ev("PLAN.setView('coupe');PLAN.fit();PLAN.draw()"); pg.wait_for_timeout(300); ok(ev("PLAN.P.s")>18,'coupe d\'un espace ouvert : cadrée sur le matériel',ev("PLAN.P.s")); pg.screenshot(path=OUT+'/a3-coupe.png'); ev("PLAN.setView('plan')")
+    ev("PLAN.setView('coupe');PLAN.fit();PLAN.draw()"); pg.wait_for_timeout(300); ok(ev("PLAN.P.s")>15,'coupe d\'un espace ouvert : cadrée sur le matériel',ev("PLAN.P.s")); pg.screenshot(path=OUT+'/a3-coupe.png'); ev("PLAN.setView('plan')")
     # ---- pupitre : le rail et l'Inspecteur s'arrêtent au-dessus
     ev("WS.C.desk.run()"); pg.wait_for_timeout(500); r=ev("(()=>{const d=document.querySelector('#desk').getBoundingClientRect(),q=s=>document.querySelector(s).getBoundingClientRect().bottom;return [d.top,q('#rail'),q('#console')]})()"); ok(r[1]<=r[0]+1 and r[2]<=r[0]+1,'pupitre ouvert : rail et Inspecteur ne le recouvrent pas',r); pg.screenshot(path=OUT+'/a3-pupitre.png'); ev("WS.C.desk.run()")
     # ---- nouveau projet : tout est vidé

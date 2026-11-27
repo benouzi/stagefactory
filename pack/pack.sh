@@ -1,12 +1,15 @@
 #!/bin/bash
 set -e
 /home/claude/local/build.sh >/dev/null
-SRC=/home/claude/local/dist/StageFactory; P=/home/claude/pack; OUT=$P/out; VER=4.52.2; rm -rf $OUT $P/win $P/mac; mkdir -p $OUT $P/win
+SRC=/home/claude/local/dist/StageFactory; P=/home/claude/pack; OUT=$P/out; VER=4.53.0; rm -rf $OUT $P/win $P/mac; mkdir -p $OUT $P/win
 # ---------------- récepteur NDI : koffi (appel de la bibliothèque NDI installée sur l'ordinateur) et son binaire par plateforme. pack/* n'est pas dans git : on les reprend de npm s'ils manquent.
+# (les quatre paquets en UNE commande : installés en deux fois, la seconde retirait koffi)
 KS=$P/koffi-src; KV=3.3.8
-if [ ! -d $KS/node_modules/koffi ] || [ ! -d $KS/node_modules/@koromix/koffi-win32-x64 ] || [ ! -d $KS/node_modules/@koromix/koffi-darwin-arm64 ] || [ ! -d $KS/node_modules/@koromix/koffi-darwin-x64 ]; then mkdir -p $KS; (cd $KS && { [ -f package.json ] || npm init -y >/dev/null; } && npm i --no-save koffi@$KV >/dev/null && npm i --force --no-save @koromix/koffi-win32-x64@$KV @koromix/koffi-darwin-x64@$KV @koromix/koffi-darwin-arm64@$KV >/dev/null); fi
+if [ ! -d $KS/node_modules/koffi ] || [ ! -d $KS/node_modules/@koromix/koffi-win32-x64 ] || [ ! -d $KS/node_modules/@koromix/koffi-darwin-arm64 ] || [ ! -d $KS/node_modules/@koromix/koffi-darwin-x64 ]; then mkdir -p $KS; (cd $KS && { [ -f package.json ] || npm init -y >/dev/null; } && npm i --force --no-save koffi@$KV @koromix/koffi-win32-x64@$KV @koromix/koffi-darwin-x64@$KV @koromix/koffi-darwin-arm64@$KV >/dev/null 2>&1); fi
 koffi(){ # $1 = dossier où poser node_modules, $2 = plateforme (win32-x64, darwin-arm64, darwin-x64)
   mkdir -p "$1/node_modules/@koromix"; cp -r $KS/node_modules/koffi "$1/node_modules/"; rm -rf "$1/node_modules/koffi/doc" "$1/node_modules/koffi/vendor"; find "$1/node_modules/koffi" \( -name "*.cc" -o -name "*.hh" -o -name "*.c" -o -name "*.h" -o -name "*.S" -o -name "*.asm" -o -name "*.inc" \) -delete; cp -r "$KS/node_modules/@koromix/koffi-$2" "$1/node_modules/@koromix/"; }
+# ---------------- exécutables Node (pack/rt n'est pas dans git) : repris de npm s'ils manquent
+NV=22.23.4; for pk in node-win-x64 $([ "$SF_ONLY" = win ] || echo node-bin-darwin-arm64 node-darwin-x64); do [ -d $P/rt/$pk-$NV/package ] || { mkdir -p $P/rt/$pk-$NV; (cd $P/rt/$pk-$NV && npm pack $pk@$NV >/dev/null 2>&1 && tar xzf $pk-$NV.tgz && rm $pk-$NV.tgz); }; done
 # ---------------- Windows : installateur NSIS
 cp -r $SRC/app $SRC/serveur.js $SRC/mcp.js $SRC/ndi.js $SRC/mcp-tools.json $P/win/; koffi $P/win win32-x64; cp $P/rt/node-win-x64-22.23.4/package/bin/node.exe $P/win/; cp $P/icon.ico $P/win/
 cat > $P/win/LISEZMOI.txt <<'TXT'
@@ -105,7 +108,9 @@ Section "Uninstall"
   DeleteRegKey HKCU "Software\\OnexPreviz"
 SectionEnd
 NSI
-chmod +x $P/nsis/linux/makensis; NSISDIR=$P/nsis $P/nsis/linux/makensis -V2 $P/onex.nsi
+# NSIS : celui rangé dans pack/nsis s'il y est, sinon celui du système (apt-get install nsis)
+if [ -x $P/nsis/linux/makensis ]; then NSISDIR=$P/nsis $P/nsis/linux/makensis -V2 $P/onex.nsi; else makensis -V2 $P/onex.nsi; fi
+[ "$SF_ONLY" = win ] && { ls -la $OUT; exit 0; }          # SF_ONLY=win : seulement l'installeur Windows
 # ---------------- Mac : application dans un zip, une par type de processeur
 mac(){ # $1 = nom, $2 = binaire node
   local A="$P/mac/$1/StageFactory.app"; mkdir -p "$A/Contents/MacOS" "$A/Contents/Resources"
