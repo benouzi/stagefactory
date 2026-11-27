@@ -139,6 +139,10 @@ function gdtfApply(o, r, g, hung){ const inner = g.root.clone(true), wrap = new 
   for (const c of [...r.root.children]) c.traverse(m => { if (m.isMesh) m.visible = false; }); r.root.add(wrap); r.gdtf = wrap; inner.traverse(n => { if (n.name === 'sf-pan') r.gPan = n; else if (n.name === 'sf-tilt') r.gTilt = n; if (n.isMesh){ n.castShadow = true; n.userData.oid = o.id; } }); r.dirty = true; }
 function gdtfSwap(o, t, r, hung){ if (G3DR.has(t.id)){ const g = G3DR.get(t.id); if (g) gdtfApply(o, r, g, hung); return; }
   gdtfModel(t).then(g => { window.THUMBS?.drop(t.id); if (g && RT.get(o.id) === r) gdtfApply(o, r, g, hung); render(); }); }
+/* lyre aux dimensions réelles : tout l'appareil est agrandi d'UN seul facteur (sa hauteur, tête dressée à l'opposé du socle) — une pièce qui tourne ne peut pas être étirée différemment selon les axes sans se déformer en tournant ; seul le socle, fixe, est ensuite ajusté en largeur et en profondeur */
+function fitMover(r, dim, hung){ const root = r.root, par = root.parent, pos = root.position.clone(), q = root.quaternion.clone(); if (par) par.remove(root); root.position.set(0, 0, 0); root.quaternion.identity(); root.scale.set(1, 1, 1); r.baseG.scale.set(1, 1, 1); r.yoke.rotation.set(0, 0, 0); r.head.rotation.set(hung ? 0 : Math.PI, 0, 0); root.updateMatrixWorld(true);
+  const s = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3()), k = s.y > 1e-3 ? dim[1] / 1000 / s.y : 1; root.scale.setScalar(k); const b = new THREE.Box3().setFromObject(r.baseG).getSize(new THREE.Vector3());
+  if (b.x > 1e-3 && b.z > 1e-3) r.baseG.scale.set(clamp(dim[0] / 1000 / (b.x * k), .6, 1.8), 1, clamp(dim[2] / 1000 / (b.z * k), .6, 1.8)); r.head.rotation.set(0, 0, 0); root.position.copy(pos); root.quaternion.copy(q); if (par) par.add(root); }
 function fitDim(obj, dim){ const par = obj.parent, pos = obj.position.clone(), q = obj.quaternion.clone(); if (par) par.remove(obj); obj.position.set(0, 0, 0); obj.quaternion.identity(); obj.scale.set(1, 1, 1); obj.updateMatrixWorld(true);
   const s = new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3()); if (s.x > 1e-3 && s.y > 1e-3 && s.z > 1e-3) obj.scale.set(dim[0] / 1000 / s.x, dim[1] / 1000 / s.y, dim[2] / 1000 / s.z); obj.position.copy(pos); obj.quaternion.copy(q); if (par) par.add(obj); }
 const typeOf = o => S.lib.find(t => t.id === o.type) || LIB.find(t => t.id === o.type) || LIB[0];
@@ -345,9 +349,12 @@ function build(o){
     const hook = cyl(.02, .02, .14, M.steel, 10); hook.position.y = hung ? -.07 : .07; if (hung){ r.root.add(hook); const cl = new THREE.Mesh(new THREE.TorusGeometry(.034, .011, 8, 18, Math.PI * 1.5), M.steel); cl.rotation.set(0, Math.PI / 2, -Math.PI / 4); cl.position.y = .03; r.root.add(cl, box(.05, .03, .06, M.steel, 0, -.005, 0)); }
     r.head.position.y = hung ? -.3 : (t.mover ? .42 : .3);
     if (t.mover){
-      r.root.add(rbox(.36, .14, .3, M.body, 0, hung ? -.09 : .07, 0, .025), box(.16, .06, .004, M.glass, 0, hung ? -.09 : .07, .151));
-      r.root.add(rbox(.44, .05, .13, M.body, 0, hung ? -.175 : .155, 0, .02));
-      for (const sx of [-1, 1]){ r.root.add(rbox(.035, .3, .13, M.body, sx * .205, hung ? -.3 : .28, 0, .015)); const pv = cyl(.034, .034, .01, M.body, 16); pv.rotation.z = Math.PI / 2; pv.position.set(sx * .226, hung ? -.3 : .42, 0); r.root.add(pv); }
+      /* une lyre est articulée comme une vraie : le SOCLE ne bouge pas ; la LYRE (traverse + deux bras) tourne autour de l'axe vertical = pan ; la TÊTE bascule entre les bras, autour de l'axe qui les relie = tilt.
+         (Avant, socle et bras étaient fixes et seule la tête s'orientait : elle passait à travers les bras.) */
+      r.baseG = new THREE.Group(); r.yoke = new THREE.Group(); r.root.add(r.baseG, r.yoke); r.yoke.add(r.head);
+      r.baseG.add(rbox(.36, .14, .3, M.body, 0, hung ? -.09 : .07, 0, .025), box(.16, .06, .004, M.glass, 0, hung ? -.09 : .07, .151));
+      r.yoke.add(rbox(.44, .05, .13, M.body, 0, hung ? -.175 : .155, 0, .02), cylAt(.11, .11, .012, M.steel, hung ? -.146 : .134, 24));          // traverse, et la couronne de rotation entre socle et lyre
+      const PY = hung ? -.3 : .42; for (const sx of [-1, 1]){ r.yoke.add(rbox(.035, .3, .13, M.body, sx * .205, hung ? -.3 : .28, 0, .015)); const pv = cyl(.034, .034, .01, M.body, 16); pv.rotation.z = Math.PI / 2; pv.position.set(sx * .226, PY, 0); r.yoke.add(pv); }
       lensR = k === 'beam' ? .075 : k === 'spot' ? .09 : .12; len = k === 'spot' ? .45 : .34;
     } else if (k === 'prof'){ lensR = .08; len = .6; }
     else if (k === 'fresnel'){ lensR = .11; len = .32; }
@@ -446,9 +453,9 @@ function build(o){
     else if (k === 'person'){ const hd = new THREE.Mesh(new THREE.SphereGeometry(.105, 18, 14), M.person); hd.position.y = 1.645; hd.scale.set(.92, 1.1, 1); const to = caps(.15, .36, M.person, 0, 1.2, 0); to.scale.set(1.15, 1, .72); const hp = caps(.14, .1, M.person, 0, .9, 0); hp.scale.set(1.1, 1, .75);
       r.head.add(human(o, t)); if (0) r.head.add(hd, to, hp, cylAt(.045, .055, .09, M.person, 1.5, 12));  }
   }
-  bake(r.head); bake(r.root, r.head);
+  bake(r.head); if (r.yoke){ bake(r.yoke, r.head); bake(r.baseG); r.root.remove(r.yoke, r.baseG); bake(r.root); r.root.add(r.baseG, r.yoke); } else bake(r.root, r.head);
   if (t.raw && t.gdtf && t.g3d !== false) gdtfSwap(o, t, r, hung);
-  if (t.dim && t.kind !== 'gear' && t.kind !== 'mic' && t.kind !== 'ledwall' && t.kind !== 'riser' && t.fam !== 'line') fitDim(t.mover ? r.root : r.head, t.dim);          // le modèle générique est mis aux dimensions réelles de la référence
+  if (t.dim && t.kind !== 'gear' && t.kind !== 'mic' && t.kind !== 'ledwall' && t.kind !== 'riser' && t.fam !== 'line') (t.mover && r.yoke ? fitMover(r, t.dim, hung) : fitDim(t.mover ? r.root : r.head, t.dim));          // le modèle générique est mis aux dimensions réelles de la référence
   r.root.traverse(m => { if (m.isMesh){ m.castShadow = m.receiveShadow = !m.userData.noShadow; m.userData.oid = o.id; if (m.castShadow && !m.material?.transparent) m.layers.enable(1); } });          // calque 1 : ce qui arrête un faisceau (voir occFlush)
   scene.add(r.root); r.extra.forEach(e => scene.add(e));
   r.boxh = new THREE.BoxHelper(r.root, '#2affd0'); r.boxh.material = M.sel; r.boxh.visible = false; r.boxh.renderOrder = 8; scene.add(r.boxh);
@@ -728,7 +735,7 @@ function update(dt){
       if (ty.mover){ const a = r.cpan === undefined ? 1 : 1 - Math.exp(-dt * 6.5); r.cpan = (r.cpan ?? pan) + (pan - (r.cpan ?? pan)) * a; r.ctilt = (r.ctilt ?? tilt) + (tilt - (r.ctilt ?? tilt)) * a; pan = r.cpan; tilt = r.ctilt; }
       { const a = hard || r.cdim === undefined ? 1 : 1 - Math.exp(-dt * (ty.color === 'gel' ? 7 : 16)); r.cdim = (r.cdim ?? dim) + (dim - (r.cdim ?? dim)) * a; dim = r.cdim; }
       dim *= master;
-      dirOf(pan, tilt, _d); r.head.quaternion.setFromUnitVectors(DOWN, _d); if (r.gPan) r.gPan.rotation.z = pan * D2R; if (r.gTilt) r.gTilt.rotation.x = tilt * D2R;
+      dirOf(pan, tilt, _d); if (r.yoke){ r.yoke.rotation.y = pan * D2R; r.head.rotation.set(-tilt * D2R, 0, 0); } else r.head.quaternion.setFromUnitVectors(DOWN, _d); if (r.gPan) r.gPan.rotation.z = pan * D2R; if (r.gTilt) r.gTilt.rotation.x = tilt * D2R;
       const vis = live; r.light.visible = vis; r.beam.visible = vis && dim > .002 && S.haze > .01 && A.camera.isPerspectiveCamera;
       if (vis){
         const zoom = clamp((dx && dx.zoom !== undefined ? dx.zoom : o.zoom) ?? ty.zoom[0], ty.zoom[0], ty.zoom[1]), ang = zoom * D2R / 2;
@@ -743,7 +750,7 @@ function update(dt){
         const own = !UI.noOcc && !shd && r.occOK && r.occI != null; r.light.decay = own ? 2 + (r.occI + 1) * 1e-5 : 2;
         { const u = r.bm.uniforms, mp = shd && r.light.shadow.map; u.shOn.value = mp || own ? 1 : 0; if (mp){ u.shMap.value = mp.texture; u.shMat.value.copy(r.light.shadow.matrix); u.shR.value.set(0, 0, 1, 1); } else if (own){ u.shMap.value = OCCA.texture; u.shMat.value.copy(r.occM); u.shR.value.copy(r.occR); } }
         const cut = !shd && r.occD != null && r.occD < L0 - .05, L = cut && !own ? r.occD + .03 : L0, R = Math.tan(ang) * L; r.bm.uniforms.fade.value = cut && !own ? 0 : 1; r.light.distance = cut && !own ? r.occD * 1.6 + .5 : 0;
-        r.beam.position.copy(_v); r.beam.quaternion.copy(r.head.quaternion); r.beam.scale.set(R, L, R);
+        r.beam.position.copy(_v); r.beam.quaternion.setFromUnitVectors(DOWN, _d); r.beam.scale.set(R, L, R);
         r.bm.uniforms.amount.value = dim * S.haze * BEAMK * clamp(Math.sqrt((ty.lumens || 8000) / 8000), .5, 2.3); r.bm.uniforms.scl.value.set(R, L); r.bm.uniforms.color.value.copy(_c);
         r.lensMat.color.copy(_c).multiplyScalar(dim * 6);
         // halo de lentille : d'autant plus fort que le projecteur regarde la caméra
