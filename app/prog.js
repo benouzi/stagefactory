@@ -2,7 +2,7 @@
 // tracking dans la séquence, plusieurs séquences sur des exécuteurs (dernière action prioritaire), Off, Highlight.
 import * as THREE from 'three';
 export function initProg(A, ST){
-  const S = ST.S, UI = ST.UI, KEYS = ST.LKEYS, NUM = new Set(['dim', 'zoom', 'pan', 'tilt', 'speed', 'speed2', 'speed3', 'amp']);
+  const S = ST.S, UI = ST.UI, KEYS = ST.LKEYS, NUM = new Set(ST.LNUM || ['dim', 'zoom', 'pan', 'tilt', 'speed', 'speed2', 'speed3', 'amp']);
   const LAST = new Map(), RTS = [], c1 = new THREE.Color(), c2 = new THREE.Color(); let BASE = {}, clock = 0;
   const E = { sel: 0, hi: false };
   const isLum = o => ST.typeOf(o).cat === 'lum', lums = () => S.objs.filter(isLum);

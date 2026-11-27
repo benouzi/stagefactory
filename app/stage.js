@@ -87,8 +87,41 @@ const LIB = [
 ];
 const SWATCH = ['#ffffff', '#fff0d8', '#ffb347', '#ff6a00', '#ff1e1e', '#ff2bd6', '#8a2bff', '#2a4dff', '#00b7ff', '#00ffc8', '#3dff3d'];
 const FXS = { fixe: 'Fixe', balayage: 'Balayage', cercle: 'Cercle', huit: 'Huit (pan / tilt)', vague: 'Vague (dimmer)', chenillard: 'Chenillard', pulse: 'Pulsation', scintille: 'Scintillement', arc: 'Arc-en-ciel', strobe: 'Strobe' };
-const LKEYS = ['dim', 'color', 'zoom', 'pan', 'tilt', 'fx', 'speed', 'fx2', 'speed2', 'fx3', 'speed3', 'amp'];
-const LNUM = ['dim', 'zoom', 'pan', 'tilt', 'speed', 'speed2', 'speed3', 'amp'];
+const LKEYS = ['dim', 'color', 'zoom', 'pan', 'tilt', 'fx', 'speed', 'fx2', 'speed2', 'fx3', 'speed3', 'amp', 'iris', 'gobo', 'gobor', 'gobos', 'focus', 'b1', 'b1r', 'b2', 'b2r', 'b3', 'b3r', 'b4', 'b4r'];
+/* ---- 4.57 — ce qui se place dans le plan image d'un projecteur : IRIS, COUTEAUX, GOBO. Ils découpent le faisceau pour de bon, sur les surfaces ET dans la fumée, avec le même calcul des deux côtés.
+   o.iris : part du faisceau laissée ouverte (1 = ouvert, 0,15 = fermé au plus serré) ; o.b1…o.b4 : enfoncement d'un couteau (0 = sorti, 0,5 = au centre, 1 = tout fermé), o.b1r…o.b4r : son angle (° autour de sa position de repos : haut, droite, bas, gauche vus de derrière l'appareil) ;
+   o.gobo : numéro du gobo (0 = aucun), o.gobor : son orientation (°), o.gobos : sa rotation continue (tours par seconde, signe = sens) ; o.focus : netteté (0 = net, 1 = très flou).
+   Les gobos ci-dessous sont des motifs GÉNÉRIQUES dessinés par le logiciel, pas ceux d'un fabricant : les roues réelles viendront des fiches GDTF. */
+const GOBOS = [['', 'Aucun'], ['pts', 'Points en couronne'], ['etoile', 'Étoile'], ['barres', 'Barres'], ['fenetre', 'Fenêtre'], ['feuil', 'Feuillage'], ['spir', 'Spirale'], ['tri', 'Triangles'], ['cerc', 'Cercles'], ['nuit', 'Ciel étoilé'], ['ray', 'Rayons'], ['dam', 'Damier']];
+const fxCaps = t => ({ gobo: t.cat === 'lum' && (t.kind === 'spot' || t.kind === 'beam' || t.kind === 'prof'), iris: t.cat === 'lum' && (t.kind === 'spot' || t.kind === 'prof'), blades: t.cat === 'lum' && (t.kind === 'spot' || t.kind === 'prof') });
+const FXN = 128, FXDATA = new Float32Array(5 * FXN * 4), FXD = new THREE.DataTexture(FXDATA, 5, FXN, THREE.RGBAFormat, THREE.FloatType); FXD.minFilter = FXD.magFilter = THREE.NearestFilter; FXD.needsUpdate = true;
+const FXFREE = Array.from({ length: FXN }, (_, i) => FXN - 1 - i), FXU = { d: { value: FXD }, g: { value: null } };
+function goboAtlas(){ if (FXU.g.value) return FXU.g.value; const C = 256, cv = document.createElement('canvas'); cv.width = cv.height = C * 4; const g = cv.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, C * 4, C * 4);
+  let sd = 7; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  GOBOS.forEach(([k], i) => { if (!i) return; const ox = (i % 4) * C + C / 2, oy = Math.floor(i / 4) * C + C / 2, R = C * .46; g.save(); g.translate(ox, oy); g.beginPath(); g.arc(0, 0, R, 0, 7); g.clip(); g.fillStyle = g.strokeStyle = '#fff';
+    const dot = (x, y, r) => { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); };
+    if (k === 'pts'){ for (let a = 0; a < 8; a++) dot(Math.cos(a * Math.PI / 4) * R * .62, Math.sin(a * Math.PI / 4) * R * .62, R * .15); dot(0, 0, R * .16); }
+    else if (k === 'etoile'){ g.beginPath(); for (let a = 0; a < 10; a++){ const r = a % 2 ? R * .36 : R * .92, t = a * Math.PI / 5 - Math.PI / 2; g.lineTo(Math.cos(t) * r, Math.sin(t) * r); } g.closePath(); g.fill(); }
+    else if (k === 'barres'){ for (let x = -4; x <= 4; x += 2) g.fillRect(x * R * .13 - R * .075, -R, R * .15, R * 2); }
+    else if (k === 'fenetre'){ for (const x of [-1, 1]) for (const y of [-1, 0, 1]) g.fillRect(x * R * .3 - R * .24, y * R * .42 - R * .18, R * .48, R * .36); }
+    else if (k === 'feuil'){ for (let n = 0; n < 46; n++){ const a = rnd() * 7, d = Math.sqrt(rnd()) * R * .9, x = Math.cos(a) * d, y = Math.sin(a) * d; g.save(); g.translate(x, y); g.rotate(rnd() * 7); g.beginPath(); g.ellipse(0, 0, R * (.06 + rnd() * .1), R * (.025 + rnd() * .04), 0, 0, 7); g.fill(); g.restore(); } }
+    else if (k === 'spir'){ g.lineWidth = R * .11; g.lineCap = 'round'; for (let arm = 0; arm < 3; arm++){ g.beginPath(); for (let t = 0; t <= 1.001; t += .02){ const a = arm * 2.094 + t * 4.4, r = R * (.08 + t * .84); g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.stroke(); } }
+    else if (k === 'tri'){ for (let a = 0; a < 6; a++){ g.save(); g.rotate(a * Math.PI / 3); g.beginPath(); g.moveTo(0, -R * .18); g.lineTo(R * .2, -R * .86); g.lineTo(-R * .2, -R * .86); g.closePath(); g.fill(); g.restore(); } }
+    else if (k === 'cerc'){ g.lineWidth = R * .1; for (const r of [.24, .52, .8]){ g.beginPath(); g.arc(0, 0, R * r, 0, 7); g.stroke(); } }
+    else if (k === 'nuit'){ for (let n = 0; n < 70; n++){ const a = rnd() * 7, d = Math.sqrt(rnd()) * R * .93; dot(Math.cos(a) * d, Math.sin(a) * d, R * (.012 + rnd() * .03)); } }
+    else if (k === 'ray'){ for (let a = 0; a < 12; a++){ g.save(); g.rotate(a * Math.PI / 6); g.beginPath(); g.moveTo(0, 0); g.lineTo(R * .11, -R * .95); g.lineTo(-R * .11, -R * .95); g.closePath(); g.fill(); g.restore(); } }
+    else if (k === 'dam'){ const q = R * .3; for (let x = -4; x < 4; x++) for (let y = -4; y < 4; y++) if ((x + y) & 1) g.fillRect(x * q, y * q, q, q); }
+    g.restore(); });
+  const tx = new THREE.CanvasTexture(cv); tx.colorSpace = THREE.NoColorSpace; tx.generateMipmaps = true; tx.minFilter = THREE.LinearMipmapLinearFilter; tx.magFilter = THREE.LinearFilter; tx.flipY = false; FXU.g.value = tx; return tx; }
+/* le même masque pour l'éclairage des surfaces et pour la fumée. p : position dans la section du faisceau (1 = bord du faisceau), dans les axes de l'appareil (x = sa droite, y = son haut) ; un couteau = (nx, ny, d) : éclairé là où p·n < d */
+const SFMASK = `float sfMask( vec2 p, vec3 b1, vec3 b2, vec3 b3, vec3 b4, float gi, float gr, float fo, sampler2D gob ){ float s = 0.006 + fo * 0.28, m = 1.0;
+  m *= 1.0 - smoothstep( -s, s, dot( p, b1.xy ) - b1.z ); m *= 1.0 - smoothstep( -s, s, dot( p, b2.xy ) - b2.z ); m *= 1.0 - smoothstep( -s, s, dot( p, b3.xy ) - b3.z ); m *= 1.0 - smoothstep( -s, s, dot( p, b4.xy ) - b4.z );
+  if ( gi > 0.5 && m > 0.0 ){ float c = cos( gr ), sn = sin( gr ); vec2 q = vec2( c * p.x - sn * p.y, sn * p.x + c * p.y ); if ( dot( q, q ) >= 1.0 ) return 0.0;
+    vec2 cell = vec2( mod( gi, 4.0 ), floor( gi / 4.0 ) ); m *= textureLod( gob, ( cell + clamp( q * 0.5 + 0.5, 0.01, 0.99 ) ) * 0.25, fo * 5.0 ).r; }
+  return m; }
+`;
+function fxFree(r){ if (r.fxI != null){ FXFREE.push(r.fxI); r.fxI = null; } }
+const LNUM = ['dim', 'zoom', 'pan', 'tilt', 'speed', 'speed2', 'speed3', 'amp', 'iris', 'gobor', 'gobos', 'focus', 'b1', 'b1r', 'b2', 'b2r', 'b3', 'b3r', 'b4', 'b4r'];
 const SLOTS = [['fx2', 'speed2', 'fp2'], ['fx3', 'speed3', 'fp3']];          // effets supplémentaires, cumulés avec le premier
 
 // ============================================================ état
@@ -290,7 +323,9 @@ const BEAMT = { value: 0 }, BEAMK = .26;       // BEAMK : réglage d'affichage d
 const beamVS = `varying vec3 vP; varying vec3 vO; varying vec3 vW;
 void main(){ vP = position; vO = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`;
 const beamFS = `uniform vec3 color; uniform float amount; uniform float time; uniform float soft; uniform float fade; uniform vec2 scl; uniform sampler2D shMap; uniform mat4 shMat; uniform float shOn; uniform vec4 shR;
+uniform float fxOn; uniform vec3 fxO; uniform vec3 fxDir; uniform vec3 fxRt; uniform float fxTan; uniform vec3 fxB1; uniform vec3 fxB2; uniform vec3 fxB3; uniform vec3 fxB4; uniform vec3 fxG; uniform sampler2D fxGob;
 #include <packing>
+${SFMASK}
  varying vec3 vP; varying vec3 vO; varying vec3 vW;
 float h3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
 float n3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -310,6 +345,7 @@ void main(){ const float A0 = 0.03, B0 = 0.97; vec3 o = vO, d = vP - vO;        
   float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))), sum = 0.0; const int N = 14;
   for (int i = 0; i < N; i++){ float t = mix(ta, tb, (float(i) + jit) / float(N)); vec3 p = o + d * t; float s = clamp(-p.y, 0.0, 1.0), rl = A0 + B0 * s, rho = length(p.xz) / rl, rw = max(rl * scl.x, 0.1);
     float lit = 1.0; if (shOn > 0.5){ vec4 sc = shMat * vec4(mix(cameraPosition, vW, t), 1.0); vec3 q = sc.xyz / sc.w; if (sc.w > 0.0 && q.x > shR.x && q.x < shR.z && q.y > shR.y && q.y < shR.w && q.z > 0.0 && q.z < 1.0) lit = step(q.z - 0.0015, unpackRGBAToDepth(texture2D(shMap, q.xy))); }      // ombre réelle : ce point de fumée voit-il la source ?
+    if (fxOn > 0.5 && lit > 0.0){ vec3 fl = mix(cameraPosition, vW, t) - fxO; float al = max(dot(fl, fxDir), 1e-4); vec3 pr = fl - al * fxDir; lit *= sfMask(vec2(dot(pr, fxRt), dot(pr, cross(fxDir, fxRt))) / (al * fxTan), fxB1, fxB2, fxB3, fxB4, fxG.x, fxG.y, fxG.z, fxGob); }      // iris, couteaux, gobo : la fumée est découpée comme les surfaces
     sum += lit * (1.0 - smoothstep(1.0 - soft, 1.0, rho)) * (1.0 - fade * smoothstep(0.82, 1.0, s)) / (rw * rw); }
   float wl = length(d * vec3(scl.x, scl.y, scl.x)) * (tb - ta) / float(N);                     // longueur réelle d'un pas, en mètres
   vec3 pm = o + d * (0.5 * (ta + tb)); vec3 lw = normalize(vec3(pm.x * scl.x, pm.y * scl.y - 0.03 * scl.y, pm.z * scl.x)), vw = -normalize(d * vec3(scl.x, scl.y, scl.x));
@@ -380,7 +416,8 @@ function build(o){
     lens.rotation.x = Math.PI / 2; lens.position.y = -.03; r.head.add(lens);
     r.light = new THREE.SpotLight('#fff', 0, 0, .3, k === 'beam' ? .15 : k === 'prof' || k === 'spot' ? .25 : .5, 2);
     { const sh = r.light.shadow; sh.autoUpdate = false; sh.mapSize.set(512, 512); sh.camera.near = .15; sh.camera.far = 40; sh.bias = -.0008; sh.normalBias = .02; sh.radius = 2; }
-    r.bm = new THREE.ShaderMaterial({ uniforms: { color: { value: new THREE.Color() }, amount: { value: 0 }, time: BEAMT, soft: { value: k === 'prof' ? .08 : k === 'beam' || k === 'spot' ? .16 : .5 }, fade: { value: 1 }, shMap: { value: null }, shMat: { value: new THREE.Matrix4() }, shOn: { value: 0 }, shR: { value: new THREE.Vector4(0, 0, 1, 1) }, scl: { value: new THREE.Vector2(1, 1) } }, vertexShader: beamVS, fragmentShader: beamFS,
+    occInit();          // le morceau de shader des ombres et des masques doit être en place avant la première compilation d'un matériau éclairé
+    r.bm = new THREE.ShaderMaterial({ uniforms: { color: { value: new THREE.Color() }, amount: { value: 0 }, time: BEAMT, soft: { value: k === 'prof' ? .08 : k === 'beam' || k === 'spot' ? .16 : .5 }, fade: { value: 1 }, shMap: { value: null }, shMat: { value: new THREE.Matrix4() }, shOn: { value: 0 }, shR: { value: new THREE.Vector4(0, 0, 1, 1) }, scl: { value: new THREE.Vector2(1, 1) }, fxOn: { value: 0 }, fxO: { value: new THREE.Vector3() }, fxDir: { value: new THREE.Vector3(0, -1, 0) }, fxRt: { value: new THREE.Vector3(1, 0, 0) }, fxTan: { value: 1 }, fxB1: { value: new THREE.Vector3(1, 0, 9) }, fxB2: { value: new THREE.Vector3(1, 0, 9) }, fxB3: { value: new THREE.Vector3(1, 0, 9) }, fxB4: { value: new THREE.Vector3(1, 0, 9) }, fxG: { value: new THREE.Vector3() }, fxGob: { value: goboAtlas() } }, vertexShader: beamVS, fragmentShader: beamFS,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
     r.beam = new THREE.Mesh(beamGeo, r.bm); r.beam.userData.noAO = true; r.beam.frustumCulled = false;
     r.flare = new THREE.Sprite(new THREE.SpriteMaterial({ map: flareTex(), color: 0x000000, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); r.flare.userData.noAO = true; r.flare.visible = false; r.flare.renderOrder = 5;
@@ -463,7 +500,7 @@ function build(o){
   return r;
 }
 function unbuild(id){
-  const r = RT.get(id); if (!r) return; if (r.led) LEDW.dispose(id); occFree(r);
+  const r = RT.get(id); if (!r) return; if (r.led) LEDW.dispose(id); occFree(r); fxFree(r);
   scene.remove(r.root, r.boxh, ...r.extra);
   r.root.traverse(m => { if (m.isMesh) m.geometry.dispose(); });
   r.tex?.dispose(); r.light?.dispose?.(); r.bm?.dispose(); r.boxh.geometry.dispose();
@@ -677,10 +714,14 @@ const OCCDATA = new Float32Array(6 * OCCN * OCCN * 4), OCCD = new THREE.DataText
 const OCCU = { a: { value: null }, d: { value: OCCD } };
 function occInit(){ if (OCCA) return; OCCA = new THREE.WebGLRenderTarget(OCCN * OCCT, OCCN * OCCT, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter }); OCCA.scissorTest = true; OCCU.a.value = OCCA.texture;
   // tous les matériaux éclairés reçoivent l'atlas et sa table ; le morceau de shader est ajouté une fois pour toutes à l'éclairage des spots
-  THREE.Material.prototype.onBeforeCompile = function (sh){ sh.uniforms.sfOccA = OCCU.a; sh.uniforms.sfOccD = OCCU.d; };
-  const C = THREE.ShaderChunk; if (!C.lights_pars_begin.includes('sfOccA')){ C.lights_pars_begin += '\nuniform sampler2D sfOccA;\nuniform highp sampler2D sfOccD;\n';
+  goboAtlas(); THREE.Material.prototype.onBeforeCompile = function (sh){ sh.uniforms.sfOccA = OCCU.a; sh.uniforms.sfOccD = OCCU.d; sh.uniforms.sfFxD = FXU.d; sh.uniforms.sfGob = FXU.g; };
+  const C = THREE.ShaderChunk; if (!C.lights_pars_begin.includes('sfOccA')){ C.lights_pars_begin += '\nuniform sampler2D sfOccA;\nuniform highp sampler2D sfOccD;\nuniform highp sampler2D sfFxD;\nuniform sampler2D sfGob;\n' + SFMASK;
     const key = 'spotLight = spotLights[ i ];', i0 = C.lights_fragment_begin.indexOf(key), i1 = C.lights_fragment_begin.indexOf('RE_Direct(', i0);
-    if (i0 > 0 && i1 > i0) C.lights_fragment_begin = C.lights_fragment_begin.slice(0, i1) + `{ int sfI = int( floor( ( spotLight.decay - 2.0 ) * 100000.0 + 0.5 ) );
+    if (i0 > 0 && i1 > i0) C.lights_fragment_begin = C.lights_fragment_begin.slice(0, i1) + `{ int sfT = int( floor( ( spotLight.decay - 2.0 ) * 100000.0 + 0.5 ) ), sfS = sfT / 100, sfI = sfT - sfS * 100;          // deux numéros voyagent dans l'exposant d'atténuation : la case d'ombre (1 à 64) et la ligne du masque iris / couteaux / gobo (× 100)
+			if ( sfT > 0 && directLight.visible ) directLight.color *= pow( max( length( spotLight.position - geometryPosition ), 0.1 ), spotLight.decay - 2.0 );          // on rend à l'atténuation son exposant exact (2)
+			if ( sfS > 0 && sfS <= ${FXN} && directLight.visible ) { sfS -= 1; vec4 sfA = texelFetch( sfFxD, ivec2( 0, sfS ), 0 ), sfB1 = texelFetch( sfFxD, ivec2( 1, sfS ), 0 ), sfB2 = texelFetch( sfFxD, ivec2( 2, sfS ), 0 ), sfB3 = texelFetch( sfFxD, ivec2( 3, sfS ), 0 ), sfB4 = texelFetch( sfFxD, ivec2( 4, sfS ), 0 );
+				vec3 sfDr = - spotLight.direction, sfRt = mat3( viewMatrix ) * sfA.xyz, sfL = geometryPosition - spotLight.position; float sfAl = max( dot( sfL, sfDr ), 1e-4 ); vec3 sfPr = sfL - sfAl * sfDr;
+				directLight.color *= sfMask( vec2( dot( sfPr, sfRt ), dot( sfPr, cross( sfDr, sfRt ) ) ) / ( sfAl * sfA.w ), sfB1.xyz, sfB2.xyz, sfB3.xyz, sfB4.xyz, sfB1.w, sfB2.w, sfB3.w, sfGob ); }
 			if ( sfI > 0 && sfI <= ${OCCN * OCCN} && directLight.visible ) { sfI -= 1;
 				mat4 sfM = mat4( texelFetch( sfOccD, ivec2( 0, sfI ), 0 ), texelFetch( sfOccD, ivec2( 1, sfI ), 0 ), texelFetch( sfOccD, ivec2( 2, sfI ), 0 ), texelFetch( sfOccD, ivec2( 3, sfI ), 0 ) );
 				vec4 sfR = texelFetch( sfOccD, ivec2( 4, sfI ), 0 ), sfNF = texelFetch( sfOccD, ivec2( 5, sfI ), 0 ); mat3 sfV = transpose( mat3( viewMatrix ) );
@@ -704,7 +745,7 @@ function occFlush(){ { const n = performance.now(); occMs = occMs * .8 + Math.mi
       const o = r.occI * 24; OCCDATA.set(r.occM.elements, o); OCCDATA[o + 16] = r.occR.x; OCCDATA[o + 17] = r.occR.y; OCCDATA[o + 18] = r.occR.z; OCCDATA[o + 19] = r.occR.w; OCCDATA[o + 20] = OCCCAM.near; OCCDATA[o + 21] = OCCCAM.far; ch = true; r.occOK = true; r.occT2 = UI.t; } } catch (e){ }
   if (ch) OCCD.needsUpdate = true; OCCQ.length = 0; sc.overrideMaterial = ov; sc.background = bg; R.setClearColor(_occC, ca); R.shadowMap.autoUpdate = au; R.xr.enabled = xr; R.setRenderTarget(rt0); }
 function shadowPick(){ const c = []; for (const [id, r] of RT){ if (!r.light || r.t.cat !== 'lum' || !r.light.visible || String(id).startsWith('__th')) continue; const d = r.cdim ?? r.o.dim ?? 0; if (d > .02) c.push([d * (r.t.lumens || 8000) * (r.light.castShadow ? 1.25 : 1), r]); }
-  { let nv = 0; for (const r of RT.values()) if (r.t.cat === 'vid' && r.light && r.light.castShadow) nv++; SHK = Math.max(3, clamp((A.renderer.capabilities.maxTextures || 16) - 8, 4, 12) - nv); }          // chaque ombre prend une unité de texture ; on en garde 8 pour les matières
+  { let nv = 0; for (const r of RT.values()) if (r.t.cat === 'vid' && r.light && r.light.castShadow) nv++; SHK = Math.max(3, clamp((A.renderer.capabilities.maxTextures || 16) - 10, 4, 12) - nv); }          // chaque ombre prend une unité de texture ; on en garde 8 pour les matières
   c.sort((a, b) => b[0] - a[0]); const keep = new Set(c.slice(0, SHK).map(x => x[1])); for (const r of RT.values()) if (r.light && r.t.cat === 'lum' && r.light.castShadow !== keep.has(r)){ r.light.castShadow = keep.has(r); if (r.light.castShadow) r.light.shadow.needsUpdate = true; } }
 function update(dt){
   UI.t += dt; BEAMT.value = UI.t; occFlush(); envTick(); if (LEDW) LEDW.update(dt);
@@ -738,8 +779,17 @@ function update(dt){
       dirOf(pan, tilt, _d); if (r.yoke){ r.yoke.rotation.y = pan * D2R; r.head.rotation.set(-tilt * D2R, 0, 0); } else r.head.quaternion.setFromUnitVectors(DOWN, _d); if (r.gPan) r.gPan.rotation.z = pan * D2R; if (r.gTilt) r.gTilt.rotation.x = tilt * D2R;
       const vis = live; r.light.visible = vis; r.beam.visible = vis && dim > .002 && S.haze > .01 && A.camera.isPerspectiveCamera;
       if (vis){
-        const zoom = clamp((dx && dx.zoom !== undefined ? dx.zoom : o.zoom) ?? ty.zoom[0], ty.zoom[0], ty.zoom[1]), ang = zoom * D2R / 2;
-        r.head.getWorldPosition(_v); r.light.position.copy(_v).addScaledVector(_d, .02);
+        const zoom = clamp((dx && dx.zoom !== undefined ? dx.zoom : o.zoom) ?? ty.zoom[0], ty.zoom[0], ty.zoom[1]), FC = r.fxc || (r.fxc = fxCaps(ty)), fv = (k, def) => { const v = dx && dx[k] !== undefined ? dx[k] : o[k]; return v === undefined || v === null || v !== v ? def : +v; };
+        const iris = FC.iris ? clamp(fv('iris', 1), .15, 1) : 1, ang = Math.atan(Math.tan(zoom * D2R / 2) * iris);          // l'iris resserre le faisceau sans changer son intensité : il coupe du flux, pas de la densité
+        const gobo = FC.gobo ? clamp(Math.round(fv('gobo', 0)), 0, GOBOS.length - 1) : 0, bl = FC.blades ? [fv('b1', 0), fv('b2', 0), fv('b3', 0), fv('b4', 0)] : null, fxAct = gobo > 0 || (bl && (bl[0] > .001 || bl[1] > .001 || bl[2] > .001 || bl[3] > .001));
+        if (fxAct && dim > .002){ if (r.fxI == null && FXFREE.length) r.fxI = FXFREE.pop(); } else fxFree(r);
+        if (r.fxI != null){ const U = r.bm.uniforms, foc = clamp(fv('focus', 0), 0, 1), spin = fv('gobos', 0), gr = (fv('gobor', 0) + (spin ? (UI.t || 0) * spin * 360 : 0)) * D2R, k0 = r.fxI * 20, F = FXDATA, tn = Math.tan(ang);
+          const rt = _v2.set(1, 0, 0); if (r.yoke) rt.applyAxisAngle(UP, pan * D2R); else rt.applyQuaternion(r.head.quaternion);          // la droite de l'appareil : l'axe de bascule de la tête
+          F[k0] = rt.x; F[k0 + 1] = rt.y; F[k0 + 2] = rt.z; F[k0 + 3] = tn; U.fxRt.value.copy(rt); U.fxDir.value.copy(_d); U.fxTan.value = tn; U.fxG.value.set(gobo, gr, foc);
+          for (let i = 0; i < 4; i++){ const ins = bl ? clamp(bl[i], 0, 1) : 0, a = (90 - i * 90 + (bl ? clamp(fv('b' + (i + 1) + 'r', 0), -45, 45) : 0)) * D2R, nx = Math.cos(a), ny = Math.sin(a), d = ins > .001 ? 1 - 2 * ins : 9, q = k0 + 4 + i * 4;          // couteau 1 en haut, 2 à droite, 3 en bas, 4 à gauche
+            F[q] = nx; F[q + 1] = ny; F[q + 2] = d; F[q + 3] = i === 0 ? gobo : i === 1 ? gr : i === 2 ? foc : 0; U['fxB' + (i + 1)].value.set(nx, ny, d); }
+          FXD.needsUpdate = true; U.fxOn.value = 1; } else r.bm.uniforms.fxOn.value = 0;
+        r.head.getWorldPosition(_v); if (r.fxI != null) r.bm.uniforms.fxO.value.copy(_v); r.light.position.copy(_v).addScaledVector(_d, .02);
         r.light.target.position.copy(_v).addScaledVector(_d, 10); r.light.target.updateMatrixWorld();
         r.light.color.copy(_c); r.light.angle = Math.min(1.5, ang * 1.05); r.light.intensity = dim * dispI(candela(ty.lumens, zoom));
         // le faisceau s'arrête sur le premier obstacle rencontré dans son axe (décor, praticable, mur, sol) : il ne traverse plus les objets
@@ -747,7 +797,7 @@ function update(dt){
         if (r.occN === undefined) r.occN = Math.random() * 20 | 0; const due = s => { if (!(UI.t - (r.occT || 0) < s + r.occN * .004)){ r.occT = UI.t; return true; } return false; }, moved = r.occK !== ok_ + '|' + (ang * 500 | 0), shd = r.light.castShadow; r.occK = ok_ + '|' + (ang * 500 | 0);
         // ombre réelle (surfaces et fumée) pour les projecteurs qui en portent une : la carte n'est recalculée que si l'appareil bouge, et de temps en temps pour suivre le décor
         if (shd){ if (moved || !r.light.shadow.map || due(.13)) r.light.shadow.needsUpdate = true; r.occD = null; if (r.occI != null) occFree(r); } else { if (moved || due(.33)){ const h = hitAlong(_v, _d, L0); r.occD = h ? h.distance : null; } if (dim > .002 && (moved || !r.occOK || UI.t - (r.occT2 || 0) > .5 + r.occN * .01 || UI.t < (r.occT2 || 0))) OCCQ.push([!r.occOK ? -2 : moved ? -1 : r.occT2, r, _v.clone(), _d.clone(), ang, L0]); }
-        const own = !UI.noOcc && !shd && r.occOK && r.occI != null; r.light.decay = own ? 2 + (r.occI + 1) * 1e-5 : 2;
+        const own = !UI.noOcc && !shd && r.occOK && r.occI != null; r.light.decay = 2 + ((r.fxI != null ? (r.fxI + 1) * 100 : 0) + (own ? r.occI + 1 : 0)) * 1e-5;
         { const u = r.bm.uniforms, mp = shd && r.light.shadow.map; u.shOn.value = mp || own ? 1 : 0; if (mp){ u.shMap.value = mp.texture; u.shMat.value.copy(r.light.shadow.matrix); u.shR.value.set(0, 0, 1, 1); } else if (own){ u.shMap.value = OCCA.texture; u.shMat.value.copy(r.occM); u.shR.value.copy(r.occR); } }
         const cut = !shd && r.occD != null && r.occD < L0 - .05, L = cut && !own ? r.occD + .03 : L0, R = Math.tan(ang) * L; r.bm.uniforms.fade.value = cut && !own ? 0 : 1; r.light.distance = cut && !own ? r.occD * 1.6 + .5 : 0;
         r.beam.position.copy(_v); r.beam.quaternion.setFromUnitVectors(DOWN, _d); r.beam.scale.set(R, L, R);
@@ -1288,6 +1338,7 @@ function propHtml(){
     <label>Intensité</label>${rng('dim', 0, 1, .01, o.dim)}
     <label>Couleur</label><div class="sws">${SWATCH.map(c => `<i style="background:${c}" data-c="${c}"></i>`).join('')}<input type="color" data-k="color" value="${o.color}"></div>
     ${t.zoom[0] !== t.zoom[1] ? `<label>Zoom</label>${rng('zoom', t.zoom[0], t.zoom[1], .5, clamp(o.zoom, t.zoom[0], t.zoom[1]), '°')}` : ''}
+    ${(FC => `${FC.iris ? `<label>Iris</label>${rng('iris', .15, 1, .01, o.iris ?? 1)}` : ''}${FC.gobo ? `<label>Gobo</label><select class="inp" data-k="gobo" title="Motifs génériques dessinés par le logiciel (pas ceux d'un fabricant)">${GOBOS.map((g, i) => `<option value="${i}" ${(o.gobo || 0) === i ? 'selected' : ''}>${i ? i + ' · ' : ''}${g[1]}</option>`).join('')}</select>${o.gobo ? `<label>Orientation du gobo</label>${rng('gobor', 0, 360, 1, o.gobor || 0, '°')}<label>Rotation du gobo</label>${rng('gobos', -2, 2, .05, o.gobos || 0, ' tr/s')}` : ''}` : ''}${FC.gobo || FC.blades ? `<label>Netteté</label>${rng('focus', 0, 1, .01, o.focus || 0)}` : ''}${FC.blades ? ['haut', 'droit', 'bas', 'gauche'].map((n, i) => `<label>Couteau ${n}</label>${rng('b' + (i + 1), 0, 1, .01, o['b' + (i + 1)] || 0)}<label>Angle ${n}</label>${rng('b' + (i + 1) + 'r', -45, 45, .5, o['b' + (i + 1) + 'r'] || 0, '°')}`).join('') : ''}`)(fxCaps(t))}
     <label>Pan</label>${rng('pan', -180, 180, .5, o.pan, '°')}<label>Tilt</label>${rng('tilt', 0, 180, .5, o.tilt, '°')}
     ${same.length > 1 ? `<label>Éventail</label>${rng('fan', -30, 30, .5, 0, '°')}` : ''}
     <label>Effet</label><select class="inp" data-k="fx">${Object.entries(FXS).map(([k, v]) => `<option value="${k}" ${o.fx === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
@@ -1685,5 +1736,5 @@ export function init(APP){
   import('./render.js').then(m => m.initRender(A, window.STAGE)).catch(e => console.error(e));
   setTimeout(() => import('./wins.js').then(m => m.initWins(A, window.STAGE)).catch(e => console.error(e)), 600);
   setTimeout(() => import('./dock.js').then(m => m.initDock(A, window.STAGE)).catch(e => console.error(e)), 900);
-  window.STAGE = { pickAt: e => pickScene(e, false), dropAt: (e, id) => { const h = pickScene(e, false); if (!h) return false; place(id, h); render(); return true; }, libHtml, addType, quadMap, triDraw, hitAlong, vpOptics, vpLens, vpThrow, vpShift, MEDIA, MATS, matFor, boxUV, matTile, matCol: id => MATBY.get(id)?.col, parseD4, LKEYS, HIL, FLS, FXHOOK, sceneShow, dirOf, setDl: x => { dl = x; }, get gizmoR(){ return gizmoR; }, fmt, LED: LEDW, FXS, defaults, recCue, tick: update, weightOf, LIBALL: () => LIB, removeSel, duplicate, cloudSave, cloudLoad, runAct, undoTo, hist: () => ({ undo: undoStack, redo: redoStack }), byId, build, unbuild, nextNum, freeAddr, modeCh, modal, esc, gizmo, uid, posOf, setGizmo: m => { UI.gizmo = m; setGizmoMode(); }, hasCloud: () => !!db, histChanged, typeOf, pushUndo, touch, refreshProps, addrStr, saveFile, toast, selObjs, undo, redo, conflicts, S, UI, RT, select, setLive, goCue, place, placeSeries, seriePts, percheNear, hitAt, blkType, blkCells, blkSnap, placeBlock, blkTip, stageEdges, dressStage, importFiles, loadShow, demoShow, blankShow, serialize, exportMvr, parseGdtf, splMap, render, magnet, magState, magSay, supportNear };
+  window.STAGE = { GOBOS, LNUM, fxCaps, pickAt: e => pickScene(e, false), dropAt: (e, id) => { const h = pickScene(e, false); if (!h) return false; place(id, h); render(); return true; }, libHtml, addType, quadMap, triDraw, hitAlong, vpOptics, vpLens, vpThrow, vpShift, MEDIA, MATS, matFor, boxUV, matTile, matCol: id => MATBY.get(id)?.col, parseD4, LKEYS, HIL, FLS, FXHOOK, sceneShow, dirOf, setDl: x => { dl = x; }, get gizmoR(){ return gizmoR; }, fmt, LED: LEDW, FXS, defaults, recCue, tick: update, weightOf, LIBALL: () => LIB, removeSel, duplicate, cloudSave, cloudLoad, runAct, undoTo, hist: () => ({ undo: undoStack, redo: redoStack }), byId, build, unbuild, nextNum, freeAddr, modeCh, modal, esc, gizmo, uid, posOf, setGizmo: m => { UI.gizmo = m; setGizmoMode(); }, hasCloud: () => !!db, histChanged, typeOf, pushUndo, touch, refreshProps, addrStr, saveFile, toast, selObjs, undo, redo, conflicts, S, UI, RT, select, setLive, goCue, place, placeSeries, seriePts, percheNear, hitAt, blkType, blkCells, blkSnap, placeBlock, blkTip, stageEdges, dressStage, importFiles, loadShow, demoShow, blankShow, serialize, exportMvr, parseGdtf, splMap, render, magnet, magState, magSay, supportNear };
 }
