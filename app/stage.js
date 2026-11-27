@@ -100,7 +100,32 @@ const fxCaps = t => ({ gobo: t.cat === 'lum' && (t.kind === 'spot' || t.kind ===
 const CWHEEL = [['', 'Ouvert'], ['#ff2414', 'Rouge'], ['#ff8600', 'Orange'], ['#ffdf3c', 'Jaune'], ['#2fd048', 'Vert'], ['#1fc6e8', 'Cyan'], ['#2446ff', 'Bleu'], ['#d238ff', 'Magenta'], ['#ff6aa8', 'Rose'], ['#5426ff', 'Congo']].map(([h, n]) => [h, n, h ? new THREE.Color(h) : null]);
 const CTOF = new THREE.Color().setRGB(.84, .50, .23), PRISMS = [0, 3, 5, 8], PRISMOFF = .95, _cf = new THREE.Color();
 const FXN = 128, FXDATA = new Float32Array(6 * FXN * 4), FXD = new THREE.DataTexture(FXDATA, 6, FXN, THREE.RGBAFormat, THREE.FloatType); FXD.minFilter = FXD.magFilter = THREE.NearestFilter; FXD.needsUpdate = true;
-const FXFREE = Array.from({ length: FXN }, (_, i) => FXN - 1 - i), FXU = { d: { value: FXD }, g: { value: null } };
+const VPN = 16, VPROW = FXN - VPN, FXFREE = Array.from({ length: VPROW }, (_, i) => VPROW - 1 - i), FXU = { d: { value: FXD }, g: { value: null } };
+/* ---- 4.59 — VIDÉOPROJECTEURS : jusqu'à 16 projettent en même temps (avant : 3, chacun prenait deux unités de texture du moteur, son image et son ombre).
+   Toutes les images vont dans UNE texture à couches (une couche par projecteur), toutes les ombres dans UN atlas de profondeur 4 × 4 (1024 px par projecteur) ; le numéro du projecteur voyage dans l'exposant d'atténuation de sa lumière,
+   comme pour les masques, et sa matrice de projection est dans les 16 dernières lignes de la table FXD. La géométrie est EXACTEMENT celle d'avant (même caméra que le moteur : visée de la lumière, champ = 2 × angle, format carré). */
+const VPFREE = Array.from({ length: VPN }, (_, i) => VPN - 1 - i), VPU = { img: { value: null }, sh: { value: null } }, VPT = 1024, VPCAM = new THREE.PerspectiveCamera(40, 1, .3, 80), VPBIAS = new THREE.Matrix4().set(.5, 0, 0, .5, 0, .5, 0, .5, 0, 0, .5, .5, 0, 0, 0, 1), VPQ = []; VPCAM.layers.set(1);
+let VPARR = null, VPSH = null, VPBLIT = null; const _vpM = new THREE.Matrix4();
+function vpFree(r){ if (r.vpI != null){ VPFREE.push(r.vpI); r.vpI = null; } r.vpOK = false; }
+/* la texture à couches grandit à la demande (4 couches à la fois, 1024 px, 2048 px dès qu'un projecteur a une image décalée ou déformée) : la mémoire suit le nombre de projecteurs allumés */
+function vpEnsure(depth, size){ depth = Math.min(VPN, Math.ceil(depth / 4) * 4); if (VPARR && VPARR.depth >= depth && VPARR.width >= size) return false; depth = Math.max(depth, VPARR ? VPARR.depth : 0); size = Math.max(size, VPARR ? VPARR.width : 0); if (VPARR) VPARR.dispose();
+  VPARR = new THREE.WebGLArrayRenderTarget(size, size, depth, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false, generateMipmaps: false }); VPARR.texture.colorSpace = THREE.NoColorSpace; VPU.img.value = VPARR.texture; for (const q of RT.values()) if (q.vpI != null) q.vpBl = true; return true; }
+/* copie de l'image d'un projecteur (son canevas) dans sa couche. La couche garde l'image codée en sRGB (8 bits bien répartis) ; l'éclairage la décode */
+function vpBlit(r){ if (r.vpI == null) return; vpEnsure(r.vpI + 1, r.canvas.width); const R = A.renderer; if (!VPBLIT){ const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
+    const m = new THREE.ShaderMaterial({ uniforms: { t: { value: null } }, vertexShader: 'varying vec2 u; void main(){ u = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }', fragmentShader: 'uniform sampler2D t; varying vec2 u; void main(){ vec3 c = texture2D(t, u).rgb; gl_FragColor = vec4(mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c)), 1.0); }', depthTest: false, depthWrite: false, toneMapped: false });
+    const sc = new THREE.Scene(), me = new THREE.Mesh(g, m); me.frustumCulled = false; sc.add(me); VPBLIT = { sc, m, cam: new THREE.Camera() }; }
+  const rt0 = R.getRenderTarget(), xr = R.xr.enabled, ac = R.autoClear; R.xr.enabled = false; R.autoClear = true; VPBLIT.m.uniforms.t.value = r.tex; try { R.setRenderTarget(VPARR, r.vpI); R.render(VPBLIT.sc, VPBLIT.cam); } catch (e){ console.error(e); } R.setRenderTarget(rt0); R.xr.enabled = xr; R.autoClear = ac; r.vpBl = false; }
+/* ombres des vidéoprojecteurs : profondeur vue depuis l'objectif, dans la case du projecteur ; et sa matrice (monde → image) dans la table */
+/* un gizmo dont l'objet est momentanément hors de la scène (objet en cours de reconstruction) : on ne rend pas la scène à ce moment-là, on attend l'image suivante */
+const gizmoLoose = () => A.scene.children.some(c => c.isTransformControlsRoot && c.controls && c.controls.object && c.controls.object.parent === null);
+function vpFlush(){ if (!VPQ.length || gizmoLoose()) return; occInit(); const R = A.renderer, sc = A.scene; if (!VPSH){ VPSH = new THREE.WebGLRenderTarget(4 * VPT, 4 * VPT, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter }); VPSH.scissorTest = true; VPU.sh.value = VPSH.texture; }
+  if (performance.now() - occLT > 700){ occLT = performance.now(); sc.traverse(m => { if (m.isMesh){ if (m.castShadow && !m.material?.transparent) m.layers.enable(1); else m.layers.disable(1); } }); }
+  const rt0 = R.getRenderTarget(), ov = sc.overrideMaterial, bg = sc.background, ca = R.getClearAlpha(), au = R.shadowMap.autoUpdate, xr = R.xr.enabled; R.getClearColor(_occC); sc.overrideMaterial = OCCMAT; sc.background = null; R.setClearColor(0xffffff, 1); R.shadowMap.autoUpdate = false; R.xr.enabled = false;
+  try { for (const r of VPQ.splice(0, 2)){ if (RT.get(r.o.id) !== r || r.vpI == null) continue; const tx = r.vpI % 4, ty = r.vpI / 4 | 0, e = .75 / (4 * VPT);
+      VPCAM.position.copy(r.light.position); VPCAM.up.set(0, 1, 0); VPCAM.lookAt(r.light.target.position); VPCAM.fov = 2 * r.light.angle * R2D; VPCAM.updateProjectionMatrix(); VPCAM.updateMatrixWorld(true);
+      _vpM.copy(VPBIAS).multiply(VPCAM.projectionMatrix).multiply(VPCAM.matrixWorldInverse); const k = (VPROW + r.vpI) * 24; FXDATA.set(_vpM.elements, k); FXDATA[k + 16] = tx / 4 + e; FXDATA[k + 17] = ty / 4 + e; FXDATA[k + 18] = (tx + 1) / 4 - e; FXDATA[k + 19] = (ty + 1) / 4 - e; FXDATA[k + 20] = r.vpI; FXDATA[k + 21] = VPCAM.near; FXDATA[k + 22] = VPCAM.far; FXDATA[k + 23] = 0; FXD.needsUpdate = true;
+      VPSH.viewport.set(tx * VPT, ty * VPT, VPT, VPT); VPSH.scissor.set(tx * VPT, ty * VPT, VPT, VPT); R.setRenderTarget(VPSH); R.clear(); R.render(sc, VPCAM); r.vpOK = true; r.vpT = UI.t; } } catch (e){ console.error(e); }
+  VPQ.length = 0; sc.overrideMaterial = ov; sc.background = bg; R.setClearColor(_occC, ca); R.shadowMap.autoUpdate = au; R.xr.enabled = xr; R.setRenderTarget(rt0); }
 function goboAtlas(){ if (FXU.g.value) return FXU.g.value; const C = 256, cv = document.createElement('canvas'); cv.width = cv.height = C * 4; const g = cv.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, C * 4, C * 4);
   let sd = 7; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
   GOBOS.forEach(([k], i) => { if (!i) return; const ox = (i % 4) * C + C / 2, oy = Math.floor(i / 4) * C + C / 2, R = C * .46; g.save(); g.translate(ox, oy); g.beginPath(); g.arc(0, 0, R, 0, 7); g.clip(); g.fillStyle = g.strokeStyle = '#fff';
@@ -509,7 +534,7 @@ function build(o){
   return r;
 }
 function unbuild(id){
-  const r = RT.get(id); if (!r) return; if (r.led) LEDW.dispose(id); occFree(r); fxFree(r);
+  const r = RT.get(id); if (!r) return; if (r.led) LEDW.dispose(id); occFree(r); fxFree(r); vpFree(r);
   scene.remove(r.root, r.boxh, ...r.extra);
   r.root.traverse(m => { if (m.isMesh) m.geometry.dispose(); });
   r.tex?.dispose(); r.light?.dispose?.(); r.bm?.dispose(); r.boxh.geometry.dispose();
@@ -723,12 +748,19 @@ const OCCDATA = new Float32Array(6 * OCCN * OCCN * 4), OCCD = new THREE.DataText
 const OCCU = { a: { value: null }, d: { value: OCCD } };
 function occInit(){ if (OCCA) return; OCCA = new THREE.WebGLRenderTarget(OCCN * OCCT, OCCN * OCCT, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter }); OCCA.scissorTest = true; OCCU.a.value = OCCA.texture;
   // tous les matériaux éclairés reçoivent l'atlas et sa table ; le morceau de shader est ajouté une fois pour toutes à l'éclairage des spots
-  goboAtlas(); THREE.Material.prototype.onBeforeCompile = function (sh){ sh.uniforms.sfOccA = OCCU.a; sh.uniforms.sfOccD = OCCU.d; sh.uniforms.sfFxD = FXU.d; sh.uniforms.sfGob = FXU.g; };
-  const C = THREE.ShaderChunk; if (!C.lights_pars_begin.includes('sfOccA')){ C.lights_pars_begin += '\nuniform sampler2D sfOccA;\nuniform highp sampler2D sfOccD;\nuniform highp sampler2D sfFxD;\nuniform sampler2D sfGob;\n' + SFMASK;
+  goboAtlas(); THREE.Material.prototype.onBeforeCompile = function (sh){ sh.uniforms.sfOccA = OCCU.a; sh.uniforms.sfOccD = OCCU.d; sh.uniforms.sfFxD = FXU.d; sh.uniforms.sfGob = FXU.g; sh.uniforms.sfVpImg = VPU.img; sh.uniforms.sfVpSh = VPU.sh; };
+  const C = THREE.ShaderChunk; if (!C.lights_pars_begin.includes('sfOccA')){ C.lights_pars_begin += '\nuniform sampler2D sfOccA;\nuniform highp sampler2D sfOccD;\nuniform highp sampler2D sfFxD;\nuniform sampler2D sfGob;\nuniform mediump sampler2DArray sfVpImg;\nuniform sampler2D sfVpSh;\n' + SFMASK;
     const key = 'spotLight = spotLights[ i ];', i0 = C.lights_fragment_begin.indexOf(key), i1 = C.lights_fragment_begin.indexOf('RE_Direct(', i0);
     if (i0 > 0 && i1 > i0) C.lights_fragment_begin = C.lights_fragment_begin.slice(0, i1) + `{ int sfT = int( floor( ( spotLight.decay - 2.0 ) * 100000.0 + 0.5 ) ), sfS = sfT / 100, sfI = sfT - sfS * 100;          // deux numéros voyagent dans l'exposant d'atténuation : la case d'ombre (1 à 64) et la ligne du masque iris / couteaux / gobo (× 100)
 			if ( sfT > 0 && directLight.visible ) directLight.color *= pow( max( length( spotLight.position - geometryPosition ), 0.1 ), spotLight.decay - 2.0 );          // on rend à l'atténuation son exposant exact (2)
-			if ( sfS > 0 && sfS <= ${FXN} && directLight.visible ) { sfS -= 1; vec4 sfA = texelFetch( sfFxD, ivec2( 0, sfS ), 0 ), sfB1 = texelFetch( sfFxD, ivec2( 1, sfS ), 0 ), sfB2 = texelFetch( sfFxD, ivec2( 2, sfS ), 0 ), sfB3 = texelFetch( sfFxD, ivec2( 3, sfS ), 0 ), sfB4 = texelFetch( sfFxD, ivec2( 4, sfS ), 0 );
+			if ( sfS > ${VPROW} && sfS <= ${FXN} && directLight.visible ) { sfS -= 1;          // vidéoprojecteur : son image (couche de la texture) et son ombre (case de l'atlas), par la même matrice
+				mat4 sfM = mat4( texelFetch( sfFxD, ivec2( 0, sfS ), 0 ), texelFetch( sfFxD, ivec2( 1, sfS ), 0 ), texelFetch( sfFxD, ivec2( 2, sfS ), 0 ), texelFetch( sfFxD, ivec2( 3, sfS ), 0 ) ); vec4 sfR = texelFetch( sfFxD, ivec2( 4, sfS ), 0 ), sfNF = texelFetch( sfFxD, ivec2( 5, sfS ), 0 ); mat3 sfV = transpose( mat3( viewMatrix ) );
+				vec3 sfW = sfV * ( geometryPosition - viewMatrix[ 3 ].xyz ); vec4 sfC = sfM * vec4( sfW, 1.0 ); vec3 sfQ = sfC.xyz / sfC.w;
+				if ( sfC.w > 0.0 && sfQ.x > 0.0 && sfQ.x < 1.0 && sfQ.y > 0.0 && sfQ.y < 1.0 && sfQ.z > 0.0 && sfQ.z < 1.0 ) { vec3 sfE = texture( sfVpImg, vec3( sfQ.xy, sfNF.x ) ).rgb; sfE = mix( sfE / 12.92, pow( ( sfE + 0.055 ) / 1.055, vec3( 2.4 ) ), step( vec3( 0.04045 ), sfE ) );
+					vec4 sfC2 = sfM * vec4( sfW + sfV * geometryNormal * 0.02, 1.0 ); vec3 sfQ2 = sfC2.xyz / sfC2.w; float sfZ = sfNF.y * sfNF.z / ( sfNF.z - sfQ2.z * ( sfNF.z - sfNF.y ) ) - 0.03, sfL = 0.0;
+					for ( int sfK = 0; sfK < 4; sfK ++ ) { vec2 sfO = vec2( sfK == 0 || sfK == 3 ? -0.35 : 0.35, sfK < 2 ? -0.35 : 0.35 ) / ${4 * VPT}.0; float sfD = unpackRGBAToDepth( texture2D( sfVpSh, clamp( mix( sfR.xy, sfR.zw, sfQ2.xy ) + sfO, sfR.xy, sfR.zw ) ) ); sfL += step( sfZ, sfNF.y * sfNF.z / ( sfNF.z - sfD * ( sfNF.z - sfNF.y ) ) ); }
+					directLight.color *= sfE * ( sfL * 0.25 ); } else directLight.color = vec3( 0.0 ); }
+			else if ( sfS > 0 && sfS <= ${VPROW} && directLight.visible ) { sfS -= 1; vec4 sfA = texelFetch( sfFxD, ivec2( 0, sfS ), 0 ), sfB1 = texelFetch( sfFxD, ivec2( 1, sfS ), 0 ), sfB2 = texelFetch( sfFxD, ivec2( 2, sfS ), 0 ), sfB3 = texelFetch( sfFxD, ivec2( 3, sfS ), 0 ), sfB4 = texelFetch( sfFxD, ivec2( 4, sfS ), 0 );
 				vec3 sfDr = - spotLight.direction, sfRt = mat3( viewMatrix ) * sfA.xyz, sfL = geometryPosition - spotLight.position; float sfAl = max( dot( sfL, sfDr ), 1e-4 ); vec3 sfPr = sfL - sfAl * sfDr;
 				directLight.color *= sfMask( vec2( dot( sfPr, sfRt ), dot( sfPr, cross( sfDr, sfRt ) ) ) / ( sfAl * sfA.w ), sfB1.xyz, sfB2.xyz, sfB3.xyz, sfB4.xyz, sfB1.w, sfB2.w, sfB3.w, sfGob, texelFetch( sfFxD, ivec2( 5, sfS ), 0 ).xyz ); }
 			if ( sfI > 0 && sfI <= ${OCCN * OCCN} && directLight.visible ) { sfI -= 1;
@@ -743,7 +775,7 @@ function occInit(){ if (OCCA) return; OCCA = new THREE.WebGLRenderTarget(OCCN * 
   A.scene.traverse(m => { const mm = m.material; if (mm) for (const q of Array.isArray(mm) ? mm : [mm]) q.needsUpdate = true; }); }
 function occFree(r){ if (r.occI != null){ OCCFREE.push(r.occI); r.occI = null; } r.occOK = false; }
 let occPT = 0, occMs = 16;
-function occFlush(){ { const n = performance.now(); occMs = occMs * .8 + Math.min(200, n - occPT) * .2; occPT = n; } if (!OCCQ.length) return; occInit(); OCCQ.sort((a, b) => a[0] - b[0]); const R = A.renderer, sc = A.scene;
+function occFlush(){ { const n = performance.now(); occMs = occMs * .8 + Math.min(200, n - occPT) * .2; occPT = n; } if (!OCCQ.length || gizmoLoose()) return; occInit(); OCCQ.sort((a, b) => a[0] - b[0]); const R = A.renderer, sc = A.scene;
   if (performance.now() - occLT > 700){ occLT = performance.now(); sc.traverse(m => { if (m.isMesh){ if (m.castShadow && !m.material?.transparent) m.layers.enable(1); else m.layers.disable(1); } }); }
   const rt0 = R.getRenderTarget(), ov = sc.overrideMaterial, bg = sc.background, ca = R.getClearAlpha(), au = R.shadowMap.autoUpdate, xr = R.xr.enabled; R.getClearColor(_occC); sc.overrideMaterial = OCCMAT; sc.background = null; R.setClearColor(0xffffff, 1); R.shadowMap.autoUpdate = false; R.xr.enabled = false; let ch = false;
   try { for (const [, r, v, d, ang, L0] of OCCQ.splice(0, occMs > 70 ? 1 : occMs > 40 || A.quality === 'basse' ? 2 : 4)){ if (RT.get(r.o.id) !== r) continue; if (r.occI == null){ if (!OCCFREE.length) continue; r.occI = OCCFREE.pop(); r.occM = new THREE.Matrix4(); r.occR = new THREE.Vector4(); }
@@ -754,10 +786,10 @@ function occFlush(){ { const n = performance.now(); occMs = occMs * .8 + Math.mi
       const o = r.occI * 24; OCCDATA.set(r.occM.elements, o); OCCDATA[o + 16] = r.occR.x; OCCDATA[o + 17] = r.occR.y; OCCDATA[o + 18] = r.occR.z; OCCDATA[o + 19] = r.occR.w; OCCDATA[o + 20] = OCCCAM.near; OCCDATA[o + 21] = OCCCAM.far; ch = true; r.occOK = true; r.occT2 = UI.t; } } catch (e){ }
   if (ch) OCCD.needsUpdate = true; OCCQ.length = 0; sc.overrideMaterial = ov; sc.background = bg; R.setClearColor(_occC, ca); R.shadowMap.autoUpdate = au; R.xr.enabled = xr; R.setRenderTarget(rt0); }
 function shadowPick(){ const c = []; for (const [id, r] of RT){ if (!r.light || r.t.cat !== 'lum' || !r.light.visible || String(id).startsWith('__th')) continue; const d = r.cdim ?? r.o.dim ?? 0; if (d > .02) c.push([d * (r.t.lumens || 8000) * (r.light.castShadow ? 1.25 : 1), r]); }
-  { let nv = 0; for (const r of RT.values()) if (r.t.cat === 'vid' && r.light && r.light.castShadow) nv++; SHK = Math.max(3, clamp((A.renderer.capabilities.maxTextures || 16) - 10, 4, 12) - nv); }          // chaque ombre prend une unité de texture ; on en garde 8 pour les matières
+  { SHK = Math.max(3, clamp((A.renderer.capabilities.maxTextures || 16) - 12, 3, 12)); }          // chaque ombre prend une unité de texture ; on en garde 8 pour les matières
   c.sort((a, b) => b[0] - a[0]); const keep = new Set(c.slice(0, SHK).map(x => x[1])); for (const r of RT.values()) if (r.light && r.t.cat === 'lum' && r.light.castShadow !== keep.has(r)){ r.light.castShadow = keep.has(r); if (r.light.castShadow) r.light.shadow.needsUpdate = true; } }
 function update(dt){
-  UI.t += dt; BEAMT.value = UI.t; occFlush(); envTick(); if (LEDW) LEDW.update(dt);
+  UI.t += dt; BEAMT.value = UI.t; occFlush(); vpFlush(); envTick(); if (LEDW) LEDW.update(dt);
   if (UI.auto && S.cues.length && window.ENG){ const r0 = ENG.rt(0); if (!(r0.on && r0.k < 1)){ UI.autoT = (UI.autoT || 0) + dt; const c = S.cues[UI.cue]; if (!c || UI.autoT >= (c.hold ?? 6)){ UI.autoT = 0; goCue((UI.cue + 1) % S.cues.length, { keepProg: true }); render(); } } }
   const live = A.live, master = S.black ? 0 : S.master, t = UI.t; if (UI.t - shT > .3 || UI.t < shT){ shT = UI.t; shadowPick(); }
   let nvp = 0; const grpCount = {}, grpIdx = {};
@@ -818,7 +850,7 @@ function update(dt){
           if (r.flare.visible){ const sz = (.35 + 1.9 * k) * Math.min(3.2, .3 + dist * .085) * (ty.kind === 'blinder' ? 1.5 : 1); r.flare.position.copy(_v).addScaledVector(_d, .06); r.flare.scale.set(sz * 1.5, sz, 1); r.flare.material.color.copy(_c).multiplyScalar(Math.min(1.3, k * 1.25)); } }
       } else { r.lensMat.color.set('#000'); r.flare.visible = false; }
     } else if (ty.cat === 'vid'){
-      const on = live && o.on !== false && nvp < 3; if (live && o.on !== false) nvp++;
+      const want = live && o.on !== false; if (want){ if (r.vpI == null && VPFREE.length){ r.vpI = VPFREE.pop(); r.vpBl = true; r.vpOK = false; } nvp++; } else if (r.vpI != null) vpFree(r); const on = want && r.vpI != null;          /* une couche et une case par projecteur allumé, 16 au plus */
       const md = MEDIA.get(o.id);
       if (r.dirty || (on && (o.content === 'video' || o.content === 'cam' || o.content === 'ecran' || o.content === 'ndi') && md?.el && !md.el.paused)){
         dirOf(o.pan, o.tilt, _d); r.head.getWorldPosition(_v); r.head.lookAt(_v2.copy(_v).add(_d));
@@ -832,9 +864,10 @@ function update(dt){
           const p = r.frust.geometry.attributes.position; let q = 0; const put = (a, b) => { p.setXYZ(q++, a.x, a.y, a.z); p.setXYZ(q++, b.x, b.y, b.z); };
           for (let i = 0; i < 4; i++){ put(G.src, cn[i]); put(cn[i], cn[(i + 1) % 4]); } p.needsUpdate = true;
         }
-        drawContent(r); r.dirty = false;
+        const dg = r.dirty; drawContent(r); r.dirty = false; if (on){ r.vpBl = true; if (dg) r.vpOK = false; }
       }
-      r.light.visible = on; r.light.castShadow = on; r.light.map = on ? r.tex : null;
+      if (on){ if (r.vpBl || r.tex.version !== r.vpTv){ r.vpTv = r.tex.version; vpBlit(r); } if (!r.vpOK || !(UI.t - (r.vpT || 0) < .4) || UI.t < (r.vpT || 0)){ if (!VPQ.includes(r)) VPQ.push(r); } }
+      r.light.visible = on && r.vpOK; r.light.castShadow = false; r.light.map = null; r.light.decay = on ? 2 + (VPROW + r.vpI + 1) * 100 * 1e-5 : 2;
       r.lensMat.color.set(on ? '#dfe8ff' : '#000'); r.frust.visible = UI.sel.includes(o.id) || (UI.cov && o.on !== false);
     } else if (ty.cat === 'son'){
       if (r.dirty){
