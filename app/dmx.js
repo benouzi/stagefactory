@@ -13,25 +13,25 @@ export function initDmx(A, ST, IN){
     'par-zoom': [['dim', 'r', 'g', 'b', 'w', 'strobe', 'zoom', '-', '-']],
     decoupe: [['dim', 'dimF'], ['dim']], 'decoupe-l': [['dim', 'dimF']], fresnel: [['dim', 'dimF']], pc1k: [['dim']],
     wash: [mv('dim', 'strobe', 'r', 'g', 'b', 'w', 'zoom', '-', '-', '-'), mv('dim', 'dimF', 'strobe', 'r', 'g', 'b', 'w', '-', 'zoom', '-', '-', '-', '-', '-', '-', '-')],
-    beam: [mv('dim', 'strobe', 'r', 'g', 'b', 'zoom', 'gobo', 'gobor', '-', '-', '-'), mv('dim', 'dimF', 'strobe', 'r', 'g', 'b', 'zoom', 'gobo', 'gobor', 'focus', '-', '-', '-', '-', '-')],
-    spot: [mv('dim', 'dimF', 'strobe', 'c', 'm', 'y', '-', 'zoom', 'gobo', 'gobor', 'iris', 'b1', 'b1r', 'b2', 'b2r', 'b3', 'b3r', 'b4', 'b4r'), mv('dim', 'dimF', 'strobe', 'c', 'm', 'y', '-', 'zoom', 'gobo', 'gobor', 'iris', 'focus', 'b1', 'b1r', 'b2', 'b2r', 'b3', 'b3r', 'b4', 'b4r', ...Array(7).fill('-'))],
+    beam: [mv('dim', 'strobe', 'r', 'g', 'b', 'zoom', 'gobo', 'gobor', 'cw', 'prism', 'prismr'), mv('dim', 'dimF', 'strobe', 'r', 'g', 'b', 'zoom', 'gobo', 'gobor', 'focus', 'cw', 'prism', 'prismr', '-', '-')],
+    spot: [mv('dim', 'dimF', 'strobe', 'c', 'm', 'y', 'cto', 'zoom', 'gobo', 'gobor', 'iris', 'b1', 'b1r', 'b2', 'b2r', 'b3', 'b3r', 'b4', 'b4r'), mv('dim', 'dimF', 'strobe', 'c', 'm', 'y', 'cto', 'zoom', 'gobo', 'gobor', 'iris', 'focus', 'b1', 'b1r', 'b2', 'b2r', 'b3', 'b3r', 'b4', 'b4r', 'cw', 'prism', 'prismr', ...Array(4).fill('-'))],
     barre: [['r', 'g', 'b'], Array.from({ length: 30 }, (_, i) => 'rgb'[i % 3])],
     blinder: [['dim', 'dim']], poursuite: [[]],
   };
-  const NAME = { dim: 'Dimmer', dimF: 'Dimmer fin', pan: 'Pan', panF: 'Pan fin', tilt: 'Tilt', tiltF: 'Tilt fin', r: 'Rouge', g: 'Vert', b: 'Bleu', w: 'Blanc', c: 'Cyan', m: 'Magenta', y: 'Jaune', zoom: 'Zoom', strobe: 'Strobe', shutter: 'Shutter', gobo: 'Gobo', gobor: 'Gobo : orientation / rotation', iris: 'Iris', focus: 'Netteté', b1: 'Couteau haut', b1r: 'Couteau haut : angle', b2: 'Couteau droit', b2r: 'Couteau droit : angle', b3: 'Couteau bas', b3r: 'Couteau bas : angle', b4: 'Couteau gauche', b4r: 'Couteau gauche : angle', '-': '—' };
+  const NAME = { dim: 'Dimmer', dimF: 'Dimmer fin', pan: 'Pan', panF: 'Pan fin', tilt: 'Tilt', tiltF: 'Tilt fin', r: 'Rouge', g: 'Vert', b: 'Bleu', w: 'Blanc', c: 'Cyan', m: 'Magenta', y: 'Jaune', zoom: 'Zoom', strobe: 'Strobe', shutter: 'Shutter', gobo: 'Gobo', gobor: 'Gobo : orientation / rotation', iris: 'Iris', focus: 'Netteté', b1: 'Couteau haut', b1r: 'Couteau haut : angle', b2: 'Couteau droit', b2r: 'Couteau droit : angle', b3: 'Couteau bas', b3r: 'Couteau bas : angle', b4: 'Couteau gauche', b4r: 'Couteau gauche : angle', cw: 'Roue de couleurs', cto: 'CTO', prism: 'Prisme', prismr: 'Prisme : orientation / rotation', a: 'Ambre', '-': '—' };
   const layout = (t, mode) => (t.chs && t.chs[mode]) || (GEN[t.id] && (GEN[t.id][mode] || GEN[t.id][0])) || null;
   const lerp = (r, v) => r[0] + (r[1] - r[0]) * v;
   const OUT = {}, col = new T.Color();
   function read(o, t, c){
     if (!o.addr) return null; const lay = layout(t, o.mode || 0), buf = U.get(o.uni || 1); if (!lay || !lay.length || !buf) return null;
     const a = o.addr - 1; if (a + lay.length > 512) return null;
-    let dim = 0, nd = 0, dimF = 0, pan = -1, panF = 0, tilt = -1, tiltF = 0, r = 0, g = 0, b = 0, w = 0, nr = 0, ng = 0, nb = 0, nw = 0, cy = -1, mg = -1, ye = -1, zoom = -1, st = 0, sh = -1; const X = {};
+    let dim = 0, nd = 0, dimF = 0, pan = -1, panF = 0, tilt = -1, tiltF = 0, r = 0, g = 0, b = 0, w = 0, nr = 0, ng = 0, nb = 0, nw = 0, cy = -1, mg = -1, ye = -1, zoom = -1, st = 0, sh = -1, am = 0, na = 0; const X = {};
     for (let i = 0; i < lay.length; i++){ const v = buf[a + i]; switch (lay[i]){
       case 'dim': dim += v; nd++; break; case 'dimF': dimF = v; break; case 'pan': pan = v; break; case 'panF': panF = v; break; case 'tilt': tilt = v; break; case 'tiltF': tiltF = v; break;
       case 'r': r += v; nr++; break; case 'g': g += v; ng++; break; case 'b': b += v; nb++; break; case 'w': w += v; nw++; break;
-      case 'c': cy = v; break; case 'm': mg = v; break; case 'y': ye = v; break; case 'zoom': zoom = v; break; case 'strobe': st = v; break; case 'shutter': sh = v; break; case 'gobo': case 'gobor': case 'iris': case 'focus': case 'b1': case 'b1r': case 'b2': case 'b2r': case 'b3': case 'b3r': case 'b4': case 'b4r': X[lay[i]] = v; break; } }
+      case 'c': cy = v; break; case 'm': mg = v; break; case 'y': ye = v; break; case 'zoom': zoom = v; break; case 'strobe': st = v; break; case 'shutter': sh = v; break; case 'gobo': case 'gobor': case 'iris': case 'focus': case 'b1': case 'b1r': case 'b2': case 'b2r': case 'b3': case 'b3r': case 'b4': case 'b4r': case 'cw': case 'cto': case 'prism': case 'prismr': X[lay[i]] = v; break; case 'a': am += v; na++; break; } }
     let lvl = nd ? (nd === 1 ? (dim * 256 + dimF) / 65535 : dim / nd / 255) : 1;
-    if (nr || ng || nb){ const W = nw ? w / nw / 255 * .85 : 0; let R = Math.min(1, (nr ? r / nr / 255 : 0) + W), G = Math.min(1, (ng ? g / ng / 255 : 0) + W), B = Math.min(1, (nb ? b / nb / 255 : 0) + W); const m = Math.max(R, G, B);
+    if (nr || ng || nb || na){ const W = nw ? w / nw / 255 * .85 : 0, AM = na ? am / na / 255 : 0; let R = Math.min(1, (nr ? r / nr / 255 : 0) + W + AM), G = Math.min(1, (ng ? g / ng / 255 : 0) + W + AM * .55), B = Math.min(1, (nb ? b / nb / 255 : 0) + W); /* ambre : une source de plus (teinte ≈ 590 nm), ajoutée comme le blanc */ const m = Math.max(R, G, B);
       if (m > 0) c.setRGB(R / m, G / m, B / m, T.SRGBColorSpace); lvl *= m; }
     else if (cy >= 0) c.setRGB(1 - cy / 255, 1 - (mg < 0 ? 0 : mg) / 255, 1 - (ye < 0 ? 0 : ye) / 255, T.SRGBColorSpace);
     OUT.strobe = 0;
@@ -45,6 +45,8 @@ export function initDmx(A, ST, IN){
     const NG = (ST.GOBOS || []).length || 1; OUT.gobo = X.gobo === undefined ? undefined : Math.min(NG - 1, Math.floor(X.gobo / 256 * NG));
     if (X.gobor === undefined){ OUT.gobor = OUT.gobos = undefined; } else if (X.gobor < 128){ OUT.gobor = X.gobor / 127 * 360; OUT.gobos = 0; } else { OUT.gobor = 0; OUT.gobos = X.gobor <= 190 ? -(191 - X.gobor) / 63 * 2 : X.gobor <= 192 ? 0 : (X.gobor - 192) / 63 * 2; }
     OUT.iris = X.iris === undefined ? undefined : 1 - X.iris / 255 * .85; OUT.focus = X.focus === undefined ? undefined : X.focus / 255;
+    const NW = (ST.CWHEEL || []).length || 1, PZ = ST.PRISMS || [0]; OUT.cw = X.cw === undefined ? undefined : Math.min(NW - 1, Math.floor(X.cw / 256 * NW)); OUT.cto = X.cto === undefined ? undefined : X.cto / 255; OUT.prism = X.prism === undefined ? undefined : PZ[Math.min(PZ.length - 1, Math.floor(X.prism / 256 * PZ.length))];
+    if (X.prismr === undefined){ OUT.prismr = OUT.prisms = undefined; } else if (X.prismr < 128){ OUT.prismr = X.prismr / 127 * 360; OUT.prisms = 0; } else { OUT.prismr = 0; OUT.prisms = X.prismr <= 190 ? -(191 - X.prismr) / 63 * 2 : X.prismr <= 192 ? 0 : (X.prismr - 192) / 63 * 2; }
     for (const b of ['b1', 'b2', 'b3', 'b4']){ OUT[b] = X[b] === undefined ? undefined : X[b] / 255; OUT[b + 'r'] = X[b + 'r'] === undefined ? undefined : (X[b + 'r'] - 128) / 127 * 45; }
     return OUT;
   }
