@@ -18,15 +18,18 @@ export function initDmx(A, ST, IN){
     barre: [['r', 'g', 'b'], Array.from({ length: 30 }, (_, i) => 'rgb'[i % 3])],
     blinder: [['dim', 'dim']], poursuite: [[]],
   };
-  const NAME = { dim: 'Dimmer', dimF: 'Dimmer fin', pan: 'Pan', panF: 'Pan fin', tilt: 'Tilt', tiltF: 'Tilt fin', r: 'Rouge', g: 'Vert', b: 'Bleu', w: 'Blanc', c: 'Cyan', m: 'Magenta', y: 'Jaune', zoom: 'Zoom', strobe: 'Strobe', shutter: 'Shutter', gobo: 'Gobo', gobor: 'Gobo : orientation / rotation', iris: 'Iris', focus: 'Netteté', b1: 'Couteau haut', b1r: 'Couteau haut : angle', b2: 'Couteau droit', b2r: 'Couteau droit : angle', b3: 'Couteau bas', b3r: 'Couteau bas : angle', b4: 'Couteau gauche', b4r: 'Couteau gauche : angle', cw: 'Roue de couleurs', cto: 'CTO', prism: 'Prisme', prismr: 'Prisme : orientation / rotation', a: 'Ambre', '-': '—' };
+  const NAME = { dim: 'Dimmer', dimF: 'Dimmer fin', pan: 'Pan', panF: 'Pan fin', tilt: 'Tilt', tiltF: 'Tilt fin', r: 'Rouge', g: 'Vert', b: 'Bleu', w: 'Blanc', c: 'Cyan', m: 'Magenta', y: 'Jaune', zoom: 'Zoom', strobe: 'Strobe', shutter: 'Shutter', gobo: 'Gobo', gobor: 'Gobo : orientation / rotation', iris: 'Iris', focus: 'Netteté', b1: 'Couteau haut', b1r: 'Couteau haut : angle', b2: 'Couteau droit', b2r: 'Couteau droit : angle', b3: 'Couteau bas', b3r: 'Couteau bas : angle', b4: 'Couteau gauche', b4r: 'Couteau gauche : angle', cw: 'Roue de couleurs', cto: 'CTO', gobo2: 'Gobo (roue 2)', cw2: 'Roue de couleurs 2', b1b: 'Couteau haut (bout B)', b2b: 'Couteau droit (bout B)', b3b: 'Couteau bas (bout B)', b4b: 'Couteau gauche (bout B)', brot: 'Couteaux : rotation d\'ensemble', foc0: 'Netteté (non simulée)', prism: 'Prisme', prismr: 'Prisme : orientation / rotation', a: 'Ambre', '-': '—' };
   const layout = (t, mode) => (t.chs && t.chs[mode]) || (GEN[t.id] && (GEN[t.id][mode] || GEN[t.id][0])) || null;
   const lerp = (r, v) => r[0] + (r[1] - r[0]) * v;
   const OUT = {}, col = new T.Color();
   function read(o, t, c){
     if (!o.addr) return null; const lay = layout(t, o.mode || 0), buf = U.get(o.uni || 1); if (!lay || !lay.length || !buf) return null;
     const a = o.addr - 1; if (a + lay.length > 512) return null;
-    let dim = 0, nd = 0, dimF = 0, pan = -1, panF = 0, tilt = -1, tiltF = 0, r = 0, g = 0, b = 0, w = 0, nr = 0, ng = 0, nb = 0, nw = 0, cy = -1, mg = -1, ye = -1, zoom = -1, st = 0, sh = -1, am = 0, na = 0; const X = {};
-    for (let i = 0; i < lay.length; i++){ const v = buf[a + i]; switch (lay[i]){
+    let dim = 0, nd = 0, dimF = 0, pan = -1, panF = 0, tilt = -1, tiltF = 0, r = 0, g = 0, b = 0, w = 0, nr = 0, ng = 0, nb = 0, nw = 0, cy = -1, mg = -1, ye = -1, zoom = -1, st = 0, sh = -1, am = 0, na = 0; const X = {}, CF = t.cfn && t.cfn[o.mode || 0], Y = CF ? {} : null;
+    for (let i = 0; i < lay.length; i++){ const v = buf[a + i];
+      /* fiche GDTF : la valeur est lue dans les fonctions de canal de la fiche (plages DMX, emplacements de roue, valeurs physiques) */
+      if (CF){ const fn = CF[i]; if (fn){ for (const e of fn){ if (v < e[0] || v > e[1]) continue; if (e[5]){ let q = 0; for (const z of e[5]) if (v >= z[0]) q = z[1]; Y[e[2]] = q; } else Y[e[2]] = e[3] + (e[4] - e[3]) * (e[1] > e[0] ? (v - e[0]) / (e[1] - e[0]) : 0); break; } continue; } }
+      switch (lay[i]){
       case 'dim': dim += v; nd++; break; case 'dimF': dimF = v; break; case 'pan': pan = v; break; case 'panF': panF = v; break; case 'tilt': tilt = v; break; case 'tiltF': tiltF = v; break;
       case 'r': r += v; nr++; break; case 'g': g += v; ng++; break; case 'b': b += v; nb++; break; case 'w': w += v; nw++; break;
       case 'c': cy = v; break; case 'm': mg = v; break; case 'y': ye = v; break; case 'zoom': zoom = v; break; case 'strobe': st = v; break; case 'shutter': sh = v; break; case 'gobo': case 'gobor': case 'iris': case 'focus': case 'b1': case 'b1r': case 'b2': case 'b2r': case 'b3': case 'b3r': case 'b4': case 'b4r': case 'cw': case 'cto': case 'prism': case 'prismr': X[lay[i]] = v; break; case 'a': am += v; na++; break; } }
@@ -39,7 +42,16 @@ export function initDmx(A, ST, IN){
     else if (st > 10) OUT.strobe = 2 + st / 255 * 18;
     OUT.dim = lvl;
     if (pan >= 0 && tilt >= 0){ OUT.pan = (o.panBase || 0) + lerp(t.rng?.pan || [-270, 270], (pan * 256 + panF) / 65535); OUT.tilt = lerp(t.rng?.tilt || [-135, 135], (tilt * 256 + tiltF) / 65535); } else OUT.pan = undefined;
-    OUT.zoom = zoom >= 0 ? lerp(t.zoom, zoom / 255) : undefined;
+    OUT.zoom = zoom >= 0 ? lerp(t.zoom, zoom / 255) : undefined; OUT.brot = undefined;
+    if (CF){ const c01 = q => Math.max(0, Math.min(1, q)), two = (a1, a2) => Y[a1] > 0 ? Y[a1] : Y[a2] !== undefined ? Y[a2] : Y[a1];
+      if (Y.zoom !== undefined) OUT.zoom = Y.zoom;
+      OUT.gobo = two('gobo', 'gobo2'); OUT.cw = two('cw', 'cw2'); OUT.cto = Y.cto === undefined ? undefined : c01(Y.cto); OUT.prism = Y.prism; OUT.focus = undefined; OUT.brot = Y.brot;
+      if (Y.gobor === undefined && Y.gobos === undefined) OUT.gobor = OUT.gobos = undefined; else { OUT.gobor = Y.gobor || 0; OUT.gobos = Y.gobos || 0; }
+      if (Y.prismr === undefined && Y.prisms === undefined) OUT.prismr = OUT.prisms = undefined; else { OUT.prismr = Y.prismr || 0; OUT.prisms = Y.prisms || 0; }
+      OUT.iris = Y.iris === undefined ? undefined : .15 + .85 * c01(Y.iris);          /* plus petit diamètre : la fiche ne le donne pas, 15 % retenu comme pour les appareils génériques */
+      /* couteaux : A seul = enfoncement ; A et B = les deux bouts de la lame (enfoncement moyen, inclinaison par leur écart) ; Rot = inclinaison */
+      for (const b of ['b1', 'b2', 'b3', 'b4']){ const A1 = Y[b], B1 = Y[b + 'b'], R1 = Y[b + 'r']; if (A1 === undefined && B1 === undefined){ OUT[b] = undefined; OUT[b + 'r'] = R1; continue; } const p = c01(A1 ?? B1), q = c01(B1 ?? A1); OUT[b] = (p + q) / 2; OUT[b + 'r'] = (R1 || 0) + Math.atan(p - q) * 57.2958; }
+      return OUT; }
     /* iris, gobo, couteaux (personnalités génériques du logiciel) : gobo = plages égales, la première = ouvert ; orientation 0–127 = 0 à 360°, 128–190 rotation dans un sens (rapide → lente), 191–192 arrêt, 193–255 dans l'autre (lente → rapide) ;
        iris 0 = ouvert, 255 = fermé au plus serré ; couteau 0 = sorti, 255 = tout fermé ; angle 128 = droit, ± 45° */
     const NG = (ST.GOBOS || []).length || 1; OUT.gobo = X.gobo === undefined ? undefined : Math.min(NG - 1, Math.floor(X.gobo / 256 * NG));

@@ -18,10 +18,10 @@ RequestExecutionLevel user
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "French"
-VIProductVersion "4.59.0.0"
+VIProductVersion "4.60.0.0"
 VIAddVersionKey /LANG=1036 "ProductName" "StageFactory"
 VIAddVersionKey /LANG=1036 "FileDescription" "Onex - prévisualisation 3D et passerelle DMX"
-VIAddVersionKey /LANG=1036 "FileVersion" "4.59.0"
+VIAddVersionKey /LANG=1036 "FileVersion" "4.60.0"
 VIAddVersionKey /LANG=1036 "LegalCopyright" "Benjamin Ducrot"
 Function Lancer
   SetOutPath "$INSTDIR"
@@ -54,7 +54,7 @@ Section "StageFactory"
   CreateShortCut "$DESKTOP\StageFactory.lnk" "$INSTDIR\node.exe" "serveur.js --app" "$INSTDIR\icon.ico" 0 SW_SHOWMINIMIZED
   WriteRegStr HKCU "Software\OnexPreviz" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\OnexPreviz" "DisplayName" "StageFactory"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\OnexPreviz" "DisplayVersion" "4.59.0"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\OnexPreviz" "DisplayVersion" "4.60.0"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\OnexPreviz" "Publisher" "Benjamin Ducrot"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\OnexPreviz" "DisplayIcon" "$INSTDIR\icon.ico"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\OnexPreviz" "UninstallString" '"$INSTDIR\Desinstaller.exe"'

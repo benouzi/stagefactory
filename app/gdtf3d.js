@@ -2,7 +2,7 @@
 // range les axes dans des pivots nommés (sf-pan, sf-tilt). Sans maillage, un volume simple aux cotes de la fiche. Rien n'est inventé : pas de modèle si la fiche n'en décrit pas.
 import * as THREE from 'three';
 const num = v => { const n = parseFloat((v ?? '').replace(',', '.')); return isFinite(n) ? n : 0; };
-function matrixOf(s){ const v = (s ?? '').match(/-?\d+(?:[.,]\d+)?(?:e-?\d+)?/gi)?.map(x => parseFloat(x.replace(',', '.'))) ?? [], m = new THREE.Matrix4(); if (v.length >= 12) m.set(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11], 0, 0, 0, 1); return m; }
+function matrixOf(s){ const v = (s ?? '').match(/-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi)?.map(x => parseFloat(x)) ?? [] /* la virgule sépare les nombres (jamais un séparateur décimal) : « {1,0,0,0} » = quatre nombres */, m = new THREE.Matrix4(); if (v.length >= 12) m.set(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11], 0, 0, 0, 1); return m; }
 const body = () => new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: .55, metalness: .35 });
 async function meshFromFile(files, file){ const find = (dir, ext) => Object.keys(files).find(k => k.toLowerCase() === `models/${dir}/${file.toLowerCase()}.${ext}`);
   const glb = find('gltf', 'glb') ?? find('gltf_low', 'glb') ?? find('gltf_high', 'glb');
@@ -24,7 +24,7 @@ export async function buildGdtfModel(bytes, unzipSync){ let files; try { files =
       } else if (m.type !== 'Undefined' || (m.L && m.W && m.H)) o = primitive(m.L, m.W, m.H, m.type);
       cache.set(name, o); }
     const o = cache.get(name); if (!o) return null; meshes++; return o.clone(true); }
-  async function walk(el, depth){ const node = new THREE.Group(); node.applyMatrix4(matrixOf(el.getAttribute('Position')));
+  async function walk(el, depth){ const node = new THREE.Group(); node.applyMatrix4(matrixOf(el.getAttribute('Position'))); if (el.tagName === 'Beam') node.name = 'sf-beam';
     if (el.tagName === 'GeometryReference'){ const ref = top.get(el.getAttribute('Geometry') || ''); if (ref && depth < 8){ const inst = await walk(ref, depth + 1); inst.matrix.identity(); inst.position.set(0, 0, 0); inst.quaternion.identity(); inst.scale.set(1, 1, 1); node.add(inst); } const mm = await modelMesh(el.getAttribute('Model') || ''); if (mm) node.add(mm); return node; }
     let holder = node; if (el.tagName === 'Axis'){ const pivot = new THREE.Group(); pivot.name = axes === 0 ? 'sf-pan' : axes === 1 ? 'sf-tilt' : 'sf-axis'; axes++; node.add(pivot); holder = pivot; }
     const mm = await modelMesh(el.getAttribute('Model') || ''); if (mm) holder.add(mm);
