@@ -453,9 +453,10 @@ function build(o){
       r.baseG.add(rbox(.36, .14, .3, M.body, 0, hung ? -.09 : .07, 0, .025), box(.16, .06, .004, M.glass, 0, hung ? -.09 : .07, .151));
       r.yoke.add(rbox(.44, .05, .13, M.body, 0, hung ? -.175 : .155, 0, .02), cylAt(.11, .11, .012, M.steel, hung ? -.146 : .134, 24));          // traverse, et la couronne de rotation entre socle et lyre
       const PY = hung ? -.3 : .42; for (const sx of [-1, 1]){ r.yoke.add(rbox(.035, .3, .13, M.body, sx * .205, hung ? -.3 : .28, 0, .015)); const pv = cyl(.034, .034, .01, M.body, 16); pv.rotation.z = Math.PI / 2; pv.position.set(sx * .226, PY, 0); r.yoke.add(pv); }
-      lensR = k === 'beam' ? .075 : k === 'spot' ? .09 : .12; len = k === 'spot' ? .45 : .34;
-    } else if (k === 'prof'){ lensR = .08; len = .6; }
-    else if (k === 'fresnel'){ lensR = .11; len = .32; }
+      lensR = k === 'beam' ? .085 : k === 'spot' ? .08 : .12; len = k === 'spot' ? .46 : k === 'beam' ? .36 : .3;
+    } else if (k === 'prof'){ lensR = .075; len = t.id === 'poursuite' ? .95 : t.id === 'decoupe-l' ? .74 : .6; }
+    else if (k === 'fresnel'){ lensR = t.id === 'pc1k' ? .085 : .11; len = .3; }
+    else if (k === 'par'){ lensR = .1; len = t.id === 'par-zoom' ? .27 : .19; }
     else if (k === 'bar'){ lensR = .04; len = .12; }
     else if (k === 'blinder'){ lensR = .085; len = .16; }
     if (!t.mover){ const RX = k === 'bar' ? .52 : k === 'blinder' ? .26 : lensR + .085, HY = hung ? .21 : .285, yk = new THREE.Mesh(new THREE.TorusGeometry(1, .012 / RX, 6, 28, Math.PI), M.steel);
@@ -466,18 +467,34 @@ function build(o){
     if (k === 'bar'){ body = rbox(1, .12, .12, M.body, 0, .04, 0, .015); r.head.add(box(.04, .13, .13, M.steel, -.5, .04, 0), box(.04, .13, .13, M.steel, .5, .04, 0)); }
     else if (k === 'blinder'){ body = rbox(.46, .16, .22, M.body, 0, .06, 0, .02); for (const sx of [-1, 1]) r.head.add(cylAt(.098, .098, .03, M.steel, -.012).translateX(sx * .115)); }          /* deux lampes côte à côte dans un caisson */
     else {
-      const R = lensR + .045; body = cylAt(R - .01, R + .01, len, M.body, len / 2 - .02);
-      r.head.add(cylAt(R + .022, R + .022, .035, M.body, -.012), cylAt(lensR * .55, R - .01, .07, M.body, len + .015));            // bague avant, capot arrière
-      if (t.mover) r.head.add(cylAt(R + .014, R + .014, .05, M.body, len * .55), box(.1, .012, .1, M.grille, 0, len + .052, 0));
-      else if (k === 'prof'){ r.head.add(rbox(R * 2 + .05, .09, R * 2 + .05, M.body, 0, len * .48, 0, .012), cylAt(R + .012, R + .012, .03, M.steel, len * .2));
-        for (const a of [0, 1, 2, 3]){ const h = box(.012, .012, .09, M.steel, 0, len * .48, 0); h.position.set(Math.cos(a * Math.PI / 2 + .78) * (R + .05), len * .48, Math.sin(a * Math.PI / 2 + .78) * (R + .05)); h.rotation.y = -a * Math.PI / 2 - .78 + Math.PI / 2; r.head.add(h); } }
-      else { for (const f of [.5, .64, .78]) r.head.add(cylAt(R + .012, R + .012, .014, M.body, len * f));                            // ailettes de refroidissement
-        if (k === 'fresnel') for (const sg of [-1, 1]){ const a = box(.004, .13, R * 1.7, M.body, sg * (R + .05), -.085, 0); a.rotation.z = sg * .42; const b2 = box(R * 1.7, .13, .004, M.body, 0, -.085, sg * (R + .05)); b2.rotation.x = -sg * .42; r.head.add(a, b2); } }
+      /* silhouettes génériques par famille (formes courantes du métier, pas un modèle précis d'un fabricant). Axe de la tête : la lentille est en y = −0,03, l'arrière en y = len.
+         tube(rayon avant, rayon arrière, y avant, y arrière) */
+      const R = lensR + .045, tube = (rf, rb, y0, y1, m = M.body, n = 28) => cylAt(rb, rf, y1 - y0, m, (y0 + y1) / 2, n), fins = (y, h, rr, n = 10) => { for (let a = 0; a < n; a++){ const f = box(.006, h, rr * 2, M.body, 0, y, 0); f.rotation.y = a * Math.PI / n; r.head.add(f); } };
+      if (t.mover && k === 'wash'){          /* lyre wash : tête courte et large, grande face de lentilles, dos bombé */
+        body = tube(R + .012, R + .012, -.02, len * .5); r.head.add(tube(R + .024, R + .024, -.032, .004), tube(R + .012, R * .62, len * .5, len * .92), tube(R * .62, R * .5, len * .92, len), box(R * .9, .012, R * .9, M.grille, 0, len + .004, 0)); }
+      else if (t.mover && k === 'beam'){          /* lyre beam : grosse lentille presque au diamètre de la tête, corps en tonneau */
+        body = tube(R * .96, R * 1.16, -.02, len * .45); r.head.add(tube(R + .012, R + .012, -.034, -.004), tube(R * 1.16, R * 1.16, len * .45, len * .62), tube(R * 1.16, R * .8, len * .62, len), box(R, .012, R, M.grille, 0, len + .004, 0)); for (const f of [.5, .56]) r.head.add(tube(R * 1.18, R * 1.18, len * f, len * f + .008)); }
+      else if (t.mover){          /* lyre spot / profile : nez conique vers la lentille, corps long à pans, grilles de ventilation à l'arrière */
+        body = rbox(R * 2.05, len * .62, R * 2.05, M.body, 0, len * .62, 0, .04); r.head.add(tube(lensR + .022, R * .98, -.02, len * .32), tube(lensR + .034, lensR + .034, -.034, -.006), rbox(R * 1.7, .05, R * 1.7, M.body, 0, len * .95, 0, .02));
+        for (const sg of [-1, 1]) r.head.add(box(R * 1.2, len * .28, .008, M.grille, 0, len * .72, sg * (R * 1.03)), box(.008, len * .28, R * 1.2, M.grille, sg * (R * 1.03), len * .72, 0)); }
+      else if (k === 'prof'){          /* découpe : tube d'optique étroit devant, bloc des couteaux au milieu, lanterne à ailettes derrière */
+        const G = len * .5, RT = R * .8; body = tube(RT, RT, 0, G - .04); r.head.add(rbox(RT * 2 + .03, .014, RT * 2 + .03, M.steel, 0, -.022, 0, .004), tube(RT + .012, RT + .012, -.014, .02), rbox(R * 2 + .05, .09, R * 2 + .05, M.body, 0, G, 0, .012));
+        for (const f of [.16, .33]){ const kn = cyl(.014, .014, .03, M.steel, 10); kn.rotation.z = Math.PI / 2; kn.position.set(RT + .014, len * f, 0); r.head.add(kn); }          /* molettes de zoom et de netteté */
+        for (const a of [0, 1, 2, 3]){ const h = box(.012, .012, .09, M.steel, 0, G, 0); h.position.set(Math.cos(a * Math.PI / 2 + .78) * (R + .05), G, Math.sin(a * Math.PI / 2 + .78) * (R + .05)); h.rotation.y = -a * Math.PI / 2 - .78 + Math.PI / 2; r.head.add(h); }
+        r.head.add(tube(R + .012, R + .012, G + .045, len * .93), tube(R + .012, R * .55, len * .93, len + .03)); for (const f of [.66, .74, .82]) r.head.add(tube(R + .026, R + .026, len * f, len * f + .012));
+        if (t.id === 'poursuite'){ r.head.add(rbox(R * 2 + .09, .13, R * 2 + .05, M.body, 0, .1, 0, .015), box(.02, .02, .22, M.steel, 0, len + .12, 0)); for (const sg of [-1, 1]) r.head.add(box(.016, .1, .016, M.steel, 0, len + .07, sg * .1)); } }          /* poursuite : changeur de couleurs devant, poignée de guidage derrière */
+      else if (k === 'fresnel'){          /* fresnel / PC : caisson court, grande lentille, ouïes à l'arrière, volets pour le fresnel */
+        body = rbox(R * 2.05, len * .82, R * 2.05, M.body, 0, len * .5, 0, .03); r.head.add(tube(R * .98, R * .98, -.028, .1), rbox(R * 2.12, .012, R * 2.12, M.steel, 0, -.02, 0, .004), rbox(R * 1.5, .03, R * 1.5, M.body, 0, len * .94, 0, .01));
+        for (const f of [.62, .72, .82]) r.head.add(box(R * 2.09, .012, R * 1.3, M.grille, 0, len * f, 0), box(R * 1.3, .012, R * 2.09, M.grille, 0, len * f, 0)); { const kn = cyl(.016, .016, .03, M.steel, 10); kn.position.y = len * .94 + .03; r.head.add(kn); }
+        if (t.id !== 'pc1k') for (const sg of [-1, 1]){ const a = box(.004, .13, R * 1.7, M.body, sg * (R + .05), -.085, 0); a.rotation.z = sg * .42; const b2 = box(R * 1.7, .13, .004, M.body, 0, -.085, sg * (R + .05)); b2.rotation.x = -sg * .42; r.head.add(a, b2); } }
+      else {          /* PAR à LED : boîtier plat, dos à ailettes de refroidissement ; le zoom a un fût plus long avec sa bague */
+        body = tube(R, R, .0, len * .62); r.head.add(tube(R + .02, R + .02, -.034, .004), tube(R, R * .78, len * .62, len * .72)); fins(len * .84, len * .26, R * .74, 6); r.head.add(tube(R * .5, R * .5, len * .7, len), rbox(.09, .03, .06, M.body, 0, len + .012, 0, .008));
+        if (t.id === 'par-zoom') r.head.add(tube(R + .012, R + .012, len * .22, len * .3, M.steel)); }
     }
     r.head.add(body);
     r.lensMat = new THREE.MeshBasicMaterial({ color: '#000' }); if (t.color === 'rgb' && (k === 'par' || k === 'wash' || k === 'bar')) r.lensMat.map = ledTex(k === 'bar');
     const lens = k === 'bar' ? new THREE.Mesh(new THREE.PlaneGeometry(.96, .08), r.lensMat) : new THREE.Mesh(new THREE.CircleGeometry(lensR, 32).translate(k === 'blinder' ? -.115 : 0, 0, 0), r.lensMat); if (k === 'blinder') lens.add(new THREE.Mesh(new THREE.CircleGeometry(lensR, 32).translate(.115, 0, 0), r.lensMat));
-    r.lr0 = k === 'bar' ? 0 : lensR; r.lineH0 = k === 'bar' ? .48 : k === 'blinder' ? .115 : 0;          /* source étalée : demi-longueur de la ligne de lampes, le long de la droite de l'appareil */ lens.rotation.x = Math.PI / 2; lens.position.y = -.03; r.head.add(lens);
+    r.lr0 = k === 'bar' ? 0 : lensR; r.lineH0 = k === 'bar' ? .48 : k === 'blinder' ? .115 : 0; r.lensPost = () => { if (t.mover && r.yoke && k !== 'bar'){ const off = len * .4; for (const c of r.head.children) c.position.y -= off; r.bOff = off; } };          /* lyre : la tête bascule autour de son milieu (avant : autour de la lentille), la lumière part toujours de la lentille (r.bNode) */          /* source étalée : demi-longueur de la ligne de lampes, le long de la droite de l'appareil */ lens.rotation.x = Math.PI / 2; lens.position.y = -.03; r.head.add(lens); r.lensPost();
     r.light = new THREE.SpotLight('#fff', 0, 0, .3, k === 'beam' ? .15 : k === 'prof' || k === 'spot' ? .25 : k === 'fresnel' ? .75 : .5, 2);
     { const sh = r.light.shadow; sh.autoUpdate = false; sh.mapSize.set(512, 512); sh.camera.near = .15; sh.camera.far = 40; sh.bias = -.0008; sh.normalBias = .02; sh.radius = 2; }
     occInit();          // le morceau de shader des ombres et des masques doit être en place avant la première compilation d'un matériau éclairé
@@ -554,7 +571,7 @@ function build(o){
     else if (k === 'person'){ const hd = new THREE.Mesh(new THREE.SphereGeometry(.105, 18, 14), M.person); hd.position.y = 1.645; hd.scale.set(.92, 1.1, 1); const to = caps(.15, .36, M.person, 0, 1.2, 0); to.scale.set(1.15, 1, .72); const hp = caps(.14, .1, M.person, 0, .9, 0); hp.scale.set(1.1, 1, .75);
       r.head.add(human(o, t)); if (0) r.head.add(hd, to, hp, cylAt(.045, .055, .09, M.person, 1.5, 12));  }
   }
-  bake(r.head); if (r.yoke){ bake(r.yoke, r.head); bake(r.baseG); r.root.remove(r.yoke, r.baseG); bake(r.root); r.root.add(r.baseG, r.yoke); } else bake(r.root, r.head);
+  bake(r.head); if (r.bOff){ r.bNode = new THREE.Object3D(); r.bNode.position.y = -r.bOff; r.head.add(r.bNode); } if (r.yoke){ bake(r.yoke, r.head); bake(r.baseG); r.root.remove(r.yoke, r.baseG); bake(r.root); r.root.add(r.baseG, r.yoke); } else bake(r.root, r.head);
   if (t.raw && t.gdtf) fxMedia(t);
   if (t.raw && t.gdtf && t.g3d !== false) gdtfSwap(o, t, r, hung);
   if (t.dim && !(t.gatt && t.raw && t.g3d !== false) && t.kind !== 'gear' && t.kind !== 'mic' && t.kind !== 'ledwall' && t.kind !== 'riser' && t.fam !== 'line') (t.mover && r.yoke ? fitMover(r, t.dim, hung) : fitDim(t.mover ? r.root : r.head, t.dim));          // le modèle générique est mis aux dimensions réelles de la référence
@@ -870,7 +887,7 @@ function update(dt){
       const vis = live; r.light.visible = vis; r.beam.visible = vis && dim > .002 && S.haze > .01 && A.camera.isPerspectiveCamera;
       if (vis){
         const zoom = clamp((dx && dx.zoom !== undefined ? dx.zoom : o.zoom) ?? ty.zoom[0], ty.zoom[0], ty.zoom[1]), FC = r.fxc || (r.fxc = fxCaps(ty)), FL = r.fxl || (r.fxl = fxLists(ty)), fv = (k, def) => { const v = dx && dx[k] !== undefined ? dx[k] : o[k]; return v === undefined || v === null || v !== v ? def : +v; };
-        const iris = FC.iris ? clamp(fv('iris', 1), .15, 1) : 1, prism = FC.prism ? (FL.prisms.includes(Math.round(fv('prism', 0))) ? Math.round(fv('prism', 0)) : 0) : 0, tA = Math.tan(zoom * D2R / 2) * iris, bN = r.gBeam || r.head, lr = r.lr !== undefined ? r.lr : (r.lr = (ty.lens && r.gBeam ? ty.lens.r : r.lr0 || 0) * bN.getWorldScale(new THREE.Vector3()).x), lh = r.lh !== undefined ? r.lh : (r.lh = (r.gBeam ? 0 : r.lineH0 || 0) * r.head.getWorldScale(new THREE.Vector3()).x), kE = lr + lh > 0 ? (lr + lh) / Math.max(r.hitD || 6, .5) : 0, ang0 = Math.atan(tA + kE), ang = prism ? Math.atan(Math.tan(ang0) * (1 + PRISMOFF)) : ang0, tT = prism ? tA * (1 + PRISMOFF) : tA;
+        const iris = FC.iris ? clamp(fv('iris', 1), .15, 1) : 1, prism = FC.prism ? (FL.prisms.includes(Math.round(fv('prism', 0))) ? Math.round(fv('prism', 0)) : 0) : 0, tA = Math.tan(zoom * D2R / 2) * iris, bN = r.gBeam || r.bNode || r.head, lr = r.lr !== undefined ? r.lr : (r.lr = (ty.lens && r.gBeam ? ty.lens.r : r.lr0 || 0) * bN.getWorldScale(new THREE.Vector3()).x), lh = r.lh !== undefined ? r.lh : (r.lh = (r.gBeam ? 0 : r.lineH0 || 0) * r.head.getWorldScale(new THREE.Vector3()).x), kE = lr + lh > 0 ? (lr + lh) / Math.max(r.hitD || 6, .5) : 0, ang0 = Math.atan(tA + kE), ang = prism ? Math.atan(Math.tan(ang0) * (1 + PRISMOFF)) : ang0, tT = prism ? tA * (1 + PRISMOFF) : tA;
         /* le faisceau sort de la lentille à son diamètre (lr), puis s'ouvre : rayon = lr + distance × tan. La fumée suit exactement ce tronc de cône. La source qui éclaire les surfaces reste un point posé sur la lentille : son angle est élargi (kE) et son intensité réduite pour que la tache ait le bon diamètre et le bon éclairement à la distance où l'axe du faisceau touche le décor (r.hitD) — exact là, approché ailleurs */          // avec un prisme le cône s'élargit pour contenir les copies
         if (!HIL.has(o.id)){ const cw = FC.wheel ? FL.wheel[clamp(Math.round(fv('cw', 0)), 0, FL.wheel.length - 1)] : null, cto = FC.cto ? clamp(fv('cto', 0), 0, 1) : 0; if (cw && cw[1]) _c.multiply(cw[1]); if (FL.ctoK){ if (cto > .001 || Math.abs(FL.ctoK[0] - FL.cct) > 50) _c.multiply(ctFilter(FL.ctoK[0] + (FL.ctoK[1] - FL.ctoK[0]) * cto, FL.cct, _cf)); } else if (cto > .001) _c.multiply(_cf.setRGB(1, 1, 1).lerp(CTOF, cto)); }          /* fiche GDTF en kelvins : la teinte suit la température annoncée, par rapport à celle de la source */          // filtres : ils multiplient la lumière          // l'iris resserre le faisceau sans changer son intensité : il coupe du flux, pas de la densité
         const gobo = FC.gobo ? FL.cell(clamp(Math.round(fv('gobo', 0)), 0, FL.gobos.length - 1)) : 0, bl = FC.blades ? [fv('b1', 0), fv('b2', 0), fv('b3', 0), fv('b4', 0)] : null, fxAct = lh > 0 || gobo > 0 || prism > 0 || (bl && (bl[0] > .001 || bl[1] > .001 || bl[2] > .001 || bl[3] > .001));
