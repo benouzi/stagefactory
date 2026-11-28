@@ -3,6 +3,7 @@
 export function initLibWin(A, ST){
   const UI = ST.UI, $ = s => document.querySelector(s), box = Object.assign({ on: false, x: 90, y: 110, w: 620, h: 520 }, A.store.get('libwin', null) || {}), save = () => A.store.set('libwin', box);
   const css = document.createElement('style'); css.textContent = `
+  .lorig{display:block;color:var(--text-muted,#a3abb8);font-size:10.5px;line-height:1.3;margin-top:1px}.lorig i,.lorigleg i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px}.lorigleg{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:11px;color:var(--text-muted,#a3abb8);margin:4px 0 6px}.lorigleg b{color:var(--text,#e8eaee);font-weight:600;margin-right:3px}
   .libx{display:flex;gap:12px;align-items:flex-start}.libx .libmain{flex:1 1 0;min-width:0}.libx .libside{flex:0 0 300px;max-width:42%;position:sticky;top:0;max-height:100%;overflow:auto}.libx .libside .info{margin:0}.libx .libside img.big{max-width:100%}
   .libx .libx-x{float:right;cursor:pointer;color:var(--mute);padding:2px 6px;position:relative;z-index:1}.libx .libx-x:hover{color:var(--ink)}
   .libtop{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}.libtop #libQ{flex:1 1 200px;min-width:140px;background:rgba(255,255,255,.06);color:inherit;border:1px solid #4a505c;border-radius:6px;padding:7px 10px;font:inherit}.libtop select{width:auto;min-width:118px;max-width:230px;flex:0 1 auto;padding:5px 6px}#libWin .libtop [data-a=libwin]{display:none}.libtop select:disabled{opacity:.45}

@@ -37,20 +37,20 @@ export function initLib(A, ST){
     if (L.busy && !L.logged) return '';          // la liste ou la connexion est en cours : pas de champs qui s'effaceraient pendant la saisie
     if (!L.logged) return `<div class="info">Connecte-toi avec ton compte <b>GDTF Share</b> (gratuit, à créer sur gdtf-share.com). Le mot de passe est envoyé à GDTF Share uniquement et n'est pas enregistré.</div>
       <div class="pf"><label>Identifiant</label><input type="text" class="inp" id="libU" autocomplete="username"><label>Mot de passe</label><input type="password" class="inp" id="libP" autocomplete="current-password"></div><div class="btns"><button class="b on" data-la="login">Se connecter</button></div>`;
-    return `<div class="libsrc">Connecté à GDTF Share · ${(L.gdtf || []).length} fichiers <a data-la="grefresh">actualiser</a></div>`;
+    return `<div class="libsrc">Connecté à GDTF Share · ${(L.gdtf || []).length} fichiers <a data-la="grefresh">actualiser</a></div><div class="info" style="margin:4px 0">Ici tu cherches dans les fichiers <b>en ligne</b> de GDTF Share (déposés par les fabricants et par des utilisateurs). « Ajouter » en copie un dans ta bibliothèque : il y apparaît dans la catégorie <b>Importés</b>, avec le modèle 3D contenu dans la fiche.</div>`;
   }
   function render(){
     if (!L.open) return; const showSearch = L.tab === 'titan' ? !!(L.folder || (L.titan && L.titan.length)) : !!L.gdtf;
     el.innerHTML = `<div class="th"><b>Bibliothèques de projecteurs</b><span class="pv"><a class="${L.tab === 'titan' ? 'on' : ''}" data-ltab="titan">Avolites Titan</a><a class="${L.tab === 'gdtf' ? 'on' : ''}" data-ltab="gdtf">GDTF Share</a></span><a data-la="close" class="x">✕</a></div>
       <div class="tb">${body()}${L.msg ? `<div class="info" style="border:1px solid #f0a23c;color:#ffd9a0">${esc(L.msg)}</div>` : ''}
-      ${showSearch ? `<input type="search" class="inp" id="libQ" placeholder="Rechercher : marque, modèle…  (ex. clay paky b-eye)" value="${esc(L.q)}" style="width:100%;margin:6px 0"><div id="libRows">${rows()}</div>` : ''}</div>`;
+      ${showSearch ? `<input type="search" class="inp" id="flibQ" placeholder="Rechercher ${L.tab === 'gdtf' ? 'dans GDTF Share' : 'dans le dossier Titan'} : marque, modèle…  (ex. clay paky b-eye)" value="${esc(L.q)}" style="width:100%;margin:6px 0"><div id="libRows">${rows()}</div>` : ''}</div>`;
   }
   el.addEventListener('click', e => { let b;
     if ((b = e.target.closest('[data-ltab]'))){ L.tab = b.dataset.ltab; L.msg = ''; render(); if (L.tab === 'gdtf' && LOCAL && !L.gdtf && !L.busy) loadGdtf(); return; }
     if ((b = e.target.closest('[data-lt]'))) return void addTitan(b.dataset.lt); if ((b = e.target.closest('[data-lg]'))) return void addGdtf(b.dataset.lg);
     if ((b = e.target.closest('[data-la]'))){ const a = b.dataset.la; if (a === 'close') toggle(false); else if (a === 'login') login(); else if (a === 'refresh') loadTitan(true); else if (a === 'grefresh') loadGdtf(true);
       else if (a === 'folder'){ const i = document.createElement('input'); i.type = 'file'; i.webkitdirectory = true; i.multiple = true; i.onchange = () => { const fs = [...i.files].filter(f => /\.d4$/i.test(f.name)); if (!fs.length) return ST.toast('Aucun fichier .d4 dans ce dossier.', true); L.folder = fs.sort((x, y) => x.name.localeCompare(y.name)); render(); }; i.click(); } } });
-  el.addEventListener('input', e => { if (e.target.id === 'libQ'){ L.q = e.target.value; const r = $('#libRows'); if (r) r.innerHTML = rows(); } });
+  el.addEventListener('input', e => { if (e.target.id === 'flibQ'){ L.q = e.target.value; const r = $('#libRows'); if (r) r.innerHTML = rows(); } });
   el.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.target.id === 'libP' || e.target.id === 'libU')) login(); e.stopPropagation(); });
   function toggle(f){ L.open = f ?? !L.open; el.style.display = L.open ? 'flex' : 'none'; if (L.open){ render(); if (LOCAL && !L.titan) loadTitan(); } }
   window.FLIB = { toggle, isOpen: () => L.open, L, render, find, fetch: fetchGdtf };
