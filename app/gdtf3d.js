@@ -10,8 +10,11 @@ async function meshFromFile(files, file){ const find = (dir, ext) => Object.keys
   const tds = find('3ds', '3ds') ?? find('3ds_low', '3ds') ?? find('3ds_high', '3ds');
   if (tds){ try { const { TDSLoader } = await import('three/addons/loaders/TDSLoader.js'), b = files[tds], o = new TDSLoader().parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength), ''); o.scale.setScalar(.001); const w = new THREE.Group(); w.add(o); return w; } catch (_){ } }
   return null; }
-function primitive(L, W, H, type){ const l = L || .2, w = W || .2, h = H || .2, geo = /Cylinder|Head|Conventional|Scanner/i.test(type) ? new THREE.CylinderGeometry(Math.min(l, w) / 2, Math.min(l, w) / 2, h, 24).rotateX(Math.PI / 2) : /Sphere/i.test(type) ? new THREE.SphereGeometry(Math.max(l, w, h) / 2, 20, 14) : new THREE.BoxGeometry(l, w, h);
-  const m = new THREE.Mesh(geo, body()); m.position.z = /Sphere/i.test(type) ? 0 : -h / 2; return m; }
+function primitive(L, W, H, type){ const l = L || .2, w = W || .2, h = H || .2;
+  /* 4.67.4 : origines des volumes simples d'une fiche sans maillage. « Head » est centrée sur son origine (l'axe de tilt passe au milieu de la tête) ; « Yoke » pend sous son origine, en U (un pont et deux bras) pour laisser la tête tourner entre les bras ; les autres pendent sous leur origine. */
+  if (/^Yoke$/i.test(type)){ const g = new THREE.Group(), a = Math.max(.02, l * .12), br = Math.max(.02, h * .16); const top = new THREE.Mesh(new THREE.BoxGeometry(l, w, br), body()); top.position.z = -br / 2; g.add(top); for (const sx of [-1, 1]){ const arm = new THREE.Mesh(new THREE.BoxGeometry(a, w, h - br), body()); arm.position.set(sx * (l - a) / 2, 0, -br - (h - br) / 2); g.add(arm); } return g; }
+  const head = /^Head$/i.test(type), geo = /Cylinder|Head|Conventional|Scanner/i.test(type) ? new THREE.CylinderGeometry(Math.min(l, w) / 2, Math.min(l, w) / 2, h, 24).rotateX(Math.PI / 2) : /Sphere/i.test(type) ? new THREE.SphereGeometry(Math.max(l, w, h) / 2, 20, 14) : new THREE.BoxGeometry(l, w, h);
+  const m = new THREE.Mesh(geo, body()); m.position.z = /Sphere/i.test(type) || head ? 0 : -h / 2; return m; }
 export async function buildGdtfModel(bytes, unzipSync){ let files; try { files = unzipSync(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)); } catch (_){ return null; }
   const xk = Object.keys(files).find(n => /^description\.xml$/i.test(n)); if (!xk) return null;
   const xml = new DOMParser().parseFromString(new TextDecoder().decode(files[xk]), 'application/xml'), ft = xml.querySelector('GDTF > FixtureType'), geos = ft?.querySelector(':scope > Geometries'); if (!ft || !geos) return null;

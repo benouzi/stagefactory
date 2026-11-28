@@ -1,4 +1,4 @@
-# 4.67.3 — fiche GDTF SANS <Axis> (lyre écrite Base > Yoke > Body en <Geometry>, cas de la révision utilisateur de la Clay Paky Arolla Aqua de Benjamin) :
+# 4.67.3 / 4.67.4 — fiche GDTF SANS <Axis> (lyre écrite Base > Yoke > Body en <Geometry>, cas de la révision utilisateur de la Clay Paky Arolla Aqua de Benjamin) :
 # la tête doit suivre le tilt (géométrie désignée par le canal Tilt), sinon le faisceau traverse la tête restée en bas et se fait de l'ombre.
 import sys,os,io,zipfile,base64; sys.path.insert(0,'/home/claude/tools')
 os.environ['SF_BLANK']='1'
@@ -37,5 +37,13 @@ with sync_playwright() as p:
         cz=5*math.tan(math.radians(35)); V=[lum(im,[0,0,cz]),lum(im,[.4,0,cz+.3]),lum(im,[0,0,-cz]),lum(im,[.4,0,-cz-.3])]; B=lum(im,[4.5,0,-3])
         ok(s1['shd'] and max(V)>B+45,tag+' : à 35° de tilt le sol est éclairé (la tête ne coupe pas son faisceau)',[V,B,s1])
         ok(s1['hitD'] and s1['hitD']>4.5,tag+' : le faisceau va jusqu\'au sol',s1)
+        AL="(()=>{const T=APP.THREE,o=STAGE.S.objs[0],r=STAGE.RT.get(o.id);r.root.updateWorldMatrix(true,true);const d=r.light.target.getWorldPosition(new T.Vector3()).sub(r.light.getWorldPosition(new T.Vector3())).normalize();return +d.dot(new T.Vector3(0,0,-1).transformDirection(r.gBeam.matrixWorld)).toFixed(4)})()"
+        dots=[]
+        for pan,tilt in ((30,40),(-120,75),(200,-50),(0,110)):
+            ev("([p,t])=>{const o=STAGE.S.objs[0];o.pan=p;o.tilt=t;const r=STAGE.RT.get(o.id);r.cpan=p;r.ctilt=t;r.dirty=true;STAGE.select([o.id]);STAGE.select([])}",[pan,tilt]); pg.wait_for_timeout(1500); dots.append(ev(AL))
+        ok(min(dots)>.999,tag+' : accroché, la tête vise exactement là où va la lumière (4 positions)',dots)
+        ev("()=>{const d=JSON.parse(STAGE.serialize());d.objs[0].hang=null;d.objs[0].pos=[0,0,0];d.objs[0].pan=40;d.objs[0].tilt=120;d.lib=STAGE.S.lib;STAGE.loadShow(d);STAGE.setLive(true);STAGE.select([])}"); pg.wait_for_timeout(5000); dots=[ev(AL)]
+        ev("([p,t])=>{const o=STAGE.S.objs[0];o.pan=p;o.tilt=t;const r=STAGE.RT.get(o.id);r.cpan=p;r.ctilt=t;r.dirty=true;STAGE.select([o.id]);STAGE.select([])}",[-70,150]); pg.wait_for_timeout(1500); dots.append(ev(AL))
+        ok(min(dots)>.999,tag+' : posé au sol, la tête vise exactement là où va la lumière',dots)
     ok(not errs,'aucune erreur de console',errs[:3]); b.close()
 print('\nt151 :', 'TOUT BON' if not bad else str(len(bad))+' échec(s) : '+' | '.join(bad))
