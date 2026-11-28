@@ -912,3 +912,9 @@ Benjamin commence un vrai projet et signale les défauts un par un. Chaque corre
 - Essai `t151` complété : tête et lumière alignées, 4 positions accroché + 2 posé au sol, fiche en `<Geometry>` et en `<Axis>`. t76, t135, t136, t140, t142, t146, t150 repassent.
 - **Pas vérifié** : aucune fiche fabricant avec vrai maillage regardée à l'œil après la correction (seulement le calcul d'alignement) ; fiche dont une géométrie intermédiaire est tournée entre pan et tilt (hypothèse : translations seulement) ; pas lancé sur Mac ni sur son PC.
 - **Leçon** : un essai sur un projecteur doit comparer ce qu'on VOIT (la tête) et ce qui éclaire (la lumière), pas seulement l'un des deux.
+
+## 112. 4.68.0 — GDTF Share : filtre par déposant, fiche du fabricant en premier
+- Demandé par Benjamin après deux fiches d'utilisateurs défectueuses (Arolla Aqua sans axes ni maillage, B-EYE K10 réduite à une boîte — cette dernière abandonnée à sa demande, cause non cherchée).
+- `lib.js`, `rows()` : boutons « Tous · n », « Fabricant · n », « Utilisateurs · n » (`data-lup`, état `L.up`). Les catégories sont les valeurs du champ `uploader` de GDTF Share (« Manuf. », « User ») ; une valeur inconnue est affichée telle quelle. Les comptes suivent la recherche ; un filtre qui ne donne plus rien pour la recherche en cours se relâche. Pastille « Fabricant » / « Utilisateurs » sur chaque ligne ; à appareil égal, fabricant d'abord puis le plus récent.
+- `tools/mock-gdtf-share.js` accepte `MOCK_LIST` ; essai `t152` (clics et frappe réels). t146, t149 repassent.
+- **Pas vérifié** : sur le vrai GDTF Share (seules « Manuf. » et « User » y ont été vues, le 28.11) ; pas lancé sur Mac/PC de Benjamin. Le filtre n'est pas gardé d'une session à l'autre.

@@ -24,8 +24,12 @@ export function initLib(A, ST){
     const w = words(L.q), MAX = 150;
     if (L.tab === 'titan'){ const src = L.folder ? L.folder.map(f => f.name) : L.titan; if (!src) return LOCAL ? '<div class="info">Lecture du dossier Titan…</div>' : '';
       const hit = src.filter(n => match(n.replace(/_/g, ' '), w)); return `<div class="libcount">${hit.length} personnalité(s)${hit.length > MAX ? ' · les ' + MAX + ' premières affichées, précise la recherche' : ''}</div>` + hit.slice(0, MAX).map(n => `<div class="librow"><span>${esc(d4name(n))}</span><button class="b" data-lt="${esc(n)}">Ajouter</button></div>`).join(''); }
-    if (!L.gdtf) return ''; const hit = L.gdtf.filter(e => match(e.m + ' ' + e.f, w)).sort((a, b) => (a.m + a.f).localeCompare(b.m + b.f) || b.mod - a.mod);
-    return `<div class="libcount">${hit.length} fichier(s)${hit.length > MAX ? ' · les ' + MAX + ' premiers affichés, précise la recherche' : ''}</div>` + hit.slice(0, MAX).map(e => `<div class="librow"><span><b>${esc(e.m)}</b> ${esc(e.f)}<small>${esc(e.rev)}${e.modes.length ? ' · ' + e.modes.length + ' mode(s)' : ''}${e.up ? ' · ' + esc(e.up) : ''}</small></span><button class="b" data-lg="${e.rid}">Ajouter</button></div>`).join('');
+    if (!L.gdtf) return '';
+    /* 4.68 : filtre par déposant. Les valeurs viennent de GDTF Share lui-même (champ « uploader » : Manuf., User…), rien n'est inventé ; les comptes suivent la recherche en cours. Fiche du fabricant d'abord quand le même appareil a plusieurs révisions. */
+    const all = L.gdtf.filter(e => match(e.m + ' ' + e.f, w)), ups = new Map(); for (const e of all){ const k = e.up || ''; ups.set(k, (ups.get(k) || 0) + 1); } if (L.up !== null && L.up !== undefined && !ups.has(L.up)) L.up = null;
+    const isM = e => /^manuf/i.test(e.up || ''), upL = k => /^manuf/i.test(k) ? 'Fabricant' : /^user/i.test(k) ? 'Utilisateurs' : k || 'Non précisé', hit = (L.up == null ? all : all.filter(e => (e.up || '') === L.up)).sort((a, b) => (a.m + a.f).localeCompare(b.m + b.f) || isM(b) - isM(a) || b.mod - a.mod);
+    const chips = ups.size > 1 ? `<div class="libup" style="display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 6px"><button class="b${L.up == null ? ' on' : ''}" data-lup="*">Tous · ${all.length}</button>${[...ups.keys()].sort((x, y) => /^manuf/i.test(y) - /^manuf/i.test(x) || x.localeCompare(y)).map(k => `<button class="b${L.up === k ? ' on' : ''}" data-lup="${esc(k)}" title="Déposé par : ${esc(k || 'non précisé')} (indication de GDTF Share)">${esc(upL(k))} · ${ups.get(k)}</button>`).join('')}</div>` : '';
+    return chips + `<div class="libcount">${hit.length} fichier(s)${hit.length > MAX ? ' · les ' + MAX + ' premiers affichés, précise la recherche' : ''}</div>` + hit.slice(0, MAX).map(e => `<div class="librow"><span><b>${esc(e.m)}</b> ${esc(e.f)}<small>${e.up ? `<i class="lupb" style="font-style:normal;border-radius:4px;padding:0 5px;margin-right:6px;${isM(e) ? 'background:#35d0ff;color:#06222b' : 'background:#3a3f4b;color:#cfd5e0'}">${esc(upL(e.up))}</i>` : ''}${esc(e.rev)}${e.modes.length ? ' · ' + e.modes.length + ' mode(s)' : ''}</small></span><button class="b" data-lg="${e.rid}">Ajouter</button></div>`).join('');
   }
   function body(){
     if (L.tab === 'titan'){
@@ -47,7 +51,7 @@ export function initLib(A, ST){
   }
   el.addEventListener('click', e => { let b;
     if ((b = e.target.closest('[data-ltab]'))){ L.tab = b.dataset.ltab; L.msg = ''; render(); if (L.tab === 'gdtf' && LOCAL && !L.gdtf && !L.busy) loadGdtf(); return; }
-    if ((b = e.target.closest('[data-lt]'))) return void addTitan(b.dataset.lt); if ((b = e.target.closest('[data-lg]'))) return void addGdtf(b.dataset.lg);
+    if ((b = e.target.closest('[data-lup]'))){ L.up = b.dataset.lup === '*' ? null : b.dataset.lup; const r = $('#libRows'); if (r) r.innerHTML = rows(); return; } if ((b = e.target.closest('[data-lt]'))) return void addTitan(b.dataset.lt); if ((b = e.target.closest('[data-lg]'))) return void addGdtf(b.dataset.lg);
     if ((b = e.target.closest('[data-la]'))){ const a = b.dataset.la; if (a === 'close') toggle(false); else if (a === 'login') login(); else if (a === 'refresh') loadTitan(true); else if (a === 'grefresh') loadGdtf(true);
       else if (a === 'folder'){ const i = document.createElement('input'); i.type = 'file'; i.webkitdirectory = true; i.multiple = true; i.onchange = () => { const fs = [...i.files].filter(f => /\.d4$/i.test(f.name)); if (!fs.length) return ST.toast('Aucun fichier .d4 dans ce dossier.', true); L.folder = fs.sort((x, y) => x.name.localeCompare(y.name)); render(); }; i.click(); } } });
   el.addEventListener('input', e => { if (e.target.id === 'flibQ'){ L.q = e.target.value; const r = $('#libRows'); if (r) r.innerHTML = rows(); } });
