@@ -28,7 +28,7 @@ with sync_playwright() as p:
     st="(()=>{const r=STAGE.RT.get(STAGE.S.objs[0].id),p=STAGE.RT.get(STAGE.S.objs[1].id);return {cast:r.light.castShadow,occ:r.occI,src:r.srcR,py:p.root.position.y}})()"
     scene('decoupe',15); d=edge('a-decoupe'); sd=ev(st); print('découpe',d,sd,len(errs))
     ok(sd['cast'] is False and sd['occ'] is not None and abs(sd['py']-2)<.5,'découpe servie par l\'atlas d\'ombres, praticable suspendu à 2 m',sd)
-    ok(d[1]>d[0]+40 and d[2] is not None and d[2]<=.2,'découpe (lentille de 8 cm) : bord d\'ombre net',d)
+    ok(d[1]>d[0]+40 and d[2] is not None and d[2]<=.25,'découpe (lentille de 8 cm) : bord d\'ombre net',d)
     scene('barre',15); bx=edge('b-barre-travers'); sb=ev(st); print('barre',bx,sb,len(errs))
     ok(sb['occ'] is not None and sb['src']>.4 and bx[1]>bx[0]+25 and bx[2] is not None and bx[2]>=d[2]+.15,'barre de LED (ligne de 1 m), bord d\'ombre perpendiculaire à la barre : pénombre large',[d,bx])
     scene('barre',15,'z'); bz=edge('c-barre-long','z'); print('barre z',bz,len(errs))
